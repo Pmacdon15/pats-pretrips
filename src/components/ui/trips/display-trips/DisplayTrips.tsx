@@ -1,60 +1,28 @@
 'use client'
 import Link from 'next/link'
+import { Trip } from '@/types/types'
+import { useGetTrips } from '@/hooks/hooks'
 
+export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
-interface Trip {
-    tripId: number;
-    driverId: number;
-    truckPlate?: string;
-    trailerPlateA?: string;
-    trailerPlateB?: string;
-    date: Date;
-    defects: string[];
-}
+    const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
+    console.log(data)
 
-const trips: Trip[] = [
-    {
-        tripId: 1,
-        driverId: 1,
-        truckPlate: "AXA6969",
-        trailerPlateA: "TRL123",
-        trailerPlateB: "",
-        date: new Date('2025-04-01T09:30:00'),
-        defects: ["Low tire pressure", "Broken headlight"]
-    },
-    {
-        tripId: 2,
-        driverId: 1,
-        truckPlate: "AXA6969",
-        trailerPlateA: "TRL124",
-        trailerPlateB: "",
-        date: new Date('2025-04-01T09:30:00'),
-        defects: ["Oil leak", "Cracked windshield"]
-    },
-    {
-        tripId: 3,
-        driverId: 1,
-        truckPlate: "AXA6969",
-        trailerPlateA: "TRL125",
-        trailerPlateB: "",
-        date: new Date('2025-04-01T09:30:00'),
-        defects: ["Faulty brake light", "Worn brake pads"]
-    },
-    {
-        tripId: 4,
-        driverId: 1,
-        truckPlate: "AXA6969",
-        trailerPlateA: "TRL126",
-        trailerPlateB: "",
-        date: new Date('2024-02-25T16:45:00'),
-        defects: ["Missing mirror", "Damaged mudflap"]
-    }
-]
+    if (isPending) return (
+        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <h1 className="text-2xl">Loading.......</h1>
+        </div>
+    )
 
-export default function DisplayTrips({ tripTypeName }: { tripTypeName: string}) {
+    if (isErrorLoadingCurrentTrips) return (
+        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <h1 className="text-2xl">Error loading</h1>
+        </div>
+    )
+
     return (
         <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">{tripTypeName} Trips</h1>
+            <h1 className="text-2xl">Current Trips</h1>
             <table className="w-full mt-4 border round-sm">
                 <thead>
                     <tr className="border-b">
@@ -65,26 +33,26 @@ export default function DisplayTrips({ tripTypeName }: { tripTypeName: string}) 
                     </tr>
                 </thead>
                 <tbody>
-                    {trips.map((trip, index) => (
+                    {data?.map((trip: Trip, index: number) => (
                         <tr key={index} className="border-b">
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripId}/${'userEmail'}`}>
-                                    {trip.date.toISOString().split('T')[0]}
+                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                    {new Date(trip.date).toISOString().split('T')[0]}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripId}/${'userEmail'}`}>
-                                    {trip.truckPlate}
+                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                    {trip.truckplate}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripId}/${'userEmail'}`}>
-                                    {trip.trailerPlateA}
+                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                    {trip.trailerplatea}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripId}/${'userEmail'}`}>
-                                    {trip.defects.join(', ')}
+                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                    {Array.isArray(trip.defects) ? trip.defects.join(', ') : 'No defects'}
                                 </Link>
                             </td>
                         </tr>
