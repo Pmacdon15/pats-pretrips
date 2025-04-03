@@ -84,17 +84,17 @@ export default function AddTrip() {
                             onDefectAdded();
                         }} />
                     </div>
-                    <textarea ref={defectsRef} name='defects' placeholder="Defects" />
+                    <textarea readOnly={true} ref={defectsRef} name='defects' placeholder="Defects" />
                 </form>
             </div>
             <div className="flex flex-col justify-end">
-                <Button text='Add Trip' toggleText="Cancel" onClick={() => setShowForm(!showForm)} toggle={showForm}></Button>
+                <ButtonToggle text='Add Trip' toggleText="Cancel" onClick={() => setShowForm(!showForm)} toggle={showForm}></ButtonToggle>
             </div>
         </div>
     )
 }
 
-function Button({ text, toggleText, onClick, toggle }: { text: string, toggleText: string, onClick: () => void, toggle: boolean }) {
+function ButtonToggle({ text, toggleText, onClick, toggle }: { text: string, toggleText: string, onClick: () => void, toggle: boolean }) {
     return (
         <button className={`border p-4 rounded-lg ${toggle ? 'bg-red-400 hover:bg-red-600' : 'bg-green-400  hover:bg-green-600'}`} onClick={onClick}>
             {toggle ? toggleText : text}
@@ -115,3 +115,4 @@ function Input({ name, placeHolder, className, required }: { type?: string, name
         <input required={required ? true : false} className={`border p-4 rounded-b-sm w-full ${className}`} type='text' name={name} placeholder={placeHolder} />
     )
 }
+
