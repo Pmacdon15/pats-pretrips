@@ -5,7 +5,7 @@ export default function Page() {
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
             <AddTrip />
-            <DisplayTrips tripTypeName="Current"  />
+            <DisplayTrips driverEmail="patrick@patmac.ca"  />
         </div>
     )
 }
