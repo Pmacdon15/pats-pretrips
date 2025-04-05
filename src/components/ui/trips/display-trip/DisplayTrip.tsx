@@ -1,20 +1,26 @@
 'use client'
 import { useGetTrip } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message';
+import Link from 'next/link';
 
 export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
 
-    if (isPending) return <Message message={"Loading......."} />
-    if (isErrorLoadingTrip) return <Message message={"Error Loading"} />
+    if (isPending) return <Message message={"Loading......."} driverEmail={driverEmail} />
+    if (isErrorLoadingTrip) return <Message message={"Error Loading"} driverEmail={driverEmail} />
 
     return (
         <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <div className="mt-4">
+                <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
+            </div>
+
             <div className="w-full mt-4 border round-sm p-4">
                 Driver Name: {"Patrick MacDonald"}<br />
                 Driver Email: {data.driveremail}
             </div>
+
             <table className="w-full mt-4 border round-sm p-4">
                 <thead>
                     <tr className="border-b">
@@ -60,11 +66,16 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
                         <td className="text-left p-2 w-1/3">{data.inspectionaddress}</td>
                     </tr>
                     <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Defects</td>
+                        <td className="text-left p-2 w-1/3">{data.defects}</td>
+                    </tr>
+                    <tr className="border-b">
                         <td className="text-left p-2 w-1/3">Inspection Date</td>
-                        <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleDateString()}</td>
+                        <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     </tr>
                 </tbody>
             </table>
+
         </div>
     )
 }
