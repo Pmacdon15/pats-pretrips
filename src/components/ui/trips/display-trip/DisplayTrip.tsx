@@ -28,7 +28,7 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
                         <th className="text-left p-2 w-1/3">Value</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className="rounded-sm">
                     <tr className="border-b">
                         <td className="text-left p-2 w-1/3">Truck Plate</td>
                         <td className="text-left p-2 w-1/3">{data.truckplate}</td>
@@ -41,7 +41,7 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
                         <td className="text-left p-2 w-1/3">Trailer Plate B</td>
                         <td className="text-left p-2 w-1/3">{data.trailerplateb}</td>
                     </tr>
-                    <tr className="border-b">
+                    <tr className="border-b rounded-sm">
                         <td className="text-left p-2 w-1/3">Make</td>
                         <td className="text-left p-2 w-1/3">{data.make}</td>
                     </tr>

@@ -24,14 +24,14 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
         <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
-                <div className='flex border gap-4 p-4'>
+                <div className='flex border gap-4 p-4 rounded-sm'>
                     {currentTrips && <button className="cursor-pointer" onClick={() => { setSelectedTrips(currentTrips); setSelectedTripsName("Current") }}>Current Trips</button>}
                     {pastTrips && pastTrips.length > 0 && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>Past Trips</button>)}
                 </div>
             </div>
             <table className="w-full mt-4 border round-sm">
                 <thead>
-                    <tr className="border-b">
+                    <tr className="border-b round-sm">
                         <th className="text-left p-2">Date</th>
                         <th className="text-left p-2">Truck</th>
                         <th className="text-left p-2">Trailer A</th>
