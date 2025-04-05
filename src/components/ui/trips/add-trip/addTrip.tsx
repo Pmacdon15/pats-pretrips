@@ -2,14 +2,18 @@
 import { useState } from "react";
 import { AddDefect } from "@/components/ui/add-defect/AddDefect"
 import Input from '@/components/ui/input/Input'
+import { useAddTrip } from '@/hooks/mutations/mutations'
 
-export default function AddTrip() {
+
+export default function AddTrip({ driverEmail }: { driverEmail: string }) {
     const [showForm, setShowForm] = useState(false);
-
+    const { mutate } = useAddTrip(driverEmail);
     return (
         <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-8 border rounded-sm justify-between">
             <div className="flex flex-col w-full">
-                <form className={`flex flex-col gap-4 w-full ${showForm ? 'block' : 'hidden'}`}>
+                <form
+                    action={(formData: FormData) => mutate({ driverEmail, formData })}
+                    className={`flex flex-col gap-4 w-full ${showForm ? 'block' : 'hidden'}`}>
                     <h1 className="text-2xl">Create a Trip</h1>
                     <div className='flex flex-col w-full gap-4'>
                         <Input required={true} name="carrier" placeHolder='Carrier' />
@@ -27,6 +31,7 @@ export default function AddTrip() {
                         <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
                     </div>
                     <AddDefect requiered={false} />
+                    <button>submit</button>
                 </form>
             </div>
             <div className="flex flex-col justify-end w-full md:w-1/6">

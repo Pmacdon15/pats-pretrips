@@ -11,7 +11,7 @@ export default async function Page({
 
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-4  ">
-            <AddTrip />
+            <AddTrip driverEmail={uriDecodedDriverEmail} />
             <DisplayTrips driverEmail={uriDecodedDriverEmail} />
         </div>
     )

@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from "react"
 export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
-
+    
     const twentyFourHoursAgo = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000), []);
     const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data, twentyFourHoursAgo]);
     const pastTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) < twentyFourHoursAgo), [data, twentyFourHoursAgo]);
