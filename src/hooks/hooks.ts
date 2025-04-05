@@ -11,6 +11,7 @@ export const useGetTrips = (driverEmail: string) => {
   return useQuery({
     queryKey: ['trips', driverEmail],
     queryFn: () => fetchTrips(driverEmail),
+    enabled: !!driverEmail,
   })
 }
 
@@ -23,8 +24,8 @@ export const useGetTrip = (tripId: number, driverEmail: string) => {
   return useQuery({
     queryKey: ['trip', tripId, driverEmail],
     queryFn: () => fetchTrip(tripId, driverEmail),
+    enabled: !!tripId && !!driverEmail,
   })
 }
 
 
-//TODO: Add check to make sure vars are present

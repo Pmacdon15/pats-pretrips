@@ -3,17 +3,32 @@ import Link from 'next/link'
 import { Trip } from '@/types/types'
 import { useGetTrips } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message'
+import { useState, useEffect, useMemo } from "react"
 
 export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
-    const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
+    const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);    
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data]);
+    const pastTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) < twentyFourHoursAgo), [data]);
+
+
+    const { selectedTrips, setSelectedTrips } = useSetSelectedTrips(currentTrips)
+    const [selectedTripsName, setSelectedTripsName] = useState<string>('Current')
 
     if (isPending) return <Message message={"Loading......."} />
     if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
 
     return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">Current Trips</h1>
+        <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm">
+            <div className='flex justify-between items-center'>
+                <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
+                <div className='flex border gap-4 p-4'>
+                    {currentTrips && <button className="cursor-pointer" onClick={() => { setSelectedTrips(currentTrips); setSelectedTripsName("Current") }}>Current Trips</button>}
+                    {pastTrips && pastTrips.length > 0 && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>Past Trips</button>)}
+                </div>
+            </div>
             <table className="w-full mt-4 border round-sm">
                 <thead>
                     <tr className="border-b">
@@ -24,7 +39,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {data?.map((trip: Trip, index: number) => (
+                    {selectedTrips?.map((trip: Trip, index: number) => (
                         <tr key={index} className="border-b">
                             <td className="p-2">
                                 <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
@@ -43,7 +58,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                             </td>
                             <td className="p-2">
                                 <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                                    {Array.isArray(trip.defects) ? trip.defects.join(', ') : 'No defects'}
+                                    {trip.defects ? trip.defects : 'No defects'}
                                 </Link>
                             </td>
                         </tr>
@@ -52,4 +67,14 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
             </table>
         </div >
     )
+}
+
+function useSetSelectedTrips(trips: Trip[] | undefined) {
+    const [selectedTrips, setSelectedTrips] = useState<Trip[]>([])
+
+    useEffect(() => {
+        if (trips) setSelectedTrips(trips);
+    }, [trips]);
+
+    return { selectedTrips, setSelectedTrips }
 }

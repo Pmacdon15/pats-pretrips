@@ -72,22 +72,28 @@ export default function AddTrip() {
                         <Input name="trailer-plate" placeHolder='Trailer Plate' />
                         <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
                     </div>
-                    <div className="flex gap-8">
-                        <select ref={defectSelectRef} className="border p-4 rounded-b-sm w-full [&>option]:bg-gradient-to-b from-[#1e3a8a] to-[#259feb]" name="input-defect">
+                    <div className="flex gap-4 w-full">
+                        <select
+                            ref={defectSelectRef}
+                            className="border p-4 rounded-sm w-5/6 md:w-full [&>option]:bg-gradient-to-b from-[#1e3a8a] to-[#259feb]"
+                            name="input-defect"
+                        >
                             <option className=" text-black" value="">Select Defect</option>
                             {defects.map((defect) =>
                                 <option key={defect} value={defect} className="text-black">{defect}</option>
                             )}
                         </select>
-                        <ButtonNormal text="Add Defect" onClick={(e) => {
-                            e.preventDefault();
-                            onDefectAdded();
-                        }} />
+                        <div className="w-2/6 md:w-1/6">
+                            <ButtonNormal text="Add Defect" onClick={(e) => {
+                                e.preventDefault();
+                                onDefectAdded();
+                            }} />
+                        </div>
                     </div>
-                    <textarea readOnly={true} ref={defectsRef} name='defects' placeholder="Defects" />
+                    <textarea className="border rounded-sm p-4" readOnly={true} ref={defectsRef} name='defects' placeholder="Defects" />
                 </form>
             </div>
-            <div className="flex flex-col justify-end">
+            <div className="flex flex-col justify-end w-full md:w-1/6">
                 <ButtonToggle text='Add Trip' toggleText="Cancel" onClick={() => setShowForm(!showForm)} toggle={showForm}></ButtonToggle>
             </div>
         </div>
@@ -96,7 +102,7 @@ export default function AddTrip() {
 
 function ButtonToggle({ text, toggleText, onClick, toggle }: { text: string, toggleText: string, onClick: () => void, toggle: boolean }) {
     return (
-        <button className={`border p-4 rounded-lg ${toggle ? 'bg-red-400 hover:bg-red-600' : 'bg-green-400  hover:bg-green-600'}`} onClick={onClick}>
+        <button className={`border p-4 rounded-lg  ${toggle ? 'bg-red-400 hover:bg-red-600' : 'bg-green-400  hover:bg-green-600'}`} onClick={onClick}>
             {toggle ? toggleText : text}
         </button>
     )
@@ -112,7 +118,7 @@ function ButtonNormal({ text, onClick, }: { text: string, onClick: (e: React.Mou
 
 function Input({ name, placeHolder, className, required }: { type?: string, name: string, placeHolder: string, className?: string, required?: boolean }) {
     return (
-        <input required={required ? true : false} className={`border p-4 rounded-b-sm w-full ${className}`} type='text' name={name} placeholder={placeHolder} />
+        <input required={required ? true : false} className={`border p-4 rounded-sm w-full ${className}`} type='text' name={name} placeholder={placeHolder} />
     )
 }
 
