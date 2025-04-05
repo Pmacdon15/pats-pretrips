@@ -2,24 +2,14 @@
 import Link from 'next/link'
 import { Trip } from '@/types/types'
 import { useGetTrips } from '@/hooks/hooks'
+import Message from '@/components/ui/message/Message'
 
 export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
-    console.log(data)
 
-    //TODO: convert to component
-    if (isPending) return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">Loading.......</h1>
-        </div>
-    )
-
-    if (isErrorLoadingCurrentTrips) return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">Error loading</h1>
-        </div>
-    )
+    if (isPending) return <Message message={"Loading......."} />
+    if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
 
     return (
         <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">

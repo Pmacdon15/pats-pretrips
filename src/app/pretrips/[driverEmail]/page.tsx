@@ -8,6 +8,7 @@ export default async function Page({
 }) {
     const { driverEmail } = await params;
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
+    
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
             <AddTrip />

@@ -1,22 +1,13 @@
 'use client'
 import { useGetTrip } from '@/hooks/hooks'
-// import { Trip } from '@/types/types';
+import Message from '@/components/ui/message/Message';
 
 export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
-    //TODO: convert to component
-    if (isPending) return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">Loading.......</h1>
-        </div>
-    )
 
-    if (isErrorLoadingTrip) return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <h1 className="text-2xl">Error loading</h1>
-        </div>
-    )
+    if (isPending) return <Message message={"Loading......."} />
+    if (isErrorLoadingTrip) return <Message message={"Error Loading"} />
 
     return (
         <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
