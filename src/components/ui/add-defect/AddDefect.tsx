@@ -71,7 +71,7 @@ export function AddDefect({ requiered }: { requiered: boolean }) {
                 </div>
             </div>
             <textarea required={requiered}  className="border rounded-sm p-4" readOnly={true} ref={defectsRef} name='defects' placeholder="Defects to Submit" />
-            <textarea required={requiered} className="border rounded-sm p-4" name='Remarks' placeholder="remarks" />
+            <textarea required={requiered} className="border rounded-sm p-4" name='remarks' placeholder="Remarks" />
         </>
     )
 }
