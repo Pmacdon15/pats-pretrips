@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
     try {
         const sql = neon(`${process.env.DATABASE_URL}`);
-        const result = await sql`SELECT * FROM PTTrips WHERE driverEmail = ${uriDecodedDriverEmail} AND date >= CURRENT_DATE - INTERVAL '15 days' ORDER BY date`;
+        const result = await sql`SELECT * FROM PTTrips WHERE driverEmail = ${uriDecodedDriverEmail} `;
         return new Response(JSON.stringify(result as Trip[]), { headers: { 'Content-Type': 'application/json' } });
     } catch (error) {
         return new Response(`Error getting comments: ${error}`, { headers: { 'Content-Type': 'text/plain' } });
     }
 }
+
+//Later we will need this AND date >= CURRENT_DATE - INTERVAL '15 days' ORDER BY date after I add more selections for past trips
 
