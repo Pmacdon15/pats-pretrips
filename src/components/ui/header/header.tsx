@@ -1,7 +1,7 @@
 export default function Header() {
     return (
         <div className="flex justify-center">
-            <h1 className="text-4xl border w-5/6 md:w-3/6 p-8 mt-12 rounded-sm">Pat&apos;s PreTrips</h1>
+            <h1 className="text-4xl border w-5/6 md:w-3/6 p-8 mt-12 rounded-sm text-center">Pat&apos;s PreTrips</h1>
         </div>
     )
 }
