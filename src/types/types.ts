@@ -12,4 +12,5 @@ export interface Trip {
     trailerplateb?: string;
     date: Date;
     defects: string[];
+    remarks: string[];
 }

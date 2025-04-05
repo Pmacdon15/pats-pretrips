@@ -17,7 +17,8 @@ CREATE TABLE PTTrips (
     trailerPlateA VARCHAR(20),
     trailerPlateB VARCHAR(20),
     date TIMESTAMP NOT NULL,
-    defects text
+    defects text,
+    remarks text
 );
 
 INSERT INTO
@@ -33,7 +34,8 @@ INSERT INTO
         trailerPlateA,
         trailerPlateB,
         date,
-        defects
+        defects,
+        remarks
     )
 VALUES (
         'patrick@patmac.ca',
@@ -46,8 +48,9 @@ VALUES (
         'AXA6969',
         'TRL123',
         'TRLB-1234',
-        '2025-04-04 09:30:00',
-        NULL
+        '2025-04-05 09:30:00',
+        NULL,
+        'test'
     ),
     (
         'patrick@patmac.ca',
@@ -61,7 +64,8 @@ VALUES (
         'TRL124',
         NULL,
         '2025-04-04 09:45:00',
-        'Steering, Windows, Brakes'
+        'Steering, Windows, Brakes',
+        'brakes messed up'
     ),
     (
         'patrick@patmac.ca',
@@ -75,6 +79,7 @@ VALUES (
         'TRL125',
         NULL,
         '2025-04-01 09:30:00',
+        NULL,
         NULL
     ),
     (
@@ -89,7 +94,8 @@ VALUES (
         'TRL126',
         NULL,
         '2024-02-25 16:45:00',
+        NULL,
         NULL
     );
 
-    select* from PTTRips;
+select * from PTTRips;

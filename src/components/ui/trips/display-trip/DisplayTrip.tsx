@@ -72,6 +72,10 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
                         <td className="text-left p-2 w-1/3">{data.defects}</td>
                     </tr>
                     <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Remarks</td>
+                        <td className="text-left p-2 w-1/3">{data.remarks}</td>
+                    </tr>
+                    <tr className="border-b">
                         <td className="text-left p-2 w-1/3">Inspection Date</td>
                         <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     </tr>
