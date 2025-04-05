@@ -1,56 +1,10 @@
 'use client'
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { AddDefect } from "@/components/ui/add-defect/AddDefect"
+import Input from '@/components/ui/input/Input'
 
-const defects = [
-    "Air Brake System",
-    "Cab",
-    "Cargo Securement",
-    "Coupling Devices",
-    "Dangerous Goods",
-    "Driver Controls",
-    "Driver Seat",
-    "Safety Devices",
-    "Exhaust System",
-    "Frame",
-    "Fuel System",
-    "General",
-    "Glass",
-    "Mirrors",
-    "Heater",
-    "Horn",
-    "Hydraulic System",
-    "Steering",
-    "Suspension",
-    "Tires",
-    "Rims",
-    "Hubs",
-    "Windows",
-    "Wipers",
-    "Kingpin",
-    "Body",
-    "Lights",
-    "Reflectors",
-    "Air Lines",
-    "Other"
-]
 export default function AddTrip() {
     const [showForm, setShowForm] = useState(false);
-
-    const defectSelectRef = useRef<HTMLSelectElement>(null);
-    const defectsRef = useRef<HTMLTextAreaElement>(null);
-
-    const onDefectAdded = () => {
-        if (defectSelectRef.current?.value && defectsRef.current) {
-            const currentDefects = defectsRef.current.value;
-            const selectedDefect = defectSelectRef.current.value;
-
-            if (!currentDefects.includes(selectedDefect)) {
-                defectsRef.current.value = currentDefects ?
-                    `${currentDefects}, ${selectedDefect}` :
-                    selectedDefect;
-            }
-        }
-    }
 
     return (
         <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-8 border rounded-sm justify-between">
@@ -72,25 +26,7 @@ export default function AddTrip() {
                         <Input name="trailer-plate" placeHolder='Trailer Plate' />
                         <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
                     </div>
-                    <div className="flex gap-4 w-full">
-                        <select
-                            ref={defectSelectRef}
-                            className="border p-4 rounded-sm w-5/6 md:w-full [&>option]:bg-gradient-to-b from-[#1e3a8a] to-[#259feb]"
-                            name="input-defect"
-                        >
-                            <option className=" text-black" value="">Select Defect</option>
-                            {defects.map((defect) =>
-                                <option key={defect} value={defect} className="text-black">{defect}</option>
-                            )}
-                        </select>
-                        <div className="w-2/6 md:w-1/6">
-                            <ButtonNormal text="Add Defect" onClick={(e) => {
-                                e.preventDefault();
-                                onDefectAdded();
-                            }} />
-                        </div>
-                    </div>
-                    <textarea className="border rounded-sm p-4" readOnly={true} ref={defectsRef} name='defects' placeholder="Defects" />
+                    <AddDefect requiered={false} />
                 </form>
             </div>
             <div className="flex flex-col justify-end w-full md:w-1/6">
@@ -107,18 +43,3 @@ function ButtonToggle({ text, toggleText, onClick, toggle }: { text: string, tog
         </button>
     )
 }
-
-function ButtonNormal({ text, onClick, }: { text: string, onClick: (e: React.MouseEvent) => void }) {
-    return (
-        <button className={`border p-4 rounded-lg bg-green-400  hover:bg-green-600`} onClick={onClick}>
-            {text}
-        </button>
-    )
-}
-
-function Input({ name, placeHolder, className, required }: { type?: string, name: string, placeHolder: string, className?: string, required?: boolean }) {
-    return (
-        <input required={required ? true : false} className={`border p-4 rounded-sm w-full ${className}`} type='text' name={name} placeholder={placeHolder} />
-    )
-}
-

@@ -2,16 +2,18 @@
 import { useGetTrip } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message';
 import Link from 'next/link';
+import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm"
 
 export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     if (isPending) return <Message message={"Loading......."} driverEmail={driverEmail} />
     if (isErrorLoadingTrip) return <Message message={"Error Loading"} driverEmail={driverEmail} />
 
     return (
-        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+        <div className="flex flex-col w-full md:w-4/6 p-8 gap-8 border rounded-sm">
             <div className="mt-4">
                 <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
             </div>
@@ -74,8 +76,12 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
                         <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     </tr>
                 </tbody>
-            </table>
 
+            </table>
+            {data?.date && new Date(data.date) > twentyFourHoursAgo &&
+                <AddDefectForm />
+            }
         </div>
     )
 }
+
