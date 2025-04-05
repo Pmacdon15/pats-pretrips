@@ -1,0 +1,79 @@
+'use client'
+import { useGetTrip } from '@/hooks/hooks'
+// import { Trip } from '@/types/types';
+
+export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, driverEmail: string }) {
+
+    const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
+    //TODO: convert to component
+    if (isPending) return (
+        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <h1 className="text-2xl">Loading.......</h1>
+        </div>
+    )
+
+    if (isErrorLoadingTrip) return (
+        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <h1 className="text-2xl">Error loading</h1>
+        </div>
+    )
+
+    return (
+        <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
+            <div className="w-full mt-4 border round-sm p-4">
+                Driver Name: {"Patrick MacDonald"}<br />
+                Driver Email: {data.driveremail}
+            </div>
+            <table className="w-full mt-4 border round-sm p-4">
+                <thead>
+                    <tr className="border-b">
+                        <th className="text-left p-2 w-1/3">Category</th>
+                        <th className="text-left p-2 w-1/3">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Truck Plate</td>
+                        <td className="text-left p-2 w-1/3">{data.truckplate}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Trailer Plate A</td>
+                        <td className="text-left p-2 w-1/3">{data.trailerplatea}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Trailer Plate B</td>
+                        <td className="text-left p-2 w-1/3">{data.trailerplateb}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Make</td>
+                        <td className="text-left p-2 w-1/3">{data.make}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Model</td>
+                        <td className="text-left p-2 w-1/3">{data.model}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Odometer</td>
+                        <td className="text-left p-2 w-1/3">{data.odometer}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Carrier</td>
+                        <td className="text-left p-2 w-1/3">{data.carrier}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Carrier Address</td>
+                        <td className="text-left p-2 w-1/3">{data.carrieraddress}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Inspection Address</td>
+                        <td className="text-left p-2 w-1/3">{data.inspectionaddress}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Inspection Date</td>
+                        <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleDateString()}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    )
+}

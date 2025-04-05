@@ -13,3 +13,18 @@ export const useGetTrips = (driverEmail: string) => {
     queryFn: () => fetchTrips(driverEmail),
   })
 }
+
+const fetchTrip = async (tripId: number, driverEmail: string): Promise<Trip> => {
+  const response = await fetch(`/api/trip/${tripId}/${driverEmail}`)
+  return await response.json();
+}
+
+export const useGetTrip = (tripId: number, driverEmail: string) => {
+  return useQuery({
+    queryKey: ['trip', tripId, driverEmail],
+    queryFn: () => fetchTrip(tripId, driverEmail),
+  })
+}
+
+
+//TODO: Add check to make sure vars are present
