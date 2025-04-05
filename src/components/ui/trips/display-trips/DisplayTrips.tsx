@@ -13,7 +13,6 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data, twentyFourHoursAgo]);
     const pastTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) < twentyFourHoursAgo), [data, twentyFourHoursAgo]);
 
-
     const { selectedTrips, setSelectedTrips } = useSetSelectedTrips(currentTrips)
     const [selectedTripsName, setSelectedTripsName] = useState<string>('Current')
 
@@ -30,45 +29,56 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                 </div>
             </div>
             <table className="w-full mt-4 border round-sm">
-                <thead>
-                    <tr className="border-b round-sm">
-                        <th className="text-left p-2">Date</th>
-                        <th className="text-left p-2">Truck</th>
-                        <th className="text-left p-2">Trailer A</th>
-                        <th className="text-left p-2">Defects</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {selectedTrips?.map((trip: Trip, index: number) => (
-                        <tr key={index} className="border-b">
-                            <td className="p-2">
-                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
-                                    {new Date(trip.date).toISOString().split('T')[0]}
-                                </Link>
-                            </td>
-                            <td className="p-2">
-                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                                    {trip.truckplate}
-                                </Link>
-                            </td>
-                            <td className="p-2">
-                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                                    {trip.trailerplatea}
-                                </Link>
-                            </td>
-                            <td className="p-2">
-                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                                    {trip.defects ? trip.defects : 'No defects'}
-                                </Link>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
+                <TableHead />
+                <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
             </table>
         </div >
     )
 }
 
+function TableHead() {
+    return (
+        <thead>
+            <tr className="border-b round-sm">
+                <th className="text-left p-2">Date</th>
+                <th className="text-left p-2">Truck</th>
+                <th className="text-left p-2">Trailer A</th>
+                <th className="text-left p-2">Defects</th>
+            </tr>
+        </thead>
+    )
+}
+
+function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
+    return (
+        <tbody>
+            {selectedTrips?.map((trip: Trip, index: number) => (
+                <tr key={index} className="border-b">
+                    <td className="p-2">
+                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
+                            {new Date(trip.date).toISOString().split('T')[0]}
+                        </Link>
+                    </td>
+                    <td className="p-2">
+                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+                            {trip.truckplate}
+                        </Link>
+                    </td>
+                    <td className="p-2">
+                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+                            {trip.trailerplatea}
+                        </Link>
+                    </td>
+                    <td className="p-2">
+                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+                            {trip.defects ? trip.defects : 'No defects'}
+                        </Link>
+                    </td>
+                </tr>
+            ))}
+        </tbody>
+    )
+}
 function useSetSelectedTrips(trips: Trip[] | undefined) {
     const [selectedTrips, setSelectedTrips] = useState<Trip[]>([])
 
