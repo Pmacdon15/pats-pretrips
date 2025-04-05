@@ -19,6 +19,7 @@ CREATE TABLE PTTrips (
     date TIMESTAMP NOT NULL,
     defects text
 );
+
 INSERT INTO
     PTTrips (
         driverEmail,
@@ -34,8 +35,7 @@ INSERT INTO
         date,
         defects
     )
-VALUES 
-    (
+VALUES (
         'patrick@patmac.ca',
         'ABC Trucking',
         '123 Truck St, City, ST',
@@ -46,7 +46,7 @@ VALUES
         'AXA6969',
         'TRL123',
         'TRLB-1234',
-        '2025-04-01 09:30:00',
+        '2025-04-04 09:30:00',
         NULL
     ),
     (
@@ -60,8 +60,8 @@ VALUES
         'AXA6969',
         'TRL124',
         NULL,
-        '2025-04-01 09:30:00',
-        NULL
+        '2025-04-04 09:45:00',
+        'Steering, Windows, Brakes'
     ),
     (
         'patrick@patmac.ca',
@@ -91,3 +91,5 @@ VALUES
         '2024-02-25 16:45:00',
         NULL
     );
+
+    select* from PTTRips;
