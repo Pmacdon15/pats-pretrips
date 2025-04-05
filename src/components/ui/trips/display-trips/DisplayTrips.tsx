@@ -8,6 +8,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
     console.log(data)
 
+    //TODO: convert to component
     if (isPending) return (
         <div className="w-full md:w-4/6 p-8 gap-8 border rounded-sm">
             <h1 className="text-2xl">Loading.......</h1>
@@ -36,22 +37,22 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                     {data?.map((trip: Trip, index: number) => (
                         <tr key={index} className="border-b">
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
                                     {new Date(trip.date).toISOString().split('T')[0]}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
                                     {trip.truckplate}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
                                     {trip.trailerplatea}
                                 </Link>
                             </td>
                             <td className="p-2">
-                                <Link href={`/trip/${trip.tripid}/${'driveEmail'}`}>
+                                <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
                                     {Array.isArray(trip.defects) ? trip.defects.join(', ') : 'No defects'}
                                 </Link>
                             </td>
