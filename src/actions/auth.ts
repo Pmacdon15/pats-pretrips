@@ -2,9 +2,9 @@
 import { signIn, signOut } from '@/auth';
 import { redirect } from 'next/navigation';
 
-// export const loginGoogle = async () => {
-//     await signIn('google', { redirectTo: '/' });  
-// };
+export const loginGoogle = async () => {
+    await signIn('google', { redirectTo: '/' });  
+};
 
 export const loginGithub = async () => {
     await signIn('github', { redirectTo: '/' });  
