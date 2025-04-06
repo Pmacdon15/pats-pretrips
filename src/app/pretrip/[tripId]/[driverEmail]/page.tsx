@@ -16,7 +16,7 @@ export default async function Page({
     if (isNaN(Number(tripId))) return (<div>Trip Id Error</div>)
 
     return (
-        <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
+        <div className="flex flex-col items-center justify-items-center min-h-screen gap-4 p-4  ">
             <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} driverName={driverName || ''} />
             <Authbutton session={session} />
         </div>

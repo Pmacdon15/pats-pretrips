@@ -15,7 +15,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
     
     console.log(data)
     return (
-        <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-8 border rounded-sm justify-between">
+        <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-4 border rounded-sm justify-between">
             <div className="flex flex-col w-full">
                 <form
                     action={(formData: FormData) => { mutate({ driverEmail, formData }); setShowForm(false) }}
