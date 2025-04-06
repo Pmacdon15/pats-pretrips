@@ -49,7 +49,7 @@ VALUES (
         'TRL123',
         'TRLB-1234',
         '2025-04-05 09:30:00',
-        NULL,
+        'Broken',
         'test'
     ),
     (
