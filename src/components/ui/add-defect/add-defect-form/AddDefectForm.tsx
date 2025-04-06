@@ -1,9 +1,8 @@
 import { AddDefect } from "@/components/ui/add-defect/AddDefect"
 
-export default function AddDefectForm({ tripId, driverEmail, error, isError, isPendingChange, formAction }: {
+export default function AddDefectForm({ tripId, driverEmail, isError, isPendingChange, formAction }: {
     tripId: number;
     driverEmail: string;
-    error: Error | null;
     isError: boolean;
     isPendingChange: boolean;
     formAction: ({ driverEmail, tripId, formData }: { driverEmail: string; tripId: number; formData: FormData; }) => void;
