@@ -18,8 +18,6 @@ export const logout = async () => {
     await signOut({ redirectTo: '/' });  
 };
 
-
-
 export async function checkIsAuthorized(sessionEmail: string | undefined | null, userEmail: string) {
   if (sessionEmail != userEmail) redirect("/")
 }
