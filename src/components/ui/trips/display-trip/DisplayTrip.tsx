@@ -17,7 +17,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     if (isErrorLoadingTrip) return <Message message={"Error Loading"} driverEmail={driverEmail} />
 
     return (
-        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm">
+        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
 
             <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
 

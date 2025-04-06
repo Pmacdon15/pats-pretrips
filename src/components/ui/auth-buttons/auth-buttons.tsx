@@ -32,7 +32,7 @@ export default function Authbutton({ session }: Props) {
                         </button >
                     </div>
                 ) : (
-                    <button className='border p-4' onClick={() => logout()}>Sign Out</button>
+                    <button className='border p-4 shadow-sm rounded-sm ' onClick={() => logout()}>Sign Out</button>
                 )}
             </div>
         </>

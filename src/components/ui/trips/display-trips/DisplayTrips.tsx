@@ -21,7 +21,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
 
     return (
-        <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm">
+        <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm shadow-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
                 <div className='flex border gap-4 p-4 rounded-sm'>
@@ -29,7 +29,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                     {pastTrips && pastTrips.length > 0 && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>Past Trips</button>)}
                 </div>
             </div>
-            <table className="w-full border round-sm">
+            <table className="w-full border round-sm shadow-sm">
                 <TableHead />
                 <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
             </table>
