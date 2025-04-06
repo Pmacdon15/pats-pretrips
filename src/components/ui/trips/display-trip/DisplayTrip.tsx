@@ -10,6 +10,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
     // This mutate is created on this component and passed the the AddDefectForm so that the query client matches and then there is no need for a call back
     const { mutate, isError: isErrorMutating, isPending: isPendingChange } = useAddDefectOnRoute(tripId, driverEmail);
+    
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     if (isPending) return <Message message={"Loading......."} driverEmail={driverEmail} />
@@ -19,7 +20,6 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
         <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm">
 
             <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
-
 
             <div className="w-full border round-sm p-4">
                 Driver Name: {driverName}<br />
