@@ -16,17 +16,17 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     if (isErrorLoadingTrip) return <Message message={"Error Loading"} driverEmail={driverEmail} />
 
     return (
-        <div className="flex flex-col w-full md:w-4/6 p-8 gap-8 border rounded-sm">
-            <div className="mt-4">
-                <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
-            </div>
+        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm">
 
-            <div className="w-full mt-4 border round-sm p-4">
+            <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
+
+
+            <div className="w-full border round-sm p-4">
                 Driver Name: {driverName}<br />
                 Driver Email: {data.driveremail}
             </div>
 
-            <table className="w-full mt-4 border round-sm p-4">
+            <table className="w-full border round-sm p-4">
                 <thead>
                     <tr className="border-b">
                         <th className="text-left p-2 w-1/3">Category</th>
