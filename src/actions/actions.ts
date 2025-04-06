@@ -34,7 +34,7 @@ export async function addTrip(driverEmail: string, formData: FormData) {
 
     const session = await auth();
     await checkIsAuthorized(session?.user?.email, driverEmail)
-    
+
     const carrier = formData.get("carrier");
     const carrierAddress = formData.get("carrier-address");
     const inspectionAddress = formData.get("inspection-address");
@@ -88,4 +88,25 @@ export async function addTrip(driverEmail: string, formData: FormData) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         throw new Error(errorMessage);
     }
+}
+
+export async function getAddress(lat: number, lng: number, driverEmail: string): Promise<object> {
+    const session = await auth();
+    await checkIsAuthorized(session?.user?.email, driverEmail)
+    
+    const apiKey = process.env.REVERSE_GEOCODING_API_KEY;
+    let data;
+    try {
+        const response = await fetch(
+            `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${apiKey}`,
+            {
+                cache: "no-cache",
+            }
+        );
+        data = await response.json();
+        //console.log(data);
+    } catch (error) {
+        console.error("Error fetching:", (error instanceof Error ? error.message : error))
+    }
+    return { data };
 }

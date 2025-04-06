@@ -14,3 +14,18 @@ export interface Trip {
     defects: string[];
     remarks: string[];
 }
+
+export interface AddressResponse {
+    data: {
+        features: {
+            properties: {
+                housenumber: string;
+                street: string;
+                country_code: string;
+                county: string;
+                state_code: string;
+                formatted: string;
+            };
+        }[];
+    };
+}
