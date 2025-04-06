@@ -5,7 +5,8 @@ export default async function Page({
     params,
 }: {
     params: Promise<{ driverEmail: string }>
-}) {
+}) {   
+
     const { driverEmail } = await params;
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
 

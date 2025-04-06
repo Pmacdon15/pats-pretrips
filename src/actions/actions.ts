@@ -1,7 +1,12 @@
 'use server'
+import { auth } from '@/auth';
 import { neon } from '@neondatabase/serverless';
+import { checkIsAuthorized } from './auth';
 
 export async function addOnRouteDefects(driverEmail: string, tripId: number, formData: FormData) {
+
+    const session = await auth();
+    await checkIsAuthorized(session?.user?.email, driverEmail)
 
     const defects = formData.get("defects");
     const remarks = formData.get('remarks');
@@ -26,6 +31,10 @@ export async function addOnRouteDefects(driverEmail: string, tripId: number, for
 }
 
 export async function addTrip(driverEmail: string, formData: FormData) {
+
+    const session = await auth();
+    await checkIsAuthorized(session?.user?.email, driverEmail)
+    
     const carrier = formData.get("carrier");
     const carrierAddress = formData.get("carrier-address");
     const inspectionAddress = formData.get("inspection-address");
