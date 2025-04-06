@@ -17,7 +17,7 @@ export default async function Page({
 
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
-            <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} driverName={driverName} />
+            <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} driverName={driverName || ''} />
             <Authbutton session={session} />
         </div>
     )
