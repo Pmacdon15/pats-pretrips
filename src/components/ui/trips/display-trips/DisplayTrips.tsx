@@ -56,7 +56,7 @@ function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driv
                 <tr key={index} className="border-b">
                     <td className="p-2">
                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
-                            {new Date(trip.date).toISOString().split('T')[0]}
+                            {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}                           
                         </Link>
                     </td>
                     <td className="p-2">
