@@ -12,7 +12,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
         <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-8 border rounded-sm justify-between">
             <div className="flex flex-col w-full">
                 <form
-                    action={(formData: FormData) => mutate({ driverEmail, formData })}
+                    action={(formData: FormData) => { mutate({ driverEmail, formData }); setShowForm(false) }}
                     className={`flex flex-col gap-4 w-full ${showForm ? 'block' : 'hidden'}`}>
                     <h1 className="text-2xl">Create a Trip</h1>
                     <div className='flex flex-col w-full gap-4'>
@@ -31,7 +31,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
                         <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
                     </div>
                     <AddDefect requiered={false} />
-                    <button>submit</button>
+                    <button className={`border p-4 rounded-lg bg-green-400  hover:bg-green-600`} >Submit</button>
                 </form>
             </div>
             <div className="flex flex-col justify-end w-full md:w-1/6">
