@@ -6,4 +6,5 @@ import Discord from 'next-auth/providers/discord'
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
     providers: [Google, GitHub, GitLab, Discord],
+    trustHost: true,
 })

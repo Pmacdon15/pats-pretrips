@@ -9,20 +9,46 @@ export async function addOnRouteDefects(driverEmail: string, tripId: number, for
     await checkIsAuthorized(session?.user?.email, driverEmail)
 
     const defects = formData.get("defects");
+    let defectsArray = defects?.toString().split(', ');
     const remarks = formData.get('remarks');
+
+    console.log("defectsArray: ", defectsArray)
+
+    if (!defectsArray) defectsArray = [];
+
     try {
         const sql = neon(`${process.env.DATABASE_URL}`);
+        const [result1] = await sql`
+        SELECT defects 
+        FROM PTTrips
+        WHERE tripId = ${tripId} 
+            AND driverEmail = ${driverEmail}
+            AND date >= NOW() - INTERVAL '24 hour'            
+        `;       
+
+        const currentDefects = result1?.defects || ""; // Handle undefined or NULL
+        defectsArray.forEach(defect => {
+            if (currentDefects.toLowerCase().includes(defect.toLowerCase())) {
+                throw new Error(`Defect "${defect}" already listed`);
+            }
+        });
+
         const [result] = await sql`         
-        UPDATE PTTrips
-            SET defects = COALESCE(defects || ', ' || ${defects}, ${defects}),
-            remarks = COALESCE(remarks, '') || CASE WHEN ${remarks}::text IS NOT NULL THEN ', ' || ${remarks}::text ELSE '' END
+            UPDATE PTTrips
+            SET defects = CASE 
+                            WHEN COALESCE(defects, '') = '' THEN ${defects}
+                            ELSE COALESCE(defects || ', ' || ${defects}, ${defects})
+                          END,
+                remarks = CASE 
+                            WHEN COALESCE(remarks, '') = '' THEN ${remarks}::text
+                            ELSE COALESCE(remarks || ', ' || ${remarks}::text, ${remarks}::text)
+                          END
             WHERE tripId = ${tripId} 
             AND driverEmail = ${driverEmail}
             AND date >= NOW() - INTERVAL '24 hour'
             RETURNING *;
         `;
         if (!result) throw new Error;
-        console.log(result)
     } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         throw new Error(errorMessage);
@@ -93,7 +119,7 @@ export async function addTrip(driverEmail: string, formData: FormData) {
 export async function getAddress(lat: number, lng: number, driverEmail: string): Promise<object> {
     const session = await auth();
     await checkIsAuthorized(session?.user?.email, driverEmail)
-    
+
     const apiKey = process.env.REVERSE_GEOCODING_API_KEY;
     let data;
     try {

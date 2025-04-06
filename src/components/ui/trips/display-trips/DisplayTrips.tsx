@@ -9,6 +9,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
     
+    data?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const twentyFourHoursAgo = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000), []);
     const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data, twentyFourHoursAgo]);
     const pastTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) < twentyFourHoursAgo), [data, twentyFourHoursAgo]);
@@ -20,7 +21,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
 
     return (
-        <div className="w-full md:w-4/6 p-4 gap-8  border rounded-sm">
+        <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
                 <div className='flex border gap-4 p-4 rounded-sm'>
@@ -42,7 +43,7 @@ function TableHead() {
             <tr className="border-b round-sm">
                 <th className="text-left p-2">Date</th>
                 <th className="text-left p-2">Truck</th>
-                <th className="text-left p-2">Trailer A</th>
+                <th className="text-left p-2">Trailer</th>
                 <th className="text-left p-2">Defects</th>
             </tr>
         </thead>
@@ -54,7 +55,7 @@ function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driv
         <tbody>
             {selectedTrips?.map((trip: Trip, index: number) => (
                 <tr key={index} className="border-b">
-                    <td className="p-2">
+                    <td className="p-2 w-2/6">
                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
                             {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}                           
                         </Link>
