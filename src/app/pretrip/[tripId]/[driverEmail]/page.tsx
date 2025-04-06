@@ -8,6 +8,7 @@ export default async function Page({
     params: Promise<{ tripId: number, driverEmail: string }>
 }) {
     const session = await auth();
+    const driverName = session?.user?.name
 
     const { tripId, driverEmail } = await params;
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
@@ -16,7 +17,7 @@ export default async function Page({
 
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
-            <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} />
+            <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} driverName={driverName} />
             <Authbutton session={session} />
         </div>
     )

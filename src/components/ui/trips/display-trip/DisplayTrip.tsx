@@ -5,7 +5,7 @@ import Link from 'next/link';
 import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm"
 import { useAddDefectOnRoute } from '@/hooks/mutations/mutations';
 
-export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, driverEmail: string }) {
+export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripId: number, driverEmail: string, driverName: string }) {
 
     const { data, isPending, isError: isErrorLoadingTrip } = useGetTrip(tripId, driverEmail);
     // This mutate is created on this component and passed the the AddDefectForm so that the query client matches and then there is no need for a call back
@@ -22,7 +22,7 @@ export default function DisplayTrip({ tripId, driverEmail }: { tripId: number, d
             </div>
 
             <div className="w-full mt-4 border round-sm p-4">
-                Driver Name: {"Patrick MacDonald"}<br />
+                Driver Name: {driverName}<br />
                 Driver Email: {data.driveremail}
             </div>
 
