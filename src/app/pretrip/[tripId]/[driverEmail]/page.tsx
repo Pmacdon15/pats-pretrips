@@ -1,3 +1,5 @@
+import { auth } from "@/auth";
+import Authbutton from "@/components/ui/auth-buttons/auth-buttons";
 import DisplayTrip from "@/components/ui/trips/display-trip/DisplayTrip";
 
 export default async function Page({
@@ -5,6 +7,8 @@ export default async function Page({
 }: {
     params: Promise<{ tripId: number, driverEmail: string }>
 }) {
+    const session = await auth();
+
     const { tripId, driverEmail } = await params;
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
 
@@ -13,6 +17,7 @@ export default async function Page({
     return (
         <div className="flex flex-col items-center justify-items-center min-h-screen gap-8 p-8  ">
             <DisplayTrip tripId={tripId} driverEmail={uriDecodedDriverEmail} />
+            <Authbutton session={session} />
         </div>
     )
 }
