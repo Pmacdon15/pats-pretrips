@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Trip } from '@/types/types'
+import { getAddress } from '@/actions/actions';
 
 const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
   const response = await fetch(`/api/trips/${driverEmail}`)
@@ -25,6 +26,14 @@ export const useGetTrip = (tripId: number, driverEmail: string) => {
     queryKey: ['trip', tripId, driverEmail],
     queryFn: () => fetchTrip(tripId, driverEmail),
     enabled: !!tripId && !!driverEmail,
+  })
+}
+
+export const useGetAddress = (lat: number, long: number, driverEmail: string) => {
+  return useQuery({
+    queryKey: ['inspectionAddress', lat, long, driverEmail],
+    queryFn: () => getAddress(lat, long, driverEmail),
+    enabled: !!lat && !!long && !!driverEmail,
   })
 }
 
