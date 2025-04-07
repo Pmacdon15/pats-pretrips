@@ -1,5 +1,5 @@
 export interface Trip {
-    tripid: number;
+    tripid?: number;
     driveremail: string;
     carrier: string;
     carrieraddress: string;
@@ -11,8 +11,8 @@ export interface Trip {
     trailerplatea?: string;
     trailerplateb?: string;
     date: Date;
-    defects: string[];
-    remarks: string[];
+    defects: string;
+    remarks: string;
 }
 
 export interface AddressResponse {
