@@ -2,19 +2,77 @@
 import { auth } from '@/auth';
 import { neon } from '@neondatabase/serverless';
 import { checkIsAuthorized } from './auth';
+import DOMPurify from 'isomorphic-dompurify';
+import { z } from 'zod'
+import { Trip } from '@/types/types';
+
+const schemaAddTrip = z.object({
+    carrier: z.string({
+        invalid_type_error: 'Carrier name is required',
+        required_error: 'Carrier name is required',
+    }),
+    carrieraddress: z.string({
+        invalid_type_error: 'Carrier address is required',
+        required_error: 'Carrier address is required',
+    }),
+    inspectionaddress: z.string({
+        invalid_type_error: 'Inspection address is required',
+        required_error: 'Inspection address is required',
+    }),
+    make: z.string({
+        invalid_type_error: 'Vehicle make is required',
+        required_error: 'Vehicle make is required',
+    }),
+    model: z.string({
+        invalid_type_error: 'Vehicle model is required',
+        required_error: 'Vehicle model is required',
+    }),
+    odometer: z.number({
+        invalid_type_error: 'Odometer reading must be positive',
+        required_error: 'Odometer reading is required',
+    }),
+    truckplate: z.string().nullable().optional(),
+    trailerplatea: z.string().nullable().optional(),
+    trailerplateb: z.string().nullable().optional(),
+    defects: z.string({
+        invalid_type_error: 'Defects',
+    }),
+    remarks: z.string({
+        invalid_type_error: 'Remarks',
+    }),
+});
+
+const schemaAddDefects = z.object({
+    defects: z.string({
+        invalid_type_error: 'Defects',
+        required_error: 'Defects requiered'
+    }),
+    remarks: z.string({
+        invalid_type_error: 'Remarks',
+        required_error: 'Defects requiered'
+    }),
+});
 
 export async function addOnRouteDefects(driverEmail: string, tripId: number, formData: FormData) {
 
     const session = await auth();
     await checkIsAuthorized(session?.user?.email, driverEmail)
 
-    const defects = formData.get("defects");
-    let defectsArray = defects?.toString().split(', ');
-    const remarks = formData.get('remarks');
+    const validatedFields = schemaAddDefects.safeParse({
+        defects: formData.get("defects"),
+        remarks: formData.get('remarks')
+    });
 
-    console.log("defectsArray: ", defectsArray)
+    if (!validatedFields.success) {
+        throw new Error("Invalid form data");
+    }
 
-    if (!defectsArray) defectsArray = [];
+    const cleanDefects = DOMPurify.sanitize(validatedFields?.data?.defects ? validatedFields.data?.defects.toString() : "");
+    const cleanremarks = DOMPurify.sanitize(validatedFields.data?.remarks ? validatedFields.data?.remarks.toString() : "");
+
+    let cleanDefectsToAddArray = cleanDefects.toString().split(', ');
+
+    if (!cleanDefectsToAddArray) cleanDefectsToAddArray = [];
 
     try {
         const sql = neon(`${process.env.DATABASE_URL}`);
@@ -24,11 +82,12 @@ export async function addOnRouteDefects(driverEmail: string, tripId: number, for
         WHERE tripId = ${tripId} 
             AND driverEmail = ${driverEmail}
             AND date >= NOW() - INTERVAL '24 hour'            
-        `;       
+        `;
 
-        const currentDefects = result1?.defects || ""; // Handle undefined or NULL
-        defectsArray.forEach(defect => {
-            if (currentDefects.toLowerCase().includes(defect.toLowerCase())) {
+        const cleanCurrentDefects = result1?.defects || "";
+
+        cleanDefectsToAddArray.forEach(defect => {
+            if (defect !== '' && cleanCurrentDefects !== '' && cleanCurrentDefects.toLowerCase().includes(defect.toLowerCase())) {
                 throw new Error(`Defect "${defect}" already listed`);
             }
         });
@@ -36,12 +95,12 @@ export async function addOnRouteDefects(driverEmail: string, tripId: number, for
         const [result] = await sql`         
             UPDATE PTTrips
             SET defects = CASE 
-                            WHEN COALESCE(defects, '') = '' THEN ${defects}
-                            ELSE COALESCE(defects || ', ' || ${defects}, ${defects})
+                            WHEN COALESCE(defects, '') = '' THEN ${cleanDefectsToAddArray.join(', ')}
+                            ELSE COALESCE(defects || ', ' || ${cleanDefectsToAddArray.join(', ')}, ${cleanDefectsToAddArray.join(', ')})
                           END,
                 remarks = CASE 
-                            WHEN COALESCE(remarks, '') = '' THEN ${remarks}::text
-                            ELSE COALESCE(remarks || ', ' || ${remarks}::text, ${remarks}::text)
+                            WHEN COALESCE(remarks, '') = '' THEN ${cleanremarks}::text
+                            ELSE COALESCE(remarks || ', ' || ${cleanremarks}::text, ${cleanremarks}::text)
                           END
             WHERE tripId = ${tripId} 
             AND driverEmail = ${driverEmail}
@@ -61,50 +120,88 @@ export async function addTrip(driverEmail: string, formData: FormData) {
     const session = await auth();
     await checkIsAuthorized(session?.user?.email, driverEmail)
 
-    const carrier = formData.get("carrier");
-    const carrierAddress = formData.get("carrier-address");
-    const inspectionAddress = formData.get("inspection-address");
-    const make = formData.get("make");
-    const model = formData.get("model");
-    const odometer = formData.get("odometer");
-    const truckPlate = formData.get("truck-plate");
-    const trailerPlateA = formData.get("trailer-plate");
-    const trailerPlateB = formData.get("trailer-plate-b");
-    const date = new Date().toISOString();
-    const defects = formData.get("defects");
-    const remarks = formData.get('remarks');
+    const validatedFields = schemaAddTrip.safeParse({
+        driveremail: formData.get("driveremail"),
+        carrier: formData.get("carrier"),
+        carrieraddress: formData.get("carrier-address"),
+        inspectionaddress: formData.get("inspection-address"),
+        make: formData.get("make"),
+        model: formData.get("model"),
+        odometer: Number(formData.get("odometer")),
+        truckplate: formData.get("truck-plate"),
+        trailerplatea: formData.get("trailer-plate"),
+        trailerplateb: formData.get("trailer-plate-b"),
+        defects: formData.get("defects"),
+        remarks: formData.get("remarks"),
+    });
+
+    let sanitizedData: Trip = {
+        tripid: 0,
+        driveremail: '',
+        carrier: '',
+        carrieraddress: '',
+        inspectionaddress: '',
+        make: '',
+        model: '',
+        odometer: 0,
+        truckplate: '',
+        trailerplatea: '',
+        trailerplateb: '',
+        defects: '',
+        remarks: '',
+        date: new Date(),
+    };
+
+    console.log(validatedFields.error)
+    if (validatedFields.success) {
+        sanitizedData = {
+            driveremail: driverEmail,
+            carrier: DOMPurify.sanitize(validatedFields.data.carrier ?? ''),
+            carrieraddress: DOMPurify.sanitize(validatedFields.data.carrieraddress ?? ''),
+            inspectionaddress: DOMPurify.sanitize(validatedFields.data.inspectionaddress ?? ''),
+            make: DOMPurify.sanitize(validatedFields.data.make ?? ''),
+            model: DOMPurify.sanitize(validatedFields.data.model ?? ''),
+            odometer: validatedFields.data.odometer,
+            truckplate: DOMPurify.sanitize(validatedFields.data.truckplate ?? ''),
+            trailerplatea: DOMPurify.sanitize(validatedFields.data.trailerplatea ?? ''),
+            trailerplateb: DOMPurify.sanitize(validatedFields.data.trailerplateb ?? ''),
+            defects: DOMPurify.sanitize(validatedFields.data.defects ?? ''),
+            remarks: DOMPurify.sanitize(validatedFields.data.remarks ?? ''),
+            date: new Date(),
+        };
+    } else throw new Error("Invalid form data");
 
     try {
         const sql = neon(`${process.env.DATABASE_URL}`);
         const [result] = await sql`
             INSERT INTO PTTrips (
-                driverEmail,
-                carrier,
-                carrierAddress,
-                inspectionAddress,
-                make,
-                model,
-                odometer,
-                truckPlate,
-                trailerPlateA,
-                trailerPlateB,
-                date,
-                defects,
-                remarks
+            driverEmail,
+            carrier,
+            carrierAddress,
+            inspectionAddress,
+            make,
+            model,
+            odometer,
+            truckPlate,
+            trailerPlateA,
+            trailerPlateB,
+            date,
+            defects,
+            remarks
             ) VALUES (
-                ${driverEmail},
-                ${carrier},
-                ${carrierAddress},
-                ${inspectionAddress},
-                ${make},
-                ${model},
-                ${odometer},
-                ${truckPlate},
-                ${trailerPlateA},
-                ${trailerPlateB},
-                ${date},
-                ${defects},
-                ${remarks}
+            ${driverEmail},
+            ${sanitizedData.carrier},
+            ${sanitizedData.carrieraddress},
+            ${sanitizedData.inspectionaddress},
+            ${sanitizedData.make},
+            ${sanitizedData.model},
+            ${sanitizedData.odometer},
+            ${sanitizedData.truckplate},
+            ${sanitizedData.trailerplatea},
+            ${sanitizedData.trailerplateb},
+            ${sanitizedData.date},
+            ${sanitizedData.defects},
+            ${sanitizedData.remarks}
             )
             RETURNING *;
         `;

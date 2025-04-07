@@ -51,7 +51,7 @@ VALUES (
         '2025-04-05 09:30:00',
         'Broken',
         'test'
-    );
+    ),
     (
         'patrick@patmac.ca',
         'ABC Trucking',

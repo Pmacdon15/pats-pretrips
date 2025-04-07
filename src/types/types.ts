@@ -1,18 +1,18 @@
 export interface Trip {
-    tripid: number;
+    tripid?: number;
     driveremail: string;
     carrier: string;
     carrieraddress: string;
     inspectionaddress: string;
     make: string;
     model: string;
-    odometer: string;
+    odometer: number;
     truckplate?: string;
     trailerplatea?: string;
     trailerplateb?: string;
     date: Date;
-    defects: string[];
-    remarks: string[];
+    defects: string;
+    remarks: string;
 }
 
 export interface AddressResponse {

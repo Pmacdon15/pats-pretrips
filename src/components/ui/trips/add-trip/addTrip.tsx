@@ -12,8 +12,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
 
     const { location } = useGetLocation();
     const { data } = useGetAddress(location?.latitude ?? 0, location?.longitude ?? 0, driverEmail) as { data: AddressResponse };
-    
-    console.log(data)
+
     return (
         <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-4 border rounded-sm justify-between shadow-sm">
             <div className="flex flex-col w-full">
