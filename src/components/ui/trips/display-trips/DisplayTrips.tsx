@@ -56,7 +56,7 @@ function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driv
             {selectedTrips?.map((trip: Trip, index: number) => (
                 <tr key={index} className="border-b">
                     <td className="p-2 w-2/6">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}'}`}>
+                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
                             {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}                           
                         </Link>
                     </td>
