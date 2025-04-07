@@ -11,7 +11,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     GitHub,
     GitLab,
     Discord,
-    Twitter({      
+    Twitter({
+      clientId: process.env.TWITTER_CLIENT_ID,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET,
       authorization: {
         params: {
           scope: 'users.read email',
