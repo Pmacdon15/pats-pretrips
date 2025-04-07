@@ -1,6 +1,7 @@
 import AuthButtons from '@/components/ui/auth-buttons/auth-buttons';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 
 export default async function Home() {
   const session = await auth();
@@ -12,6 +13,9 @@ export default async function Home() {
         <p className="text-sm  indent-8 border rounded-sm p-8 shadow-md">
           Currently, only GitHub, GitLab login is available. GitHub/GitLab/Discord accounts are free - feel free to sign up to try the app!
           Built with Next.js 15, TanStack Query, Tailwind CSS, NextAuth and TypeScript.
+        </p>
+        <p>
+           Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy </Link>.
         </p>
         <AuthButtons session={session} />
       </div>
