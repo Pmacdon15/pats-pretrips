@@ -13,8 +13,8 @@ export default function Authbutton({ session }: Props) {
         <>
             <div className='flex flex-wrap gap-4 w-full '>
                 {!session ? (
-                    <div className='flex flex-col md:flex-row gap-2 p-4 w-full'>
-                        <button className='flex items-center justify-center border p-2 rounded-sm shadow-lg' onClick={() => loginGoogle()}>
+                    <div className='flex flex-col md:flex-row justify-center gap-2 p-4 w-full'>
+                        <button className='flex items-center  border p-2 rounded-sm shadow-lg' onClick={() => loginGoogle()}>
                             <FontAwesomeIcon icon={faGoogle} className="mr-2" />
                             Sign In With Google
                         </button >
@@ -30,10 +30,10 @@ export default function Authbutton({ session }: Props) {
                             <FontAwesomeIcon icon={faDiscord} className="mr-2" />
                             Sign In With Discord
                         </button >
-                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginTwitter()}>
+                        {/* <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginTwitter()}>
                             <FontAwesomeIcon icon={faTwitter} className="mr-2" />
                             Sign In With Twitter
-                        </button >
+                        </button > */}
                     </div>
                 ) : (
                    
