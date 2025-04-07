@@ -38,7 +38,7 @@ INSERT INTO
         remarks
     )
 VALUES (
-        'patrick@patmac.ca',
+        'pmacdonald15@gmail.com',
         'ABC Trucking',
         '123 Truck St, City, ST',
         '456 Inspection Ave, City, ST',
@@ -51,7 +51,7 @@ VALUES (
         '2025-04-05 09:30:00',
         'Broken',
         'test'
-    ),
+    );
     (
         'patrick@patmac.ca',
         'ABC Trucking',

@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from "react"
 export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
 
     const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
-    
+
     data?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const twentyFourHoursAgo = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000), []);
     const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data, twentyFourHoursAgo]);
@@ -21,14 +21,15 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
 
     return (
-        <div className="w-full md:w-4/6 p-4 gap-8 border rounded-sm shadow-sm">
+        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
-                <div className='flex border gap-4 p-4 rounded-sm'>
-                    {currentTrips && <button className="cursor-pointer" onClick={() => { setSelectedTrips(currentTrips); setSelectedTripsName("Current") }}>Current Trips</button>}
-                    {pastTrips && pastTrips.length > 0 && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>Past Trips</button>)}
-                </div>
             </div>
+            {pastTrips && pastTrips.length > 0 &&
+                <div className='flex border gap-2 p-2 justify-end rounded-sm'>
+                    {currentTrips && selectedTripsName === 'Past' && <button className="cursor-pointer" onClick={() => { setSelectedTrips(currentTrips); setSelectedTripsName("Current") }}>View Current Trips</button>}
+                    {pastTrips && pastTrips.length > 0 && selectedTripsName === 'Current' && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>View Past Trips</button>)}
+                </div>}
             <table className="w-full border round-sm shadow-sm">
                 <TableHead />
                 <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
@@ -57,7 +58,7 @@ function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driv
                 <tr key={index} className="border-b">
                     <td className="p-2 w-2/6">
                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}                           
+                            {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}
                         </Link>
                     </td>
                     <td className="p-2">
