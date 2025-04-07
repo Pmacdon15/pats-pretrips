@@ -7,7 +7,6 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 - **User Authentication**: Secure login via GitHub, GitLab, or Discord
 - **Pre-Trip Management**: Create, view, and manage pre-trip inspection records
 - **Defect Tracking**: Document and track vehicle defects
-- **Driver-specific Views**: Each driver can see their own inspection history
 - **Responsive Design**: Works on desktop and mobile devices
  
 ## Technology Stack
@@ -105,9 +104,10 @@ This project is ready to deploy on [Vercel](https://vercel.com):
  
 1. Push your code to GitHub or GitLab
 2. Import the project in Vercel
-3. Sign up for [geoapify.com](https:.geoapify.com)
-4. Configure environment variables with geoapify, and O Auth credentials
-5. Deploy
+3. Create a Neon Db
+4. Sign up for [geoapify.com](https:.geoapify.com)
+5. Configure environment variables with geoapify, and O Auth credentials
+6. Deploy
  
 ## License
  
