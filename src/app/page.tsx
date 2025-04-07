@@ -5,7 +5,8 @@ import Link from 'next/link';
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect(`/pretrips/${session.user?.email}`);
+  if (session && session.user?.email !== undefined) redirect(`/pretrips/${session.user?.email}`);
+  console.log(session)
 
   return (
     <div className="flex flex-col items-center justify-items-center min-h-screen gap-4 p-4  ">
@@ -15,7 +16,7 @@ export default async function Home() {
           Built with Next.js 15, TanStack Query, Tailwind CSS, NextAuth and TypeScript.
         </p>
         <p>
-           Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy</Link>.
+          Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy</Link>.
         </p>
         <AuthButtons session={session} />
       </div>
