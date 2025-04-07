@@ -16,8 +16,11 @@ export default async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/api/auth/signin', request.url));
     }
 
-    if (isProtected && session?.user?.email && !pathname.includes(session.user.email)) {
-        return NextResponse.redirect(new URL('/', request.url));
+    if (isProtected && session?.user?.email) {
+        const emailRegex = new RegExp(`\\b${session.user.email}\\b`);
+        if (!emailRegex.test(pathname)) {
+            return NextResponse.redirect(new URL('/', request.url));
+        }
     }
 
     return NextResponse.next();
