@@ -86,7 +86,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
  
 ## Database Schema
  
-The application uses a PostgreSQL database with the following main table:
+The application uses a Neon PostgreSQL database with the following main table:
  
 - **PTTrips**: Stores pre-trip inspection data including driver information, vehicle details, defects, and remarks.
 - **DB Schema** fround at sql\makeDb.sql

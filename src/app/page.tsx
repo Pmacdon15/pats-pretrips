@@ -15,7 +15,7 @@ export default async function Home() {
           Currently, only GitHub, GitLab login is available. GitHub/GitLab/Discord accounts are free - feel free to sign up to try the app!
           Built with Next.js 15, TanStack Query, Tailwind CSS, NextAuth and TypeScript.
         </p>
-        <p>
+        <p className='text-center p-4'>
           Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy</Link>.
         </p>
         <AuthButtons session={session} />
