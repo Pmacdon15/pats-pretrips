@@ -1,5 +1,5 @@
 'use client';
-import { loginGoogle, loginGithub, loginGitlab, loginDiscord, logout } from '@/actions/auth'
+import { loginGoogle, loginGithub, loginGitlab, loginDiscord, loginTwitter, logout } from '@/actions/auth'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle, faGithub, faGitlab, faDiscord, faTwitter } from '@fortawesome/free-brands-svg-icons';
 import { Session } from '@auth/core/types';
@@ -30,7 +30,7 @@ export default function Authbutton({ session }: Props) {
                             <FontAwesomeIcon icon={faDiscord} className="mr-2" />
                             Sign In With Discord
                         </button >
-                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginDiscord()}>
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginTwitter()}>
                             <FontAwesomeIcon icon={faTwitter} className="mr-2" />
                             Sign In With Twitter
                         </button >

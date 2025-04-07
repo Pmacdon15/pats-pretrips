@@ -18,6 +18,10 @@ export const loginDiscord = async () => {
     await signIn('discord', { redirectTo: '/' }); 
 };
 
+export const loginTwitter = async () => {
+    await signIn('twitter', { redirectTo: '/' }); 
+};
+
 export const logout = async () => {
     await signOut({ redirectTo: '/' });  
 };
