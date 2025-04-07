@@ -87,7 +87,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
 
             </table>
             {data?.date && new Date(data.date) > twentyFourHoursAgo &&
-                <AddDefectForm tripId={data.tripid} driverEmail={driverEmail}  isError={isErrorMutating} isPendingChange={isPendingChange} formAction={mutate} />
+                <AddDefectForm tripId={Number(data.tripid)} driverEmail={driverEmail}  isError={isErrorMutating} isPendingChange={isPendingChange} formAction={mutate} />
             }
         </div>
     )
