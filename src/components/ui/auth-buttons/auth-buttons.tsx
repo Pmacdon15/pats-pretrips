@@ -14,7 +14,7 @@ export default function Authbutton({ session }: Props) {
             <div className='flex flex-wrap gap-4 w-full '>
                 {!session ? (
                     <div className='flex flex-col md:flex-row justify-center gap-2 p-4 w-full'>
-                        <button className='flex items-center  border p-2 rounded-sm shadow-lg' onClick={() => loginGoogle()}>
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginGoogle()}>
                             <FontAwesomeIcon icon={faGoogle} className="mr-2" />
                             Sign In With Google
                         </button >
