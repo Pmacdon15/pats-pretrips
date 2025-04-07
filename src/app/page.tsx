@@ -15,7 +15,7 @@ export default async function Home() {
           Built with Next.js 15, TanStack Query, Tailwind CSS, NextAuth and TypeScript.
         </p>
         <p>
-           Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy </Link>.
+           Checkout our <Link className='underline' href='/termsOfService'>terms of service</Link> and <Link className='underline' href='/privacy'>privacy policy</Link>.
         </p>
         <AuthButtons session={session} />
       </div>
