@@ -6,7 +6,7 @@ export interface Trip {
     inspectionaddress: string;
     make: string;
     model: string;
-    odometer: string;
+    odometer: number;
     truckplate?: string;
     trailerplatea?: string;
     trailerplateb?: string;

@@ -34,6 +34,18 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
                     </tr>
                 </thead>
                 <tbody className="rounded-sm">
+                <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Carrier</td>
+                        <td className="text-left p-2 w-1/3">{data.carrier}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Carrier Address</td>
+                        <td className="text-left p-2 w-1/3">{data.carrieraddress}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3">Inspection Address</td>
+                        <td className="text-left p-2 w-1/3">{data.inspectionaddress}</td>
+                    </tr>
                     <tr className="border-b">
                         <td className="text-left p-2 w-1/3">Truck Plate</td>
                         <td className="text-left p-2 w-1/3">{data.truckplate}</td>
@@ -58,18 +70,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
                         <td className="text-left p-2 w-1/3">Odometer</td>
                         <td className="text-left p-2 w-1/3">{data.odometer}</td>
                     </tr>
-                    <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Carrier</td>
-                        <td className="text-left p-2 w-1/3">{data.carrier}</td>
-                    </tr>
-                    <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Carrier Address</td>
-                        <td className="text-left p-2 w-1/3">{data.carrieraddress}</td>
-                    </tr>
-                    <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Inspection Address</td>
-                        <td className="text-left p-2 w-1/3">{data.inspectionaddress}</td>
-                    </tr>
+                
                     <tr className="border-b">
                         <td className="text-left p-2 w-1/3">Defects</td>
                         <td className="text-left p-2 w-1/3">{data.defects}</td>
