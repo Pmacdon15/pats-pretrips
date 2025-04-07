@@ -1,7 +1,7 @@
 'use client';
-import { loginGoogle, loginGithub, loginGitlab, loginDiscord, logout  } from '@/actions/auth'
+import { loginGoogle, loginGithub, loginGitlab, loginDiscord, logout } from '@/actions/auth'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGoogle, faGithub, faGitlab, faDiscord } from '@fortawesome/free-brands-svg-icons';
+import { faGoogle, faGithub, faGitlab, faDiscord, faTwitter } from '@fortawesome/free-brands-svg-icons';
 import { Session } from '@auth/core/types';
 
 interface Props {
@@ -11,24 +11,28 @@ interface Props {
 export default function Authbutton({ session }: Props) {
     return (
         <>
-            <div className='flex flex-wrap p-4 gap-4 '>
+            <div className='flex flex-wrap gap-4 w-full '>
                 {!session ? (
-                    <div className='flex flex-col md:flex-row gap-4 p-4'>
-                        <button className='flex items-center border p-4 rounded-sm shadow-lg' onClick={() => loginGoogle()}>
+                    <div className='flex flex-col md:flex-row gap-2 p-4 w-full'>
+                        <button className='flex items-center justify-center border p-2 rounded-sm shadow-lg' onClick={() => loginGoogle()}>
                             <FontAwesomeIcon icon={faGoogle} className="mr-2" />
                             Sign In With Google
                         </button >
-                        <button className='flex items-center border p-4 rounded-sm shadow-lg' onClick={() => loginGithub()}>
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginGithub()}>
                             <FontAwesomeIcon icon={faGithub} className="mr-2" />
                             Sign In With GitHub
-                        </button >                        
-                        <button className='flex items-center border p-4 rounded-sm shadow-lg' onClick={() => loginGitlab()}>
+                        </button >
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginGitlab()}>
                             <FontAwesomeIcon icon={faGitlab} className="mr-2" />
                             Sign In With GitLab
                         </button >
-                        <button className='flex items-center border p-4 rounded-sm shadow-lg' onClick={() => loginDiscord()}>
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginDiscord()}>
                             <FontAwesomeIcon icon={faDiscord} className="mr-2" />
                             Sign In With Discord
+                        </button >
+                        <button className='flex items-center border p-2 rounded-sm shadow-lg justify-center' onClick={() => loginDiscord()}>
+                            <FontAwesomeIcon icon={faTwitter} className="mr-2" />
+                            Sign In With Twitter
                         </button >
                     </div>
                 ) : (
