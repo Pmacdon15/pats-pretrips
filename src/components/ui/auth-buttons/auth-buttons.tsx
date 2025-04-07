@@ -1,7 +1,7 @@
 'use client';
-import { loginGoogle, loginGithub, loginGitlab, loginDiscord, loginTwitter, logout } from '@/actions/auth'
+import { loginGoogle, loginGithub, loginGitlab, loginDiscord, logout } from '@/actions/auth'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGoogle, faGithub, faGitlab, faDiscord, faTwitter } from '@fortawesome/free-brands-svg-icons';
+import { faGoogle, faGithub, faGitlab, faDiscord, } from '@fortawesome/free-brands-svg-icons';
 import { Session } from '@auth/core/types';
 
 interface Props {
@@ -36,11 +36,11 @@ export default function Authbutton({ session }: Props) {
                         </button > */}
                     </div>
                 ) : (
-                   
-                        <div className="flex justify-center w-full">
-                            <button className='border p-4 shadow-sm rounded-sm' onClick={() => logout()}>Sign Out</button>
-                        </div>
-                  
+
+                    <div className="flex justify-center w-full">
+                        <button className='border p-4 shadow-sm rounded-sm' onClick={() => logout()}>Sign Out</button>
+                    </div>
+
                 )}
             </div>
         </>
