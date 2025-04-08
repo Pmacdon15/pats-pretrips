@@ -1,41 +1,133 @@
 'use client'
 import Link from 'next/link'
 import { Trip } from '@/types/types'
-import { useGetTrips } from '@/hooks/hooks'
+import { useGetPastTrips, useGetTrips } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message'
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 
 export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
+    const [page, setPage] = useState(1);
+    const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');
 
-    const { data, isPending, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
+    const { data: currentTrips, isPending: isPendingCurrent, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
+    const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(driverEmail, page);
 
-    data?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const twentyFourHoursAgo = useMemo(() => new Date(Date.now() - 24 * 60 * 60 * 1000), []);
-    const currentTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) > twentyFourHoursAgo), [data, twentyFourHoursAgo]);
-    const pastTrips = useMemo(() => data?.filter((trip) => new Date(trip.date) < twentyFourHoursAgo), [data, twentyFourHoursAgo]);
+    const pastTrips = pastTripsData?.pastTrips;
+    const hasMorePastTrips = pastTripsData?.hasMore;
 
-    const { selectedTrips, setSelectedTrips } = useSetSelectedTrips(currentTrips)
-    const [selectedTripsName, setSelectedTripsName] = useState<string>('Current')
+    const { selectedTrips, setSelectedTrips } = useSelectedTrips(currentTrips, pastTrips, selectedTripsName);
 
-    if (isPending) return <Message message={"Loading......."} />
-    if (isErrorLoadingCurrentTrips) return <Message message={"Error Loading"} />
+    if (isPendingCurrent || isPendingPast) return <Message message={"Loading......."} />;
+    if (isErrorLoadingCurrentTrips || isErrorLoadingPastTrips) return <Message message={"Error Loading"} />;
 
     return (
         <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
             </div>
-            {pastTrips && pastTrips.length > 0 &&
-                <div className='flex border gap-2 p-2 justify-end rounded-sm'>
-                    {currentTrips && selectedTripsName === 'Past' && <button className="cursor-pointer" onClick={() => { setSelectedTrips(currentTrips); setSelectedTripsName("Current") }}>View Current Trips</button>}
-                    {pastTrips && pastTrips.length > 0 && selectedTripsName === 'Current' && (<button className="cursor-pointer" onClick={() => { setSelectedTrips(pastTrips); setSelectedTripsName("Past"); }}>View Past Trips</button>)}
-                </div>}
+            {pastTrips && pastTrips.length > 0 && currentTrips && (
+                <TripSwitcher
+                    selectedTripsName={selectedTripsName}
+                    setSelectedTrips={setSelectedTrips}
+                    setSelectedTripsName={setSelectedTripsName}
+                    currentTrips={currentTrips}
+                    pastTrips={pastTrips}
+                    setPage={setPage}
+                />
+            )}
             <table className="w-full border round-sm shadow-sm">
                 <TableHead />
                 <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
             </table>
-        </div >
-    )
+            {selectedTripsName === "Past" && (
+                <Pagination
+                    page={page}
+                    setPage={setPage}
+                    hasMorePastTrips={hasMorePastTrips}
+                />
+            )}
+        </div>
+    );
+}
+
+
+interface TripSwitcherProps {
+    selectedTripsName: 'Current' | 'Past';
+    setSelectedTrips: React.Dispatch<React.SetStateAction<Trip[]>>; // A function to update selected trips
+    setSelectedTripsName: React.Dispatch<React.SetStateAction<'Current' | 'Past'>>; // Corrected type for setSelectedTripsName
+    currentTrips: Trip[]; // An array of current trips
+    pastTrips: Trip[]; // An array of past trips
+    setPage: React.Dispatch<React.SetStateAction<number>>; // A function to set the page number
+}
+
+function TripSwitcher({
+    selectedTripsName,
+    setSelectedTrips,
+    setSelectedTripsName,
+    currentTrips,
+    pastTrips,
+    setPage,
+}: TripSwitcherProps) {
+    return (
+        <div className='flex border gap-2 p-2 justify-end rounded-sm'>
+            {selectedTripsName === 'Past' && (
+                <button
+                    className="cursor-pointer"
+                    onClick={() => {
+                        setSelectedTrips(currentTrips);
+                        setSelectedTripsName("Current");
+                        setPage(1); // Reset page when switching
+                    }}
+                >
+                    View Current Trips
+                </button>
+            )}
+            {selectedTripsName === 'Current' && pastTrips.length > 0 && (
+                <button
+                    className="cursor-pointer"
+                    onClick={() => {
+                        setSelectedTripsName("Past");
+                        setSelectedTrips(pastTrips);
+                        setPage(1); // Reset page when switching
+                    }}
+                >
+                    View Past Trips
+                </button>
+            )}
+        </div>
+    );
+}
+
+interface PaginationProps {
+    page: number;
+    setPage: React.Dispatch<React.SetStateAction<number>>;
+    hasMorePastTrips: boolean | undefined;
+}
+
+function Pagination({ page, setPage, hasMorePastTrips }: PaginationProps) {
+    return (
+        <div className='flex justify-between items-center mt-4'>
+            <button
+                onClick={() => {
+                    setPage((old) => Math.max(old - 1, 1));
+                }}
+                disabled={page === 1}
+            >
+                Previous Page
+            </button>
+            <span>Page {page}</span>
+            <button
+                onClick={() => {
+                    if (hasMorePastTrips) {
+                        setPage((old) => old + 1);
+                    }
+                }}
+                disabled={!hasMorePastTrips}
+            >
+                Next Page
+            </button>
+        </div>
+    );
 }
 
 function TableHead() {
@@ -48,7 +140,7 @@ function TableHead() {
                 <th className="text-left p-2">Defects</th>
             </tr>
         </thead>
-    )
+    );
 }
 
 function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
@@ -79,14 +171,23 @@ function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driv
                 </tr>
             ))}
         </tbody>
-    )
+    );
 }
-function useSetSelectedTrips(trips: Trip[] | undefined) {
-    const [selectedTrips, setSelectedTrips] = useState<Trip[]>([])
+
+function useSelectedTrips(
+    currentTrips: Trip[] | undefined,
+    pastTrips: Trip[] | undefined,
+    selectedTripsName: 'Current' | 'Past'
+) {
+    const [selectedTrips, setSelectedTrips] = useState<Trip[]>([]);
 
     useEffect(() => {
-        if (trips) setSelectedTrips(trips);
-    }, [trips]);
+        if (selectedTripsName === 'Current' && currentTrips) {
+            setSelectedTrips(currentTrips);
+        } else if (selectedTripsName === 'Past' && pastTrips) {
+            setSelectedTrips(pastTrips);
+        }
+    }, [selectedTripsName, currentTrips, pastTrips]);
 
-    return { selectedTrips, setSelectedTrips }
+    return { selectedTrips, setSelectedTrips };
 }

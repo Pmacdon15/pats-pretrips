@@ -1,10 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Trip } from '@/types/types'
 import { getAddress } from '@/actions/actions';
 
 const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
-  const response = await fetch(`/api/trips/${driverEmail}`)
-  // console.log(JSON.stringify(response))
+  const response = await fetch(`/api/trips/${driverEmail}?page=2`)
   return await response.json();
 }
 
@@ -13,6 +12,20 @@ export const useGetTrips = (driverEmail: string) => {
     queryKey: ['trips', driverEmail],
     queryFn: () => fetchTrips(driverEmail),
     enabled: !!driverEmail,
+  })
+}
+
+const fetchPastTrips = async ({ driverEmail, page }: { driverEmail: string, page: number }) => {
+  const response = await fetch(`/api/pastTrips/${driverEmail}?page=${page}&limit=${process.env.LIMIT_FOR_PAG || 4}`);
+  return await response.json();
+}
+
+export const useGetPastTrips = (driverEmail: string, page: number) => {
+  return useQuery({
+    queryKey: ['trips', driverEmail, page],
+    queryFn: () => fetchPastTrips({ driverEmail, page }),
+    placeholderData: keepPreviousData,
+    enabled: !!driverEmail && !!page,
   })
 }
 

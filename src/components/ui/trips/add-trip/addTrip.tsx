@@ -61,9 +61,6 @@ function useGetLocation() {
         async function getLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(async (position) => {
-
-                    console.log(`Latitude: ${position?.coords.latitude}`);
-                    console.log(`Longitude: ${position?.coords.longitude}`);
                     setLocation({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude
