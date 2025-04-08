@@ -5,8 +5,7 @@ import Link from 'next/link';
 
 export default async function Home() {
   const session = await auth();
-  if (session && session.user?.email !== undefined) redirect(`/pretrips/${session.user?.email}`);
-  console.log(session)
+  if (session && session.user?.email !== undefined) redirect(`/pretrips/${session.user?.email}`);  
 
   return (
     <div className="flex flex-col items-center justify-items-center min-h-screen gap-4 p-4  ">

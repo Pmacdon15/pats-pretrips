@@ -227,7 +227,6 @@ export async function getAddress(lat: number, lng: number, driverEmail: string):
             }
         );
         data = await response.json();
-        //console.log(data);
     } catch (error) {
         console.error("Error fetching:", (error instanceof Error ? error.message : error))
     }
