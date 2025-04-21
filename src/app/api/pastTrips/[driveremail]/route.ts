@@ -2,13 +2,16 @@ import { neon } from '@neondatabase/serverless';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  
   const url = request.nextUrl;
+  const page = Number(url.searchParams.get('page')) || 1;
+  const limit = Number(url.searchParams.get('limit')) || 4;  
+
   const pathSegments = url.pathname.split('/');
   const driverEmail = pathSegments[pathSegments.length - 1];
   const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
-  const page = Number(url.searchParams.get('page')) || 1;
-  const limit = Number(url.searchParams.get('limit')) || 4;
   
+
 
   try {
     const sql = neon(`${process.env.DATABASE_URL}`);
