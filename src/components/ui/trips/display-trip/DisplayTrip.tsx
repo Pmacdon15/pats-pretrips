@@ -4,6 +4,7 @@ import Message from '@/components/ui/message/Message';
 import Link from 'next/link';
 import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm"
 import { useAddDefectOnRoute } from '@/hooks/mutations/mutations';
+import { BackLink } from '../../links/back-home-button';
 
 export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripId: number, driverEmail: string, driverName: string }) {
 
@@ -19,9 +20,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     return (
         <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm shadow-sm">
 
-            <Link 
-            className='border w-fit p-2 rounded-sm'
-            href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
+            <BackLink driverEmail={driverEmail} />
 
             <div className="w-full rounded-sm p-4 bg-[var(--color-background)] shadow-xl">
                 Driver Name: {driverName}<br />
