@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BackLink } from "../links/back-home-button";
 
 export default function Message({ message, driverEmail }: { message: string, driverEmail?: string }) {

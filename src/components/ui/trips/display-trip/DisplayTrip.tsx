@@ -1,7 +1,6 @@
 'use client'
 import { useGetTrip } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message';
-import Link from 'next/link';
 import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm"
 import { useAddDefectOnRoute } from '@/hooks/mutations/mutations';
 import { BackLink } from '../../links/back-home-button';
