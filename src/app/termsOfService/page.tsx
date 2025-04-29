@@ -1,5 +1,4 @@
 import { Disclaimer } from "@/components/ui/disclaimer/disclaimer";
-import GoHomeButton from "@/components/ui/go-home-button/GoHomeButton";
 
 export default function Page() {
     return (
