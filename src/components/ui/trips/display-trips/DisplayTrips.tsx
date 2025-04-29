@@ -21,7 +21,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
     if (isErrorLoadingCurrentTrips || isErrorLoadingPastTrips) return <Message message={"Error Loading"} />;
 
     return (
-        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
+        <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm shadow-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
             </div>
@@ -35,7 +35,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
                     setPage={setPage}
                 />
             )}
-            <table className="w-full border round-sm shadow-sm">
+            <table className="w-full border rounded-sm overflow-hidden shadow-sm">
                 <TableHead />
                 <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
             </table>
@@ -69,7 +69,7 @@ function TripSwitcher({
     setPage,
 }: TripSwitcherProps) {
     return (
-        <div className='flex border gap-2 p-2 justify-end rounded-sm'>
+        <div className='flex bg-[var(--color-background)]  gap-2 p-2 justify-end rounded-sm'>
             {selectedTripsName === 'Past' && (
                 <button
                     className="cursor-pointer"
@@ -133,7 +133,7 @@ function Pagination({ page, setPage, hasMorePastTrips }: PaginationProps) {
 function TableHead() {
     return (
         <thead>
-            <tr className="border-b round-sm">
+            <tr className="bg-[var(--color-background)] border-b rounded-sm">
                 <th className="text-left p-2">Date</th>
                 <th className="text-left p-2">Truck</th>
                 <th className="text-left p-2">Trailer</th>
@@ -145,9 +145,9 @@ function TableHead() {
 
 function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
     return (
-        <tbody>
+        <tbody className='rounded-sm'>
             {selectedTrips?.map((trip: Trip, index: number) => (
-                <tr key={index} className="border-b">
+                <tr key={index} className="border">
                     <td className="p-2 w-2/6">
                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
                             {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}

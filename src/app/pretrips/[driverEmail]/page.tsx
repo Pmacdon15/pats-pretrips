@@ -14,7 +14,7 @@ export default async function Page({
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
 
     return (
-        <div className="flex flex-col items-center justify-items-center min-h-screen gap-4 p-4  ">            
+        <div className="flex flex-col items-center  justify-items-center min-h-screen gap-4 p-4  ">            
             <AddTrip driverEmail={uriDecodedDriverEmail} />
             <DisplayTrips driverEmail={uriDecodedDriverEmail} />
             <Authbutton session={session} />

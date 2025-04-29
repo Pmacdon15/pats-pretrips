@@ -34,7 +34,7 @@ const defects = [
     "Other"
 ]
 
-export function AddDefect({ requiered }: { requiered: boolean }) {
+export function AddDefect({ required }: { required: boolean }) {
     const defectSelectRef = useRef<HTMLSelectElement>(null);
     const defectsRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,7 +55,7 @@ export function AddDefect({ requiered }: { requiered: boolean }) {
             <div className="flex gap-4 w-full">
                 <select
                     ref={defectSelectRef}
-                    className="border p-4 rounded-sm w-5/6 md:w-full [&>option]:bg-gradient-to-b from-[#1e3a8a] to-[#259feb]"
+                    className="border p-4 rounded-sm w-5/6 md:w-full"
                     name="input-defect"
                 >
                     <option className=" text-black" value="">Select Defect</option>
@@ -70,15 +70,15 @@ export function AddDefect({ requiered }: { requiered: boolean }) {
                     }} />
                 </div>
             </div>
-            <textarea required={requiered}  className="border rounded-sm p-4" readOnly={true} ref={defectsRef} name='defects' placeholder="Defects to Submit" />
-            <textarea required={requiered} className="border rounded-sm p-4" name='remarks' placeholder="Remarks" />
+            <textarea required={required} className="border rounded-sm p-4" readOnly={true} ref={defectsRef} name='defects' placeholder="Defects to Submit" />
+            <textarea required={required} className="border rounded-sm p-4" name='remarks' placeholder="Remarks" />
         </>
     )
 }
 
 function ButtonNormal({ text, onClick, }: { text: string, onClick: (e: React.MouseEvent) => void }) {
     return (
-        <button className={`border p-4 rounded-lg bg-green-400  hover:bg-green-600`} onClick={onClick}>
+        <button className={`p-4 rounded-lg bg-green-500  hover:bg-green-600`} onClick={onClick}>
             {text}
         </button>
     )
