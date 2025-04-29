@@ -14,7 +14,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
     const { data } = useGetAddress(location?.latitude ?? 0, location?.longitude ?? 0, driverEmail) as { data: AddressResponse };
 
     return (
-        <div className="flex flex-col md:flex-row w-full md:w-4/6 p-4 gap-4 border rounded-sm justify-between shadow-sm">
+        <div className="flex flex-col md:flex-row w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm justify-between shadow-sm">
             <div className="flex flex-col w-full">
                 <form
                     action={(formData: FormData) => { mutate({ driverEmail, formData }); setShowForm(false) }}
@@ -35,8 +35,8 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
                         <Input name="trailer-plate" placeHolder='Trailer Plate' />
                         <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
                     </div>
-                    <AddDefect requiered={false} />
-                    <button className={`border p-4 rounded-lg bg-green-400  hover:bg-green-600`} >Submit</button>
+                    <AddDefect required={false} />
+                    <button className={`p-4 rounded-lg bg-green-500  hover:bg-green-600 shadow-lg`} >Submit</button>
                 </form>
             </div>
             <div className="flex flex-col justify-end w-full md:w-1/6">
@@ -48,7 +48,7 @@ export default function AddTrip({ driverEmail }: { driverEmail: string }) {
 
 function ButtonToggle({ text, toggleText, onClick, toggle }: { text: string, toggleText: string, onClick: () => void, toggle: boolean }) {
     return (
-        <button className={`border p-4 rounded-lg  ${toggle ? 'bg-red-400 hover:bg-red-600' : 'bg-green-400  hover:bg-green-600'}`} onClick={onClick}>
+        <button className={`p-4 rounded-lg  ${toggle ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500  hover:bg-green-600'} shadow-lg`} onClick={onClick}>
             {toggle ? toggleText : text}
         </button>
     )

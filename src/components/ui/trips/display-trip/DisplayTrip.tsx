@@ -17,77 +17,77 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     if (isErrorLoadingTrip) return <Message message={"Error Loading"} driverEmail={driverEmail} />
 
     return (
-        <div className="flex flex-col w-full md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
+        <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 border rounded-sm shadow-sm">
 
-            <Link href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
+            <Link 
+            className='border w-fit p-2 rounded-sm'
+            href={`/pretrips/${driverEmail}`}>Back to Trips</Link>
 
-            <div className="w-full border round-sm p-4">
+            <div className="w-full rounded-sm p-4 bg-[var(--color-background)] shadow-xl">
                 Driver Name: {driverName}<br />
                 Driver Email: {data.driveremail}
             </div>
 
-            <table className="w-full border round-sm p-4">
+            <table className="w-full border rounded-sm p-4 overflow-hidden">
                 <thead>
                     <tr className="border-b">
-                        <th className="text-left p-2 w-1/3">Category</th>
-                        <th className="text-left p-2 w-1/3">Value</th>
+                        <th className="text-left p-2 w-1/3 rounded-sm">Category</th>
+                        <th className="text-left p-2 w-1/3 rounded-sm">Value</th>
                     </tr>
                 </thead>
                 <tbody className="rounded-sm">
-                <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Carrier</td>
-                        <td className="text-left p-2 w-1/3">{data.carrier}</td>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3 rounded-sm">Carrier</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.carrier}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Carrier Address</td>
-                        <td className="text-left p-2 w-1/3">{data.carrieraddress}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Carrier Address</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.carrieraddress}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Inspection Address</td>
-                        <td className="text-left p-2 w-1/3">{data.inspectionaddress}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Inspection Address</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.inspectionaddress}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Truck Plate</td>
-                        <td className="text-left p-2 w-1/3">{data.truckplate}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Truck Plate</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.truckplate}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Trailer Plate A</td>
-                        <td className="text-left p-2 w-1/3">{data.trailerplatea}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Trailer Plate A</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.trailerplatea}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Trailer Plate B</td>
-                        <td className="text-left p-2 w-1/3">{data.trailerplateb}</td>
-                    </tr>
-                    <tr className="border-b rounded-sm">
-                        <td className="text-left p-2 w-1/3">Make</td>
-                        <td className="text-left p-2 w-1/3">{data.make}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Trailer Plate B</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.trailerplateb}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Model</td>
-                        <td className="text-left p-2 w-1/3">{data.model}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Make</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.make}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Odometer</td>
-                        <td className="text-left p-2 w-1/3">{data.odometer}</td>
-                    </tr>
-                
-                    <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Defects</td>
-                        <td className="text-left p-2 w-1/3">{data.defects}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Model</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.model}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Remarks</td>
-                        <td className="text-left p-2 w-1/3">{data.remarks}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Odometer</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.odometer}</td>
                     </tr>
                     <tr className="border-b">
-                        <td className="text-left p-2 w-1/3">Inspection Date</td>
-                        <td className="text-left p-2 w-1/3">{new Date(data.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">Defects</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.defects}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3 rounded-sm">Remarks</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{data.remarks}</td>
+                    </tr>
+                    <tr className="border-b">
+                        <td className="text-left p-2 w-1/3 rounded-sm">Inspection Date</td>
+                        <td className="text-left p-2 w-1/3 rounded-sm">{new Date(data.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}</td>
                     </tr>
                 </tbody>
-
             </table>
             {data?.date && new Date(data.date) > twentyFourHoursAgo &&
-                <AddDefectForm tripId={Number(data.tripid)} driverEmail={driverEmail}  isError={isErrorMutating} isPendingChange={isPendingChange} formAction={mutate} />
+                <AddDefectForm tripId={Number(data.tripid)} driverEmail={driverEmail} isError={isErrorMutating} isPendingChange={isPendingChange} formAction={mutate} />
             }
         </div>
     )

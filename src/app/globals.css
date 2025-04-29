@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --foreground: #ededed;
-  --background: linear-gradient(to bottom, #1e3a8a, #259feb);
+  --foreground: #000000;
+  --background: #020f1a5e;
+  --primary: #e0e3e3;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground: #ededed;
-    --background: linear-gradient(to bottom, #1e3a8a, #259feb);
+    --foreground: #000000;
+    --background: #020f1a5e;
+    --primary: #e0e3e3;
   }
 }
 
