@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
       SELECT *
       FROM PTTrips
       WHERE driverEmail = ${uriDecodedDriverEmail}
+      AND date >= NOW() - INTERVAL '24 hours'
       ORDER BY date DESC
       LIMIT ${limit}
       OFFSET ${offset}
