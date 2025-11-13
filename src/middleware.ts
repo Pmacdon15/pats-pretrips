@@ -1,27 +1,11 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { withAuth } from "@kinde-oss/kinde-auth-nextjs/middleware";
+export default withAuth(async function middleware() {}, {
+	
+	publicPaths: ["/"],
+});
 
-const protectedRoutes = ['/api/trip', '/pretrips', '/pretrip'];
-
-export default async function middleware(request: NextRequest) {
-    const session = await auth();
-    const { pathname } = request.nextUrl;
-
-    const isProtected = protectedRoutes.some((route) =>
-        pathname.startsWith(route)
-    );
-
-    if (isProtected && !session) {
-        return NextResponse.redirect(new URL('/api/auth/signin', request.url));
-    }
-
-    if (isProtected && session?.user?.email) {
-        const emailRegex = new RegExp(`\\b${session.user.email}\\b`);
-        if (!emailRegex.test(pathname)) {
-            return NextResponse.redirect(new URL('/', request.url));
-        }
-    }
-
-    return NextResponse.next();
-}
+export const config = {
+	matcher: [
+		"/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+	],
+};
