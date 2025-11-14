@@ -1,46 +1,40 @@
 'use client'
 import Link from 'next/link'
 import { Trip } from '@/types/types'
-import { useGetPastTrips, useGetTrips } from '@/hooks/hooks'
-import Message from '@/components/ui/message/Message'
-import { useState, useEffect } from "react"
-import {useKindeBrowserClient} from "@kinde-oss/kinde-auth-nextjs";
+import { useGetPastTrips } from '@/hooks/hooks'
+import { useState, useEffect, use, Activity } from "react"
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 
-export default function DisplayTrips() {
+export default function DisplayTrips({ currentTripsComponent, pastTripsComponent}:{ currentTripsComponent:React.ReactNode,pastTripsComponent:React.ReactNode}) {
     const {user}= useKindeBrowserClient()
     const [page, setPage] = useState(1);
-    const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');
+    const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');   
 
-    const { data: currentTrips, isPending: isPendingCurrent, isError: isErrorLoadingCurrentTrips } = useGetTrips(user?.email||"");
+   
     const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
 
     const pastTrips = pastTripsData?.pastTrips;
     const hasMorePastTrips = pastTripsData?.hasMore;
 
-    const { selectedTrips, setSelectedTrips } = useSelectedTrips(currentTrips, pastTrips, selectedTripsName);
-
-    if (isPendingCurrent || isPendingPast) return <Message message={"Loading......."} />;
-    if (isErrorLoadingCurrentTrips || isErrorLoadingPastTrips) return <Message message={"Error Loading"} />;
+     
 
     return (
         <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm shadow-sm">
             <div className='flex justify-between items-center'>
                 <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
-            </div>
-            {pastTrips && pastTrips.length > 0 && currentTrips && (
+            </div>            
                 <TripSwitcher
                     selectedTripsName={selectedTripsName}
-                    setSelectedTrips={setSelectedTrips}
                     setSelectedTripsName={setSelectedTripsName}
-                    currentTrips={currentTrips}
-                    pastTrips={pastTrips}
-                    setPage={setPage}
-                />
-            )}
-            <table className="w-full border rounded-sm overflow-hidden shadow-sm">
-                <TableHead />
-                <TableBody selectedTrips={selectedTrips} driverEmail={user?.email||""} />
-            </table>
+                    setPage={setPage} 
+                 />
+
+            <Activity mode={selectedTripsName ==="Current"?"visible":"hidden"}>
+                {currentTripsComponent}                
+            </Activity>
+             <Activity mode={selectedTripsName !=="Current"?"visible":"hidden"}>
+                {pastTripsComponent}                
+            </Activity>
             {selectedTripsName === "Past" && (
                 <Pagination
                     page={page}
@@ -54,20 +48,14 @@ export default function DisplayTrips() {
 
 
 interface TripSwitcherProps {
-    selectedTripsName: 'Current' | 'Past';
-    setSelectedTrips: React.Dispatch<React.SetStateAction<Trip[]>>; // A function to update selected trips
-    setSelectedTripsName: React.Dispatch<React.SetStateAction<'Current' | 'Past'>>; // Corrected type for setSelectedTripsName
-    currentTrips: Trip[]; // An array of current trips
-    pastTrips: Trip[]; // An array of past trips
+    selectedTripsName: 'Current' | 'Past';   
+    setSelectedTripsName: React.Dispatch<React.SetStateAction<'Current' | 'Past'>>; // Corrected type for setSelectedTripsName   
     setPage: React.Dispatch<React.SetStateAction<number>>; // A function to set the page number
 }
 
 function TripSwitcher({
-    selectedTripsName,
-    setSelectedTrips,
-    setSelectedTripsName,
-    currentTrips,
-    pastTrips,
+    selectedTripsName,  
+    setSelectedTripsName,    
     setPage,
 }: TripSwitcherProps) {
     return (
@@ -75,8 +63,7 @@ function TripSwitcher({
             {selectedTripsName === 'Past' && (
                 <button
                     className="cursor-pointer"
-                    onClick={() => {
-                        setSelectedTrips(currentTrips);
+                    onClick={() => {                        
                         setSelectedTripsName("Current");
                         setPage(1); // Reset page when switching
                     }}
@@ -84,12 +71,11 @@ function TripSwitcher({
                     View Current Trips
                 </button>
             )}
-            {selectedTripsName === 'Current' && pastTrips.length > 0 && (
+            {selectedTripsName === 'Current'  && (
                 <button
                     className="cursor-pointer"
                     onClick={() => {
-                        setSelectedTripsName("Past");
-                        setSelectedTrips(pastTrips);
+                        setSelectedTripsName("Past");                        
                         setPage(1); // Reset page when switching
                     }}
                 >

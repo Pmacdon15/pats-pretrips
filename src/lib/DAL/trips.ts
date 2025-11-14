@@ -1,7 +1,7 @@
 import { Trip } from "@/types/types";
 import { neon } from "@neondatabase/serverless";
 
-export async function fetchTrips(email: string | null | undefined) {
+export async function fetchCurrentTrips(email: string | null | undefined) {
   if (!email) {
     throw new Error("Email is required");
   }

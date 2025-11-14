@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+
 import DisplayTrip from "@/components/ui/trips/display-trip/DisplayTrip";
 
 export default async function Page({
@@ -6,8 +6,8 @@ export default async function Page({
 }: {
     params: Promise<{ tripId: number, driverEmail: string }>
 }) {
-    const session = await auth();
-    const driverName = session?.user?.name
+   
+    const driverName = "pmacdonald15@gmail.com"
 
     const { tripId, driverEmail } = await params;
     const uriDecodedDriverEmail = decodeURIComponent(driverEmail);

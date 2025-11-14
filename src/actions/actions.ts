@@ -1,7 +1,7 @@
 'use server'
-import { auth } from '@/auth';
+
 import { neon } from '@neondatabase/serverless';
-import { checkIsAuthorized } from './auth';
+
 import DOMPurify from 'isomorphic-dompurify';
 import { z } from 'zod'
 import { Trip } from '@/types/types';
@@ -55,9 +55,7 @@ const schemaAddDefects = z.object({
 
 export async function addOnRouteDefects(driverEmail: string, tripId: number, formData: FormData) {
 
-    const session = await auth();
-    await checkIsAuthorized(session?.user?.email, driverEmail)
-
+   
     const validatedFields = schemaAddDefects.safeParse({
         defects: formData.get("defects"),
         remarks: formData.get('remarks')
@@ -117,10 +115,7 @@ export async function addOnRouteDefects(driverEmail: string, tripId: number, for
 
 export async function addTrip(driverEmail: string, formData: FormData) {
 
-    const session = await auth();
-    await checkIsAuthorized(session?.user?.email, driverEmail)
-
-    const validatedFields = schemaAddTrip.safeParse({
+        const validatedFields = schemaAddTrip.safeParse({
         driveremail: formData.get("driveremail"),
         carrier: formData.get("carrier"),
         carrieraddress: formData.get("carrier-address"),
@@ -214,9 +209,7 @@ export async function addTrip(driverEmail: string, formData: FormData) {
 }
 
 export async function getAddress(lat: number, lng: number, driverEmail: string): Promise<object> {
-    const session = await auth();
-    await checkIsAuthorized(session?.user?.email, driverEmail)
-
+    
     const apiKey = process.env.REVERSE_GEOCODING_API_KEY;
     let data;
     try {
