@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
-import DisplayTripsFallback from '@/lib/components/ui/fallbacks/display-trips-fallback'
-import AddTripContainer from '@/lib/components/ui/trips/add-trip/addTripContainer'
-import DisplayTrips from '@/lib/components/ui/trips/display-trips/DisplayTrips'
-import TripsTable from '@/lib/components/ui/trips/display-trips/trips-table'
+import DisplayTripsFallback from '@/components/fallbacks/display-trips-fallback'
+import AddTripContainer from '@/components/trips/add-trip/addTripContainer'
+import DisplayTrips from '@/components/trips/display-trips/DisplayTrips'
+import TripsTable from '@/components/trips/display-trips/trips-table'
 import { fetchCurrentTrips, fetchPastTrips } from '@/lib/DAL/trips'
 
 export default function Page(props: PageProps<'/pretrips'>) {

@@ -1,13 +1,13 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { Suspense } from 'react'
-import AddDefectForm from '@/lib/components/ui/add-defect/add-defect-form/AddDefectForm'
-import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-fallback'
-import DisplayTrip from '@/lib/components/ui/trips/display-trip/DisplayTrip'
+import AddDefectForm from '@/components/add-defect/add-defect-form/AddDefectForm'
+import DisplayTripFallback from '@/components/fallbacks/display-trip-fallback'
+import DisplayTrip from '@/components/trips/display-trip/DisplayTrip'
 import {
 	DisplayTripTableBody,
 	DisplayTripTableHead,
-} from '@/lib/components/ui/trips/display-trip/displayTripTable'
-import PageHead from '@/lib/components/ui/trips/display-trip/page-head'
+} from '@/components/trips/display-trip/displayTripTable'
+import PageHead from '@/components/trips/display-trip/page-head'
 import { fetchTrip } from '@/lib/DAL/trips'
 
 export default function Page(props: PageProps<'/pretrip/[tripId]'>) {

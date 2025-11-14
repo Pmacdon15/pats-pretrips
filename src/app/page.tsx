@@ -1,7 +1,7 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import HomePageButtons from '@/lib/components/ui/home/home-page-buttons'
+import HomePageButtons from '@/components/home/home-page-buttons'
 
 export default function Home() {
 	const { isAuthenticated } = getKindeServerSession()
