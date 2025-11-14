@@ -5,7 +5,6 @@ import { AddDefect } from '@/components/ui/add-defect/AddDefect'
 import Input from '@/components/ui/input/Input'
 import { useGetAddress } from '@/hooks/hooks'
 import { useAddTrip } from '@/hooks/mutations/mutations'
-import type { AddressResponse } from '@/lib/types/types'
 
 export default function AddTrip() {
 	const { user } = useKindeBrowserClient()
@@ -15,11 +14,13 @@ export default function AddTrip() {
 	const [showForm, setShowForm] = useState(false)
 	const { mutate } = useAddTrip()
 	const { location } = useGetLocation()
-	const { data } = useGetAddress(
+	const { data: addressData } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
 		driverEmail || '',
-	) as { data: AddressResponse }
+	)
+	const formattedAddress =
+		addressData?.data?.features[0]?.properties?.formatted 
 
 	return (
 		<div className="flex w-full flex-col justify-between gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6 md:flex-row">
@@ -44,7 +45,7 @@ export default function AddTrip() {
 							required={true}
 						/>
 						<Input
-							defaultValue={data}
+							defaultValue={formattedAddress || ''}
 							name="inspection-address"
 							placeHolder="Inspection Address"
 							required={true}

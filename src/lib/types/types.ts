@@ -16,18 +16,16 @@ export interface Trip {
 }
 
 export interface AddressResponse {
-	data: {
-		features: {
-			properties: {
-				housenumber: string
-				street: string
-				country_code: string
-				county: string
-				state_code: string
-				formatted: string
-			}
-		}[]
-	}
+	features: {
+		properties: {
+			housenumber: string
+			street: string
+			country_code: string
+			county: string
+			state_code: string
+			formatted: string
+		}
+	}[]
 }
 
 export interface AddressComponent {

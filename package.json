@@ -17,6 +17,7 @@
 		"@kinde-oss/kinde-auth-nextjs": "^2.10.0",
 		"@neondatabase/serverless": "^1.0.0",
 		"@tanstack/react-query": "^5.71.5",
+		"babel-plugin-react-compiler": "^1.0.0",
 		"i": "^0.3.7",
 		"isomorphic-dompurify": "^2.23.0",
 		"next": "^16.0.3",

@@ -1,5 +1,3 @@
-import type { AddressResponse } from '@/lib/types/types'
-
 export default function Input({
 	name,
 	placeHolder,
@@ -12,13 +10,12 @@ export default function Input({
 	placeHolder: string
 	className?: string
 	required?: boolean
-	defaultValue?: AddressResponse
+	defaultValue?: string
 }) {
-	const address = defaultValue?.data?.features[0]?.properties
 	return (
 		<input
 			className={`w-full rounded-sm border p-4 ${className}`}
-			defaultValue={address ? `${address.formatted}` : ''}
+			defaultValue={defaultValue}
 			name={name}
 			placeholder={placeHolder}
 			required={!!required}
