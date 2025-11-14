@@ -1,5 +1,6 @@
 'use client'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Activity } from 'react'
 
 interface PaginationProps {
 	hasMorePastTrips: boolean | undefined
@@ -18,22 +19,29 @@ export function Pagination({ hasMorePastTrips }: PaginationProps) {
 	}
 
 	return (
-		<div className="mt-4 flex items-center justify-between">
-			<button
-				disabled={currentPage === 1}
-				onClick={() => handlePageChange(currentPage - 1)}
-				type="button"
-			>
-				Previous Page
-			</button>
-			<span>Page {currentPage}</span>
-			<button
-				disabled={!hasMorePastTrips}
-				onClick={() => handlePageChange(currentPage + 1)}
-				type="button"
-			>
-				Next Page
-			</button>
+		<div className="mt-4 grid grid-cols-3 items-center">
+			<div className="col-span-1">
+				<Activity mode={currentPage !== 1 ? 'visible' : 'hidden'}>
+					<button
+						disabled={currentPage === 1}
+						onClick={() => handlePageChange(currentPage - 1)}
+						type="button"
+					>
+						Previous Page
+					</button>
+				</Activity>
+			</div>
+			<span className="flex justify-center">Page {currentPage}</span>
+
+			<Activity mode={hasMorePastTrips ? 'visible' : 'hidden'}>
+				<button
+					disabled={!hasMorePastTrips}
+					onClick={() => handlePageChange(currentPage + 1)}
+					type="button"
+				>
+					Next Page
+				</button>
+			</Activity>
 		</div>
 	)
 }
