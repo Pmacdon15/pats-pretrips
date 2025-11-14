@@ -1,4 +1,6 @@
 'use client'
+
+import { useRouter } from 'next/navigation'
 import { Activity, useState } from 'react'
 
 export default function DisplayTrips({
@@ -46,10 +48,13 @@ interface TripSwitcherProps {
 }
 
 //TODO: Set page to 0 on page switch
+
 function TripSwitcher({
 	selectedTripsName,
 	setSelectedTripsName,
 }: TripSwitcherProps) {
+	const router = useRouter()
+
 	return (
 		<div className="flex justify-end gap-2 rounded-sm bg-[var(--color-background)] p-2">
 			{selectedTripsName === 'Past' && (
@@ -57,6 +62,7 @@ function TripSwitcher({
 					className="cursor-pointer"
 					onClick={() => {
 						setSelectedTripsName('Current')
+						router.replace('/pretrips')
 					}}
 					type="button"
 				>
@@ -68,6 +74,7 @@ function TripSwitcher({
 					className="cursor-pointer"
 					onClick={() => {
 						setSelectedTripsName('Past')
+						router.replace('/pretrips')
 					}}
 					type="button"
 				>
