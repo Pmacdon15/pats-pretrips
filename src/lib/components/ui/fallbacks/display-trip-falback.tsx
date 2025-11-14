@@ -9,9 +9,11 @@ export default function DisplayTripFallback() {
 
 			<table className="w-full overflow-hidden rounded-sm border p-4">
 				<TableHeadTrip />
-				<tr>
-					<td>Loading....</td>
-				</tr>
+				<tbody>
+					<tr>
+						<td>Loading....</td>
+					</tr>
+				</tbody>
 			</table>
 		</div>
 	)

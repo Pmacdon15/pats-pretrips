@@ -33,14 +33,13 @@ export default function DisplayTrip({
 
 			{trip?.date && new Date(trip.date) > twentyFourHoursAgo && (
 				<AddDefectForm
-					driverEmail={user?.email || ''}					
+					driverEmail={user?.email || ''}
 					tripId={Number(trip.tripid)}
 				/>
 			)}
 		</div>
 	)
 }
-
 
 export function PageHead({
 	driverName,

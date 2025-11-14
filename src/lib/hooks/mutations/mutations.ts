@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { addOnRouteDefects, addTrip } from '@/lib/actions/actions'
 import { revalidatePathAction } from '@/lib/actions/revalidate-actions'
 
-export const useAddDefectOnRoute = (tripId: number, driverEmail: string) => {
+export const useAddDefectOnRoute = (tripId: number, _driverEmail: string) => {
 	return useMutation({
 		mutationFn: ({
 			formData,
