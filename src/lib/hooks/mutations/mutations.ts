@@ -36,17 +36,17 @@ export const useAddDefectOnRoute = (tripId: number, _driverEmail: string) => {
 }
 
 export const useAddTrip = (options?: {
-  onSuccess?: () => void
-  onError?: (error: unknown) => void
+	onSuccess?: () => void
+	onError?: (error: unknown) => void
 }) => {
-  return useMutation({
-    mutationFn: ({ data }: { data: z.infer<typeof schemaAddTripForm> }) => {
-      return addTrip(data)
-    },
-    onSuccess: () => {
-      options?.onSuccess?.()
-      revalidatePathAction("/pretrips")
-    },
-    onError: options?.onError,
-  })
+	return useMutation({
+		mutationFn: ({ data }: { data: z.infer<typeof schemaAddTripForm> }) => {
+			return addTrip(data)
+		},
+		onSuccess: () => {
+			options?.onSuccess?.()
+			revalidatePathAction('/pretrips')
+		},
+		onError: options?.onError,
+	})
 }

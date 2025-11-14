@@ -75,5 +75,5 @@ export interface ControlledTextAreaProps<T extends FieldValues> {
 	name: Path<T>
 	label: string
 	placeholder?: string
-	readOnly?:boolean
+	readOnly?: boolean
 }

@@ -1,7 +1,8 @@
 'use client'
-import { useRef, useState } from 'react'
-import type { Control } from 'react-hook-form'
+import { useState } from 'react'
+import { type Control, useFormContext } from 'react-hook-form'
 import type { z } from 'zod'
+import { ButtonNormal } from '@/components/buttons/normal-button'
 import {
 	Select,
 	SelectContent,
@@ -51,20 +52,19 @@ const defects = [
 
 export function AddDefect({ control }: AddDefectProps) {
 	const [selectedDefect, setSelectedDefect] = useState<string>('')
-	const defectsRef = useRef<HTMLTextAreaElement>(null)
+	const { setValue } = useFormContext()
 
 	const onDefectAdded = () => {
-		if (selectedDefect && defectsRef.current) {
-			const currentDefects = defectsRef.current.value
-			if (!currentDefects.includes(selectedDefect)) {
-				defectsRef.current.value = currentDefects
-					? `${currentDefects}, ${selectedDefect}`
-					: selectedDefect
-			}
+		if (selectedDefect) {
+			const currentDefects = control._formValues.defects
+			const newDefects = currentDefects
+				? `${currentDefects}, ${selectedDefect}`
+				: selectedDefect
+			setValue('defects', newDefects)
 		}
 	}
 	return (
-		<div className="flex flex-col w-full gap-4">
+		<div className="flex w-full flex-col gap-4">
 			<Select onValueChange={setSelectedDefect} value={selectedDefect}>
 				<SelectTrigger className="w-5/6 rounded-sm border p-4 md:w-full">
 					<SelectValue placeholder="Select Defect" />
@@ -96,27 +96,9 @@ export function AddDefect({ control }: AddDefectProps) {
 				<ControlledTextArea
 					control={control}
 					label="Remarks"
-					name="remarks"					
+					name="remarks"
 				/>
 			</div>
 		</div>
-	)
-}
-
-function ButtonNormal({
-	text,
-	onClick,
-}: {
-	text: string
-	onClick: (e: React.MouseEvent) => void
-}) {
-	return (
-		<button
-			className={`rounded-lg bg-green-500 p-4 hover:bg-green-600`}
-			onClick={onClick}
-			type="button"
-		>
-			{text}
-		</button>
 	)
 }
