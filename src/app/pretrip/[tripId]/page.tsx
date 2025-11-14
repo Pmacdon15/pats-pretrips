@@ -2,7 +2,7 @@
 
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { Suspense } from 'react'
-import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-falback'
+import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-fallback'
 import DisplayTrip from '@/lib/components/ui/trips/display-trip/DisplayTrip'
 import { fetchTrip } from '@/lib/DAL/trips'
 

@@ -1,4 +1,4 @@
-import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-falback'
+import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-fallback'
 
 export default function Loading() {
 	return (
