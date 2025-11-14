@@ -10,7 +10,7 @@ export default async function HomePageButtons({
 	return isLoggedIn ? (
 		<div>
 			<LogoutLink>Logout</LogoutLink>
-			<Link href={"/pretrips/driverEmail"}>PreTrips</Link>
+			<Link href={"/pretrips"}>PreTrips</Link>
 		</div>
 	) : (
 		<div className="flex gap-4">		

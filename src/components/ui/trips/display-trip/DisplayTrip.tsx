@@ -20,7 +20,7 @@ export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripI
     return (
         <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm shadow-sm">
 
-            <BackLink driverEmail={driverEmail} />
+            <BackLink  />
 
             <PageHead driverName={driverName} driverEmail={data.driveremail} />
 

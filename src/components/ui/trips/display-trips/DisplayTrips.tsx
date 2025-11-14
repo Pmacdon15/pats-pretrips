@@ -116,65 +116,65 @@ function Pagination({ page, setPage, hasMorePastTrips }: PaginationProps) {
     );
 }
 
-function TableHead() {
-    return (
-        <thead>
-            <tr className="bg-[var(--color-background)] border-b rounded-sm">
-                <th className="text-left p-2">Date</th>
-                <th className="text-left p-2">Truck</th>
-                <th className="text-left p-2">Trailer</th>
-                <th className="text-left p-2">Defects</th>
-            </tr>
-        </thead>
-    );
-}
+// function TableHead() {
+//     return (
+//         <thead>
+//             <tr className="bg-[var(--color-background)] border-b rounded-sm">
+//                 <th className="text-left p-2">Date</th>
+//                 <th className="text-left p-2">Truck</th>
+//                 <th className="text-left p-2">Trailer</th>
+//                 <th className="text-left p-2">Defects</th>
+//             </tr>
+//         </thead>
+//     );
+// }
 
-function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
-    return (
-        <tbody className='rounded-sm'>
-            {selectedTrips?.map((trip: Trip, index: number) => (
-                <tr key={index} className="border">
-                    <td className="p-2 w-2/6">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}
-                        </Link>
-                    </td>
-                    <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.truckplate}
-                        </Link>
-                    </td>
-                    <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.trailerplatea}
-                        </Link>
-                    </td>
-                    <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.defects ? trip.defects : 'No defects'}
-                        </Link>
-                    </td>
-                </tr>
-            ))}
-        </tbody>
-    );
-}
+// function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
+//     return (
+//         <tbody className='rounded-sm'>
+//             {selectedTrips?.map((trip: Trip, index: number) => (
+//                 <tr key={index} className="border">
+//                     <td className="p-2 w-2/6">
+//                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+//                             {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}
+//                         </Link>
+//                     </td>
+//                     <td className="p-2">
+//                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+//                             {trip.truckplate}
+//                         </Link>
+//                     </td>
+//                     <td className="p-2">
+//                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+//                             {trip.trailerplatea}
+//                         </Link>
+//                     </td>
+//                     <td className="p-2">
+//                         <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
+//                             {trip.defects ? trip.defects : 'No defects'}
+//                         </Link>
+//                     </td>
+//                 </tr>
+//             ))}
+//         </tbody>
+//     );
+// }
 
-function useSelectedTrips(
-    currentTrips: Trip[] | undefined,
-    pastTrips: Trip[] | undefined,
-    selectedTripsName: 'Current' | 'Past'
-) {
-    const [selectedTrips, setSelectedTrips] = useState<Trip[]>([]);
+// function useSelectedTrips(
+//     currentTrips: Trip[] | undefined,
+//     pastTrips: Trip[] | undefined,
+//     selectedTripsName: 'Current' | 'Past'
+// ) {
+//     const [selectedTrips, setSelectedTrips] = useState<Trip[]>([]);
 
-    useEffect(() => {
-        if (selectedTripsName === 'Current' && currentTrips) {
-            setSelectedTrips(currentTrips);
-        } else if (selectedTripsName === 'Past' && pastTrips) {
-            setSelectedTrips(pastTrips);
-        }
-    }, [selectedTripsName, currentTrips, pastTrips]);
+//     useEffect(() => {
+//         if (selectedTripsName === 'Current' && currentTrips) {
+//             setSelectedTrips(currentTrips);
+//         } else if (selectedTripsName === 'Past' && pastTrips) {
+//             setSelectedTrips(pastTrips);
+//         }
+//     }, [selectedTripsName, currentTrips, pastTrips]);
 
-    return { selectedTrips, setSelectedTrips };
-}
+//     return { selectedTrips, setSelectedTrips };
+// }
 

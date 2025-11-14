@@ -3,14 +3,13 @@ import { Trip } from "@/lib/types/types";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 
-export default function TripsTable({tripsPromise, driverEmailPromise}:{tripsPromise:Promise<{trips:Trip[], hasMore:boolean}>, driverEmailPromise:Promise<string>}){
+export default function TripsTable({tripsPromise, }:{tripsPromise:Promise<{trips:Trip[], hasMore:boolean}>}){
     const trips = use(tripsPromise)
-    const driverEmail = use(driverEmailPromise)
-
+    
     return (
         <table className="w-full border rounded-sm overflow-hidden shadow-sm">
             <TableHead />
-            <TableBody selectedTrips={trips.trips} driverEmail={driverEmail} />
+            <TableBody selectedTrips={trips.trips}  />
         </table>
     )
 }
@@ -28,11 +27,11 @@ function TableHead() {
     );
 }
 
-function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
+function TableBody({ selectedTrips }: { selectedTrips: Trip[] }) {
     const router = useRouter();
 
     const handleRowClick = (tripId: string) => {
-        router.push(`/pretrip/${tripId}/${driverEmail}`);
+        router.push(`/pretrip/${tripId}`);
     };
 
     return (

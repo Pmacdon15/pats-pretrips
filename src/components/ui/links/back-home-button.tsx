@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-export function BackLink({ driverEmail }: { driverEmail: string }) {
+export function BackLink() {
     return (
         <Link
             className='border w-fit p-2 rounded-sm'
-            href={`/pretrips/${driverEmail}`}>
+            href={`/pretrips`}>
             Back to Trips
         </Link>
     )

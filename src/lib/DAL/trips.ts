@@ -1,11 +1,17 @@
 import { Trip } from "@/lib/types/types";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { neon } from "@neondatabase/serverless";
 
-export async function fetchCurrentTrips(
-  email: string | null | undefined,
+export async function fetchCurrentTrips(  
   page: number = 1,
   limit: number = 7,
 ) {
+
+  const {getUser} = getKindeServerSession();
+  const user = await getUser();
+
+  const email = user?.email
+
   if (!email) {
     throw new Error("Email is required");
   }
@@ -39,10 +45,14 @@ export async function fetchCurrentTrips(
 }
 
 export async function fetchPastTrips(
-  email: string | null | undefined,
   page: number = 1,
   limit: number = 7,
 ) {
+  const {getUser} = getKindeServerSession();
+  const user = await getUser();
+
+  const email = user?.email
+  
   if (!email) {
     throw new Error("Email is required");
   }

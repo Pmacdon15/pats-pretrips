@@ -20,15 +20,14 @@ export const useAddDefectOnRoute = (tripId: number, driverEmail: string) => {
     });
 };
 
-export const useAddTrip = (driverEmail: string) => {
-    const queryClient = useQueryClient();
+export const useAddTrip = () => {
     return useMutation({
         mutationFn: ({ formData, driverEmail }: { formData: FormData, driverEmail: string }) => {
             const bindWithDriverEmail = addTrip.bind(null, driverEmail);
             return bindWithDriverEmail(formData);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['trips', driverEmail] });
+           
         },
         onError: (error) => {
             console.error('Mutation error:', error);

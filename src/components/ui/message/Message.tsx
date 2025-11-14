@@ -5,7 +5,7 @@ export default function Message({ message, driverEmail }: { message: string, dri
         <div className="w-full md:w-4/6 p-8 gap-8 rounded-sm bg-[var(--color-primary)]">
             {driverEmail &&
                 <div className="my-4">
-                    <BackLink driverEmail={driverEmail} />
+                    <BackLink  />
                 </div>
             }
             <h1 className="text-2xl">{message}</h1>

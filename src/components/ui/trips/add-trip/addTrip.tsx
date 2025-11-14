@@ -1,23 +1,27 @@
 'use client'
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { AddDefect } from "@/components/ui/add-defect/AddDefect";
 import Input from '@/components/ui/input/Input';
 import { useAddTrip } from '@/hooks/mutations/mutations';
 import { useGetAddress } from "@/hooks/hooks";
 import { AddressResponse } from "@/lib/types/types";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
-export default function AddTrip({ driverEmail }: { driverEmail: string }) {
+export default function AddTrip() {
+    const {user} = useKindeBrowserClient();
+    
+    const driverEmail = user?.email
+    
     const [showForm, setShowForm] = useState(false);
-    const { mutate } = useAddTrip(driverEmail);
-
+    const { mutate } = useAddTrip()
     const { location } = useGetLocation();
-    const { data } = useGetAddress(location?.latitude ?? 0, location?.longitude ?? 0, driverEmail) as { data: AddressResponse };
+    const { data } = useGetAddress(location?.latitude ?? 0, location?.longitude ?? 0, driverEmail||"") as { data: AddressResponse };
 
     return (
         <div className="flex flex-col md:flex-row w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm justify-between shadow-sm">
             <div className="flex flex-col w-full">
                 <form
-                    action={(formData: FormData) => { mutate({ driverEmail, formData }); setShowForm(false) }}
+                    action={(formData: FormData) => { mutate({ driverEmail:String(driverEmail) , formData }); setShowForm(false) }}
                     className={`flex flex-col gap-4 w-full ${showForm ? 'block' : 'hidden'}`}>
                     <h1 className="text-2xl">Create a Trip</h1>
                     <div className='flex flex-col w-full gap-4'>
