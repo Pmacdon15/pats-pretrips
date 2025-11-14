@@ -1,5 +1,6 @@
 'use client'
 import { Activity, useEffect, useState } from 'react'
+import { ButtonToggle } from '@/components/buttons/toggle-button'
 import AddTripForm from '../../forms/add-a-trip-form'
 
 export default function AddTripContainer() {
@@ -21,28 +22,6 @@ export default function AddTripContainer() {
 				></ButtonToggle>
 			</div>
 		</div>
-	)
-}
-
-function ButtonToggle({
-	text,
-	toggleText,
-	onClick,
-	toggle,
-}: {
-	text: string
-	toggleText: string
-	onClick: () => void
-	toggle: boolean
-}) {
-	return (
-		<button
-			className={`rounded-lg p-4 ${toggle ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} shadow-lg`}
-			onClick={onClick}
-			type="button"
-		>
-			{toggle ? toggleText : text}
-		</button>
 	)
 }
 

@@ -1,6 +1,8 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs'
+import { CircleX } from 'lucide-react'
+import { Activity, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type * as z from 'zod'
@@ -9,6 +11,7 @@ import { useAddTrip } from '@/lib/hooks/mutations/mutations'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../add-defect/AddDefect'
 import { useGetLocation } from '../trips/add-trip/addTripContainer'
+import { Button } from '../ui/button'
 import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
 //TODO REMOVE THIS EMAIL ITS UNNEEDED
@@ -68,8 +71,12 @@ export default function AddTripForm({
 		mutate({ data })
 	}
 
+	const [defects, setDefects] = useState('')
 	const handleSelectDefect = (defect: string) => {
-		form.setValue('defects', `${defect}" ," ${form.getValues().defects}`)
+		if (defect !== '') {
+			form.setValue('defects', `${defect}, ${form.getValues().defects}`)
+			setDefects(`${defect}, ${form.getValues().defects}`)
+		}
 	}
 
 	return (
@@ -137,12 +144,29 @@ export default function AddTripForm({
 				/>
 			</div>
 			<AddDefect handleSelectDefect={handleSelectDefect}>
-				<ControlledTextArea
-					control={form.control}
-					label="Defects"
-					name="defects"
-					readOnly
-				/>
+				<div className="relative">
+					<Activity mode={defects === '' ? 'hidden' : 'visible'}>
+						<Button
+							className="absolute top-8 right-0"
+							onClick={() => {
+								form.setValue('defects', '')
+								setDefects('')
+							}}
+							size={'icon-lg'}
+							type="button"
+							variant={'ghost'}
+						>
+							<CircleX />
+						</Button>
+					</Activity>
+					<ControlledTextArea
+						control={form.control}
+						label="Defects"
+						name="defects"
+						readOnly
+					/>
+				</div>
+
 				<ControlledTextArea
 					control={form.control}
 					label="Remarks"
@@ -150,12 +174,14 @@ export default function AddTripForm({
 				/>
 			</AddDefect>
 
-			<button
+			<Button
 				className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
+				size={'lg'}
 				type="submit"
+				variant={'outline'}
 			>
 				Submit
-			</button>
+			</Button>
 		</form>
 	)
 }

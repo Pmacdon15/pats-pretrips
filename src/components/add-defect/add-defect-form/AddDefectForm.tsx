@@ -1,9 +1,11 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { use } from 'react'
+import { CircleX } from 'lucide-react'
+import { Activity, use, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type z from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
+import { Button } from '@/components/ui/button'
 import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
@@ -29,11 +31,16 @@ export default function AddDefectForm({
 
 	const { mutate, isError, isPending } = useAddDefectOnRoute(Number(tripId))
 
+	const [defects, setDefects] = useState('')
+
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
 	if (trip?.date && new Date(trip.date) < twentyFourHoursAgo) return null
 
 	const handleSelectDefect = (defect: string) => {
-		form.setValue('defects', `${defect}, ${form.getValues().defects}`)
+		if (defect !== '') {
+			form.setValue('defects', `${defect}, ${form.getValues().defects}`)
+			setDefects(`${defect}, ${form.getValues().defects}`)
+		}
 	}
 
 	const onSubmit = (data: z.infer<typeof schemaAddDefects>) => {
@@ -51,12 +58,29 @@ export default function AddDefectForm({
 		>
 			{' '}
 			<AddDefect handleSelectDefect={handleSelectDefect}>
-				<ControlledTextArea
-					control={form.control}
-					label="Defects"
-					name="defects"
-					readOnly
-				/>
+				<div className="relative">
+					<Activity mode={defects === '' ? 'hidden' : 'visible'}>
+						<Button
+							className="absolute top-8 right-0"
+							onClick={() => {
+								form.setValue('defects', '')
+								setDefects('')
+							}}
+							size={'icon-lg'}
+							type="button"
+							variant={'ghost'}
+						>
+							<CircleX />
+						</Button>
+					</Activity>
+					<ControlledTextArea
+						control={form.control}
+						label="Defects"
+						name="defects"
+						readOnly
+					/>
+				</div>
+
 				<ControlledTextArea
 					control={form.control}
 					label="Remarks"
@@ -69,13 +93,15 @@ export default function AddDefectForm({
 				</div>
 			)}
 			<div className="flex w-full justify-center">
-				<button
-					className={`w-full rounded-lg bg-green-500 p-4 hover:bg-green-600 md:w-3/6`}
+				<Button
+					className={`rounded-lg bg-green-500 p-4 hover:bg-green-600`}
 					disabled={isPending}
+					size={'lg'}
 					type="submit"
+					variant={'outline'}
 				>
 					Add on Route Defects
-				</button>
+				</Button>
 			</div>
 		</form>
 	)
