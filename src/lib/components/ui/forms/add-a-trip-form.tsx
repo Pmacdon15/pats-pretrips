@@ -11,7 +11,11 @@ import { AddDefect } from '../add-defect/AddDefect'
 import { useGetLocation } from '../trips/add-trip/addTripContainer'
 import { ControlledTextInput } from './controlled-text-input'
 //TODO REMOVE THIS EMAIL ITS UNNEEDED
-export default function AddTripForm() {
+export default function AddTripForm({
+	setShowForm,
+}: {
+	setShowForm: (value: boolean) => void
+}) {
 	const { user } = useKindeBrowserClient()
 
 	const driverEmail = user?.email
@@ -22,6 +26,7 @@ export default function AddTripForm() {
 				description: 'Your message has been sent to Contractor Chris!',
 			})
 			form.reset()
+			setShowForm(false)
 		},
 		onError: (error) => {
 			toast.error('Error Sending Trip', {
@@ -46,7 +51,7 @@ export default function AddTripForm() {
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
-			inspectionAddress: formattedAddress,
+			inspectionAddress: '',
 			make: '',
 			model: '',
 			odometer: 0,
@@ -84,6 +89,7 @@ export default function AddTripForm() {
 				/>
 				<ControlledTextInput
 					control={form.control}
+					defaultVaule={formattedAddress}
 					label="Inspection Address"
 					name="inspectionAddress"
 					placeholder="123 North N St Calgary Ab"
@@ -95,7 +101,7 @@ export default function AddTripForm() {
 					label="Make"
 					name="make"
 					placeholder="Make of vehicle"
-				/>			
+				/>
 				<ControlledTextInput
 					control={form.control}
 					label="Model"
@@ -106,7 +112,7 @@ export default function AddTripForm() {
 					control={form.control}
 					label="Odometer"
 					name="odometer"
-					type='number'
+					type="number"
 				/>
 			</div>
 			<div className="flex w-full gap-4">

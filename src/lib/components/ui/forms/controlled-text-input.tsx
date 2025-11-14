@@ -17,6 +17,7 @@ interface ControlledTextInputProps<T extends FieldValues> {
 	label: string
 	placeholder?: string
 	type?: 'number'
+	defaultValue: string
 }
 
 export function ControlledTextInput<T extends FieldValues>({
@@ -25,6 +26,7 @@ export function ControlledTextInput<T extends FieldValues>({
 	label,
 	placeholder,
 	type,
+	defaultValue,
 }: ControlledTextInputProps<T>) {
 	const id = `form-get-a-quote-${name}`
 	return (
@@ -39,6 +41,7 @@ export function ControlledTextInput<T extends FieldValues>({
 							{...field}
 							aria-invalid={fieldState.invalid}
 							autoComplete="off"
+							defaultValue={defaultValue}
 							id={id}
 							onChange={(e) => {
 								if (type === 'number') {

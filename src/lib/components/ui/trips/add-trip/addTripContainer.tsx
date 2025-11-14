@@ -9,7 +9,7 @@ export default function AddTripContainer() {
 		<div className="flex w-full flex-col justify-between gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6 md:flex-row">
 			<div className="flex w-full flex-col">
 				<Activity mode={showForm ? 'visible' : 'hidden'}>
-					<AddTripForm />
+					<AddTripForm setShowForm={setShowForm} />
 				</Activity>
 			</div>
 			<div className="flex w-full flex-col justify-end md:w-1/6">
