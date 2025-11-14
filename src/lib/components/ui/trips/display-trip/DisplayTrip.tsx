@@ -1,70 +1,53 @@
 'use client'
-
-import { useGetTrip } from '@/lib/hooks/hooks'
-import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
+import type { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
+import { use } from 'react'
 import type { Trip } from '@/lib/types/types'
-import { BackLink } from '../../links/back-home-button'
-import Message from '../../message/Message'
 import AddDefectForm from '../../add-defect/add-defect-form/AddDefectForm'
+import { BackLink } from '../../links/back-home-button'
 
 export default function DisplayTrip({
-	tripId,
-	driverEmail,
-	driverName,
+	tripPromise,
+	userPromise,
 }: {
-	tripId: number
-	driverEmail: string
-	driverName: string
+	tripPromise: Promise<Trip>
+	userPromise: Promise<KindeUser<Record<string, string>> | null>
 }) {
-	const {
-		data,
-		isPending,
-		isError: isErrorLoadingTrip,
-	} = useGetTrip(tripId, driverEmail)
-	// This mutate is created on this component and passed the the AddDefectForm so that the query client matches and then there is no need for a call back
-	const {
-		mutate,
-		isError: isErrorMutating,
-		isPending: isPendingChange,
-	} = useAddDefectOnRoute(tripId, driverEmail)
+	const trip = use(tripPromise)
+	const user = use(userPromise)
 
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
-	if (isPending)
-		return <Message driverEmail={driverEmail} message={'Loading.......'} />
-	if (isErrorLoadingTrip)
-		return <Message driverEmail={driverEmail} message={'Error Loading'} />
 
 	return (
 		<div className="flex w-full flex-col gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6">
 			<BackLink />
 
-			<PageHead driverEmail={data.driveremail} driverName={driverName} />
+			<PageHead
+				driverEmail={user?.email || ''}
+				driverName={user?.given_name || ''}
+			/>
 
 			<table className="w-full overflow-hidden rounded-sm border p-4">
-				<TableHead />
-				<TableBody data={data} />
+				<TableHeadTrip />
+				<TableBody data={trip} />
 			</table>
 
-			{data?.date && new Date(data.date) > twentyFourHoursAgo && (
+			{trip?.date && new Date(trip.date) > twentyFourHoursAgo && (
 				<AddDefectForm
-					driverEmail={driverEmail}
-					formAction={mutate}
-					isError={isErrorMutating}
-					isPendingChange={isPendingChange}
-					tripId={Number(data.tripid)}
+					driverEmail={user?.email || ''}					
+					tripId={Number(trip.tripid)}
 				/>
 			)}
 		</div>
 	)
 }
 
-function PageHead({
+
+export function PageHead({
 	driverName,
 	driverEmail,
 }: {
-	driverName: string
-	driverEmail: string
+	driverName?: string
+	driverEmail?: string
 }) {
 	return (
 		<div className="w-full rounded-sm bg-[var(--color-background)] p-4 shadow-xl">
@@ -75,7 +58,7 @@ function PageHead({
 	)
 }
 
-function TableHead() {
+export function TableHeadTrip() {
 	return (
 		<thead>
 			<tr className="border-b">

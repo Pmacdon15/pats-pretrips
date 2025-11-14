@@ -1,32 +1,23 @@
-import { AddDefect } from "../AddDefect"
-
+import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
+import { AddDefect } from '../AddDefect'
 
 export default function AddDefectForm({
 	tripId,
 	driverEmail,
-	isError,
-	isPendingChange,
-	formAction,
 }: {
 	tripId: number
 	driverEmail: string
-	isError: boolean
-	isPendingChange: boolean
-	formAction: ({
-		driverEmail,
-		tripId,
-		formData,
-	}: {
-		driverEmail: string
-		tripId: number
-		formData: FormData
-	}) => void
 }) {
+	const { mutate, isError, isPending } = useAddDefectOnRoute(
+		tripId,
+		driverEmail,
+	)
 	return (
 		<form
-			action={(formData: FormData) =>
-				formAction({ driverEmail, tripId, formData })
-			}
+			action={(formData: FormData) => {
+				mutate({ driverEmail, tripId, formData })
+				console.log('Pressed')
+			}}
 			className="flex w-full flex-col gap-4"
 		>
 			<AddDefect required={true} />
@@ -38,8 +29,8 @@ export default function AddDefectForm({
 			<div className="flex w-full justify-center">
 				<button
 					className={`w-full rounded-lg bg-green-500 p-4 hover:bg-green-600 md:w-3/6`}
-					disabled={isPendingChange}
-					type="button"
+					disabled={isPending}
+					type="submit"
 				>
 					Add on Route Defects
 				</button>

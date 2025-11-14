@@ -5,7 +5,6 @@ import Providers from '@/lib/components/Providers'
 import { AuthProvider } from '@/lib/components/providers/auth-provider'
 import Header from '@/lib/components/ui/header/header'
 
-
 const geistSans = Geist({
 	variable: '--font-geist-sans',
 	subsets: ['latin'],

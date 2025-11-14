@@ -81,3 +81,23 @@ export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 		throw Error
 	}
 }
+
+export async function fetchTrip(tripId: number) {
+	const { getUser } = getKindeServerSession()
+	const user = await getUser()
+
+	const email = user?.email
+
+	if (!email) {
+		throw new Error('Email is required')
+	}
+	try {
+		const sql = neon(`${process.env.DATABASE_URL}`)
+		const result =
+			await sql`SELECT * FROM PTTrips WHERE tripId = ${tripId} AND driverEmail = ${email}`
+		return result[0] as Trip
+	} catch (error: unknown) {
+		console.log('Error', error)
+		throw Error('Failed To Fetch Trip')
+	}
+}

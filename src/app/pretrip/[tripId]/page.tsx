@@ -1,26 +1,25 @@
 'use cache: private'
 
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
+import { Suspense } from 'react'
+import DisplayTripFallback from '@/lib/components/ui/fallbacks/display-trip-falback'
 import DisplayTrip from '@/lib/components/ui/trips/display-trip/DisplayTrip'
+import { fetchTrip } from '@/lib/DAL/trips'
 
-export default async function Page({
-	params,
-}: {
-	params: Promise<{ tripId: number }>
-}) {
-	const driverName = 'pmacdonald15@gmail.com'
-
-	const { tripId } = await params
-	const uriDecodedDriverEmail = 'pmacdonald15@gmail.com'
-
-	if (Number.isNaN(Number(tripId))) return <div>Trip Id Error</div>
-
+export default async function Page(props: PageProps<'/pretrip/[tripId]'>) {
+	const tripPromise = props.params.then((params) =>
+		fetchTrip(Number(params.tripId)),
+	)
+	const { getUser } = getKindeServerSession()
+	const userPromise = getUser()
 	return (
 		<div className="flex flex-col items-center justify-items-center gap-4 p-4">
-			<DisplayTrip
-				driverEmail={uriDecodedDriverEmail}
-				driverName={driverName || ''}
-				tripId={tripId}
-			/>
+			<Suspense fallback={<DisplayTripFallback />}>
+				<DisplayTrip
+					tripPromise={tripPromise}
+					userPromise={userPromise}
+				/>
+			</Suspense>
 		</div>
 	)
 }

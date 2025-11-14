@@ -1,4 +1,5 @@
-import { Disclaimer } from '@/components/ui/disclaimer/disclaimer'
+import { Disclaimer } from "@/lib/components/ui/disclaimer/disclaimer";
+
 
 export default function Page() {
 	return (

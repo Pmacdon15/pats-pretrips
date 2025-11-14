@@ -1,8 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { addOnRouteDefects, addTrip } from '@/lib/actions/actions'
+import { revalidatePathAction } from '@/lib/actions/revalidate-actions'
 
 export const useAddDefectOnRoute = (tripId: number, driverEmail: string) => {
-	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: ({
 			formData,
@@ -21,10 +21,8 @@ export const useAddDefectOnRoute = (tripId: number, driverEmail: string) => {
 			return bindActionWithTripId(formData)
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({
-				queryKey: ['trip', tripId, driverEmail],
-			})
-			queryClient.invalidateQueries({ queryKey: ['trips', driverEmail] })
+			revalidatePathAction('/pretrips')
+			revalidatePathAction(`/pretrip/[${tripId}]`)
 		},
 		onError: (error) => {
 			console.error('Mutation error:', error)
