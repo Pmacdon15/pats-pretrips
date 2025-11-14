@@ -1,119 +1,132 @@
 'use client'
-import Link from 'next/link'
-import { Trip } from '@/lib/types/types'
-import { useState, useEffect, Activity } from "react"
-import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
+import { Activity, useState } from 'react'
 
-export default function DisplayTrips({ currentTripsComponent, pastTripsComponent}:{ currentTripsComponent:React.ReactNode,pastTripsComponent:React.ReactNode}) {
-    const {user}= useKindeBrowserClient()
-    const [page, setPage] = useState(1);
-    const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');   
+export default function DisplayTrips({
+	currentTripsComponent,
+	pastTripsComponent,
+}: {
+	currentTripsComponent: React.ReactNode
+	pastTripsComponent: React.ReactNode
+}) {
+	// const { user } = useKindeBrowserClient()
+	const [page, setPage] = useState(1)
+	const [selectedTripsName, setSelectedTripsName] = useState<
+		'Current' | 'Past'
+	>('Current')
 
-   
-    // const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
+	// const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
 
-    
-    const hasMorePastTrips = true;
-     
+	const hasMorePastTrips = true
 
-    return (
-        <div className="flex flex-col w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm shadow-sm">
-            <div className='flex justify-between items-center'>
-                <h1 className="text-2xl min-w-fit">{selectedTripsName} Trips</h1>
-            </div>            
-                <TripSwitcher
-                    selectedTripsName={selectedTripsName}
-                    setSelectedTripsName={setSelectedTripsName}
-                    setPage={setPage} 
-                 />
+	return (
+		<div className="flex w-full flex-col gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6">
+			<div className="flex items-center justify-between">
+				<h1 className="min-w-fit text-2xl">
+					{selectedTripsName} Trips
+				</h1>
+			</div>
+			<TripSwitcher
+				selectedTripsName={selectedTripsName}
+				setPage={setPage}
+				setSelectedTripsName={setSelectedTripsName}
+			/>
 
-            <Activity mode={selectedTripsName ==="Current"?"visible":"hidden"}>
-                {currentTripsComponent}                
-            </Activity>
-             <Activity mode={selectedTripsName !=="Current"?"visible":"hidden"}>
-                {pastTripsComponent}                
-            </Activity>
-            {selectedTripsName === "Past" && (
-                <Pagination
-                    page={page}
-                    setPage={setPage}
-                    hasMorePastTrips={hasMorePastTrips}
-                />
-            )}
-        </div>
-    );
+			<Activity
+				mode={selectedTripsName === 'Current' ? 'visible' : 'hidden'}
+			>
+				{currentTripsComponent}
+			</Activity>
+			<Activity
+				mode={selectedTripsName !== 'Current' ? 'visible' : 'hidden'}
+			>
+				{pastTripsComponent}
+			</Activity>
+			{selectedTripsName === 'Past' && (
+				<Pagination
+					hasMorePastTrips={hasMorePastTrips}
+					page={page}
+					setPage={setPage}
+				/>
+			)}
+		</div>
+	)
 }
 
-
 interface TripSwitcherProps {
-    selectedTripsName: 'Current' | 'Past';   
-    setSelectedTripsName: React.Dispatch<React.SetStateAction<'Current' | 'Past'>>; // Corrected type for setSelectedTripsName   
-    setPage: React.Dispatch<React.SetStateAction<number>>; // A function to set the page number
+	selectedTripsName: 'Current' | 'Past'
+	setSelectedTripsName: React.Dispatch<
+		React.SetStateAction<'Current' | 'Past'>
+	> // Corrected type for setSelectedTripsName
+	setPage: React.Dispatch<React.SetStateAction<number>> // A function to set the page number
 }
 
 function TripSwitcher({
-    selectedTripsName,  
-    setSelectedTripsName,    
-    setPage,
+	selectedTripsName,
+	setSelectedTripsName,
+	setPage,
 }: TripSwitcherProps) {
-    return (
-        <div className='flex bg-[var(--color-background)]  gap-2 p-2 justify-end rounded-sm'>
-            {selectedTripsName === 'Past' && (
-                <button
-                    className="cursor-pointer"
-                    onClick={() => {                        
-                        setSelectedTripsName("Current");
-                        setPage(1); // Reset page when switching
-                    }}
-                >
-                    View Current Trips
-                </button>
-            )}
-            {selectedTripsName === 'Current'  && (
-                <button
-                    className="cursor-pointer"
-                    onClick={() => {
-                        setSelectedTripsName("Past");                        
-                        setPage(1); // Reset page when switching
-                    }}
-                >
-                    View Past Trips
-                </button>
-            )}
-        </div>
-    );
+	return (
+		<div className="flex justify-end gap-2 rounded-sm bg-[var(--color-background)] p-2">
+			{selectedTripsName === 'Past' && (
+				<button
+					className="cursor-pointer"
+					onClick={() => {
+						setSelectedTripsName('Current')
+						setPage(1) // Reset page when switching
+					}}
+					type="button"
+				>
+					View Current Trips
+				</button>
+			)}
+			{selectedTripsName === 'Current' && (
+				<button
+					className="cursor-pointer"
+					onClick={() => {
+						setSelectedTripsName('Past')
+						setPage(1) // Reset page when switching
+					}}
+					type="button"
+				>
+					View Past Trips
+				</button>
+			)}
+		</div>
+	)
 }
 
 interface PaginationProps {
-    page: number;
-    setPage: React.Dispatch<React.SetStateAction<number>>;
-    hasMorePastTrips: boolean | undefined;
+	page: number
+	setPage: React.Dispatch<React.SetStateAction<number>>
+	hasMorePastTrips: boolean | undefined
 }
 
 function Pagination({ page, setPage, hasMorePastTrips }: PaginationProps) {
-    return (
-        <div className='flex justify-between items-center mt-4'>
-            <button
-                onClick={() => {
-                    setPage((old) => Math.max(old - 1, 1));
-                }}
-                disabled={page === 1}
-            >
-                Previous Page
-            </button>
-            <span>Page {page}</span>
-            <button
-                onClick={() => {
-                    if (hasMorePastTrips) {
-                        setPage((old) => old + 1);
-                    }
-                }}
-                disabled={!hasMorePastTrips}
-            >
-                Next Page
-            </button>
-        </div>
-    );
+	return (
+		<div className="mt-4 flex items-center justify-between">
+			<button
+				disabled={page === 1}
+				onClick={() => {
+					setPage((old) => Math.max(old - 1, 1))
+				}}
+				type="button"
+			>
+				Previous Page
+			</button>
+			<span>Page {page}</span>
+			<button
+				disabled={!hasMorePastTrips}
+				onClick={() => {
+					if (hasMorePastTrips) {
+						setPage((old) => old + 1)
+					}
+				}}
+				type="button"
+			>
+				Next Page
+			</button>
+		</div>
+	)
 }
 
 // function TableHead() {
@@ -177,4 +190,3 @@ function Pagination({ page, setPage, hasMorePastTrips }: PaginationProps) {
 
 //     return { selectedTrips, setSelectedTrips };
 // }
-

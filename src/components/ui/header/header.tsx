@@ -1,7 +1,9 @@
 export default function Header() {
-    return (
-        <div className="flex flex-col justify-center items-center bg-[url('/banner.jpg')] bg-cover bg-center h-56 w-full">
-            <h1 className="text-4xl w-5/6 md:w-3/6 p-8 mt-4 rounded-sm text-center shadow-sm bg-white/30 backdrop-blur-sm">Pat&apos;s PreTrips</h1>
-        </div>
-    )
+	return (
+		<div className="flex h-56 w-full flex-col items-center justify-center bg-[url('/banner.jpg')] bg-center bg-cover">
+			<h1 className="mt-4 w-5/6 rounded-sm bg-white/30 p-8 text-center text-4xl shadow-sm backdrop-blur-sm md:w-3/6">
+				Pat&apos;s PreTrips
+			</h1>
+		</div>
+	)
 }

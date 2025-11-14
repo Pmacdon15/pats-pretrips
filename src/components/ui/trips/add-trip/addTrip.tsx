@@ -1,82 +1,143 @@
 'use client'
-import { useState, useEffect, use } from "react";
-import { AddDefect } from "@/components/ui/add-defect/AddDefect";
-import Input from '@/components/ui/input/Input';
-import { useAddTrip } from '@/hooks/mutations/mutations';
-import { useGetAddress } from "@/hooks/hooks";
-import { AddressResponse } from "@/lib/types/types";
-import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs'
+import { useEffect, useState } from 'react'
+import { AddDefect } from '@/components/ui/add-defect/AddDefect'
+import Input from '@/components/ui/input/Input'
+import { useGetAddress } from '@/hooks/hooks'
+import { useAddTrip } from '@/hooks/mutations/mutations'
+import type { AddressResponse } from '@/lib/types/types'
 
 export default function AddTrip() {
-    const {user} = useKindeBrowserClient();
-    
-    const driverEmail = user?.email
-    
-    const [showForm, setShowForm] = useState(false);
-    const { mutate } = useAddTrip()
-    const { location } = useGetLocation();
-    const { data } = useGetAddress(location?.latitude ?? 0, location?.longitude ?? 0, driverEmail||"") as { data: AddressResponse };
+	const { user } = useKindeBrowserClient()
 
-    return (
-        <div className="flex flex-col md:flex-row w-full bg-[var(--color-primary)] md:w-4/6 p-4 gap-4 rounded-sm justify-between shadow-sm">
-            <div className="flex flex-col w-full">
-                <form
-                    action={(formData: FormData) => { mutate({ driverEmail:String(driverEmail) , formData }); setShowForm(false) }}
-                    className={`flex flex-col gap-4 w-full ${showForm ? 'block' : 'hidden'}`}>
-                    <h1 className="text-2xl">Create a Trip</h1>
-                    <div className='flex flex-col w-full gap-4'>
-                        <Input required={true} name="carrier" placeHolder='Carrier' />
-                        <Input required={true} name="carrier-address" placeHolder='Carrier Address' />
-                        <Input required={true} name="inspection-address" placeHolder='Inspection Address' defaultValue={data} />
-                    </div>
-                    <div className='flex w-full gap-4'>
-                        <Input required={true} name="make" placeHolder='Make' />
-                        <Input required={true} name="model" placeHolder='Model' />
-                        <Input required={true} name="odometer" placeHolder='Odometer Reading' />
-                    </div>
-                    <div className='flex w-full gap-4'>
-                        <Input name="truck-plate" placeHolder='Truck Plate' />
-                        <Input name="trailer-plate" placeHolder='Trailer Plate' />
-                        <Input name="trailer-b-plate" placeHolder='Trailer B Plate' />
-                    </div>
-                    <AddDefect required={false} />
-                    <button className={`p-4 rounded-lg bg-green-500  hover:bg-green-600 shadow-lg`} >Submit</button>
-                </form>
-            </div>
-            <div className="flex flex-col justify-end w-full md:w-1/6">
-                <ButtonToggle text='Add Trip' toggleText="Cancel" onClick={() => setShowForm(!showForm)} toggle={showForm}></ButtonToggle>
-            </div>
-        </div>
-    )
+	const driverEmail = user?.email
+
+	const [showForm, setShowForm] = useState(false)
+	const { mutate } = useAddTrip()
+	const { location } = useGetLocation()
+	const { data } = useGetAddress(
+		location?.latitude ?? 0,
+		location?.longitude ?? 0,
+		driverEmail || '',
+	) as { data: AddressResponse }
+
+	return (
+		<div className="flex w-full flex-col justify-between gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6 md:flex-row">
+			<div className="flex w-full flex-col">
+				<form
+					action={(formData: FormData) => {
+						mutate({ driverEmail: String(driverEmail), formData })
+						setShowForm(false)
+					}}
+					className={`flex w-full flex-col gap-4 ${showForm ? 'block' : 'hidden'}`}
+				>
+					<h1 className="text-2xl">Create a Trip</h1>
+					<div className="flex w-full flex-col gap-4">
+						<Input
+							name="carrier"
+							placeHolder="Carrier"
+							required={true}
+						/>
+						<Input
+							name="carrier-address"
+							placeHolder="Carrier Address"
+							required={true}
+						/>
+						<Input
+							defaultValue={data}
+							name="inspection-address"
+							placeHolder="Inspection Address"
+							required={true}
+						/>
+					</div>
+					<div className="flex w-full gap-4">
+						<Input name="make" placeHolder="Make" required={true} />
+						<Input
+							name="model"
+							placeHolder="Model"
+							required={true}
+						/>
+						<Input
+							name="odometer"
+							placeHolder="Odometer Reading"
+							required={true}
+						/>
+					</div>
+					<div className="flex w-full gap-4">
+						<Input name="truck-plate" placeHolder="Truck Plate" />
+						<Input
+							name="trailer-plate"
+							placeHolder="Trailer Plate"
+						/>
+						<Input
+							name="trailer-b-plate"
+							placeHolder="Trailer B Plate"
+						/>
+					</div>
+					<AddDefect required={false} />
+					<button
+						className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
+						type="button"
+					>
+						Submit
+					</button>
+				</form>
+			</div>
+			<div className="flex w-full flex-col justify-end md:w-1/6">
+				<ButtonToggle
+					onClick={() => setShowForm(!showForm)}
+					text="Add Trip"
+					toggle={showForm}
+					toggleText="Cancel"
+				></ButtonToggle>
+			</div>
+		</div>
+	)
 }
 
-function ButtonToggle({ text, toggleText, onClick, toggle }: { text: string, toggleText: string, onClick: () => void, toggle: boolean }) {
-    return (
-        <button className={`p-4 rounded-lg  ${toggle ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500  hover:bg-green-600'} shadow-lg`} onClick={onClick}>
-            {toggle ? toggleText : text}
-        </button>
-    )
+function ButtonToggle({
+	text,
+	toggleText,
+	onClick,
+	toggle,
+}: {
+	text: string
+	toggleText: string
+	onClick: () => void
+	toggle: boolean
+}) {
+	return (
+		<button
+			className={`rounded-lg p-4 ${toggle ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} shadow-lg`}
+			onClick={onClick}
+			type="button"
+		>
+			{toggle ? toggleText : text}
+		</button>
+	)
 }
 
 function useGetLocation() {
-    const [location, setLocation] = useState<{ latitude: number, longitude: number } | null>(null)
+	const [location, setLocation] = useState<{
+		latitude: number
+		longitude: number
+	} | null>(null)
 
-    useEffect(() => {
-        async function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(async (position) => {
-                    setLocation({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    })
-                });
-            } else {
-                console.log("Geolocation is not supported by this browser.");
-            }
-        }
-        getLocation();
-    }, []);
+	useEffect(() => {
+		async function getLocation() {
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(async (position) => {
+					setLocation({
+						latitude: position.coords.latitude,
+						longitude: position.coords.longitude,
+					})
+				})
+			} else {
+				console.log('Geolocation is not supported by this browser.')
+			}
+		}
+		getLocation()
+	}, [])
 
-
-    return { location }
+	return { location }
 }
