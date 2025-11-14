@@ -9,6 +9,7 @@ import { useAddTrip } from '@/lib/hooks/mutations/mutations'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../add-defect/AddDefect'
 import { useGetLocation } from '../trips/add-trip/addTripContainer'
+import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
 //TODO REMOVE THIS EMAIL ITS UNNEEDED
 export default function AddTripForm({
@@ -65,6 +66,10 @@ export default function AddTripForm({
 
 	function onSubmit(data: z.infer<typeof schemaAddTripForm>) {
 		mutate({ data })
+	}
+
+	const handleSelectDefect = (defect: string) => {
+		form.setValue('defects', `${defect}" ," ${form.getValues().defects}`)
 	}
 
 	return (
@@ -131,7 +136,19 @@ export default function AddTripForm({
 					name="trailerPlateB"
 				/>
 			</div>
-			<AddDefect control={form.control} />
+			<AddDefect handleSelectDefect={handleSelectDefect}>
+				<ControlledTextArea
+					control={form.control}
+					label="Defects"
+					name="defects"
+					readOnly
+				/>
+				<ControlledTextArea
+					control={form.control}
+					label="Remarks"
+					name="remarks"
+				/>
+			</AddDefect>
 
 			<button
 				className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}

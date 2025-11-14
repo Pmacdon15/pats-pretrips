@@ -10,11 +10,11 @@ import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 export async function addOnRouteDefects(
 	driverEmail: string,
 	tripId: number,
-	formData: FormData,
+	data: z.infer<typeof schemaAddDefects>,
 ) {
 	const validatedFields = schemaAddDefects.safeParse({
-		defects: formData.get('defects'),
-		remarks: formData.get('remarks'),
+		defects: data.defects,
+		remarks: data.remarks,
 	})
 
 	if (!validatedFields.success) {

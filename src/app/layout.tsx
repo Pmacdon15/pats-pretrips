@@ -4,8 +4,8 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import Footer from '@/components/footer/footer'
 import Header from '@/components/header/header'
-import Providers from '@/components/providers/Providers'
 import { AuthProvider } from '@/components/providers/auth-provider'
+import Providers from '@/components/providers/Providers'
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',

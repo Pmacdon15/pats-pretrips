@@ -77,3 +77,8 @@ export interface ControlledTextAreaProps<T extends FieldValues> {
 	placeholder?: string
 	readOnly?: boolean
 }
+
+export interface FormData {
+	defects: string
+	remarks: string
+}

@@ -1,6 +1,9 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { use } from 'react'
 import { useForm } from 'react-hook-form'
+import type z from 'zod'
+import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
@@ -9,13 +12,14 @@ import { AddDefect } from '../AddDefect'
 export default function AddDefectForm({
 	tripPromise,
 }: {
-	tripPromise: Promise<Trip>
+	tripPromise: Promise<Trip | undefined>
 }) {
-	const {
-		control,
-		handleSubmit,
-		formState: { errors },
-	} = useForm<typeof schemaAddDefects._type>({
+	const trip = use(tripPromise) // Still need to use 'use' for tripPromise to get trip data
+
+	const tripId = Number(trip?.tripid || '')
+	const driverEmail = trip?.driveremail || ''
+
+	const form = useForm<z.infer<typeof schemaAddDefects>>({
 		resolver: zodResolver(schemaAddDefects),
 		defaultValues: {
 			defects: '',
@@ -23,36 +27,42 @@ export default function AddDefectForm({
 		},
 	})
 
-	const trip = use(tripPromise) // Still need to use 'use' for tripPromise to get trip data
-
-	const tripId = Number(trip.tripid || '')
-	const driverEmail = trip.driveremail
-
-	const { mutate, isError, isPending } = useAddDefectOnRoute(
-		Number(tripId),
-		driverEmail,
-	)
+	const { mutate, isError, isPending } = useAddDefectOnRoute(Number(tripId))
 
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
 	if (trip?.date && new Date(trip.date) < twentyFourHoursAgo) return null
 
-	const onSubmit = (data: typeof schemaAddDefects._type) => {
-		mutate({ driverEmail, tripId, formData: data }) // Pass data directly
-		console.log('Submitted', data)
+	const handleSelectDefect = (defect: string) => {
+		form.setValue('defects', `${defect}, ${form.getValues().defects}`)
+	}
+
+	const onSubmit = (data: z.infer<typeof schemaAddDefects>) => {
+		mutate({
+			driverEmail,
+			tripId,
+			data,
+		})
 	}
 
 	return (
 		<form
 			className="flex w-full flex-col gap-4"
-			onSubmit={handleSubmit(onSubmit)}
+			onSubmit={form.handleSubmit(onSubmit)}
 		>
-			<AddDefect control={control} />
-			{errors.defects && (
-				<p className="text-red-500">{errors.defects.message}</p>
-			)}
-			{errors.remarks && (
-				<p className="text-red-500">{errors.remarks.message}</p>
-			)}
+			{' '}
+			<AddDefect handleSelectDefect={handleSelectDefect}>
+				<ControlledTextArea
+					control={form.control}
+					label="Defects"
+					name="defects"
+					readOnly
+				/>
+				<ControlledTextArea
+					control={form.control}
+					label="Remarks"
+					name="remarks"
+				/>
+			</AddDefect>
 			{isError && (
 				<div className="text-center text-red-600">
 					Error Adding Defect
