@@ -17,7 +17,7 @@ interface ControlledTextInputProps<T extends FieldValues> {
 	label: string
 	placeholder?: string
 	type?: 'number'
-	defaultValue: string
+	defaultValue?: string
 }
 
 export function ControlledTextInput<T extends FieldValues>({

@@ -51,7 +51,7 @@ export default function AddTripForm({
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
-			inspectionAddress: '',
+			inspectionAddress: formattedAddress || '',
 			make: '',
 			model: '',
 			odometer: 0,
@@ -89,7 +89,6 @@ export default function AddTripForm({
 				/>
 				<ControlledTextInput
 					control={form.control}
-					defaultVaule={formattedAddress}
 					label="Inspection Address"
 					name="inspectionAddress"
 					placeholder="123 North N St Calgary Ab"
