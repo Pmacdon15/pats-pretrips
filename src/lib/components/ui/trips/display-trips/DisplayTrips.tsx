@@ -1,19 +1,16 @@
 'use client'
 import { Activity, useState } from 'react'
-import { Pagination } from '../../pagination/pagination-buttons'
 
 export default function DisplayTrips({
 	currentTripsComponent,
-	pastTripsComponent,	
+	pastTripsComponent,
 }: {
 	currentTripsComponent: React.ReactNode
-	pastTripsComponent: React.ReactNode	
+	pastTripsComponent: React.ReactNode
 }) {
 	const [selectedTripsName, setSelectedTripsName] = useState<
 		'Current' | 'Past'
 	>('Current')
-
-	const hasMorePastTrips = true
 
 	return (
 		<div className="flex w-full flex-col gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6">
@@ -23,7 +20,7 @@ export default function DisplayTrips({
 				</h1>
 			</div>
 			<TripSwitcher
-				selectedTripsName={selectedTripsName}				
+				selectedTripsName={selectedTripsName}
 				setSelectedTripsName={setSelectedTripsName}
 			/>
 
@@ -37,8 +34,6 @@ export default function DisplayTrips({
 			>
 				{pastTripsComponent}
 			</Activity>
-
-			<Pagination hasMorePastTrips={hasMorePastTrips} />
 		</div>
 	)
 }
@@ -48,13 +43,12 @@ interface TripSwitcherProps {
 	setSelectedTripsName: React.Dispatch<
 		React.SetStateAction<'Current' | 'Past'>
 	> // Corrected type for setSelectedTripsName
-	
 }
 
 //TODO: Set page to 0 on page switch
 function TripSwitcher({
 	selectedTripsName,
-	setSelectedTripsName,	
+	setSelectedTripsName,
 }: TripSwitcherProps) {
 	return (
 		<div className="flex justify-end gap-2 rounded-sm bg-[var(--color-background)] p-2">
@@ -62,7 +56,7 @@ function TripSwitcher({
 				<button
 					className="cursor-pointer"
 					onClick={() => {
-						setSelectedTripsName('Current')						
+						setSelectedTripsName('Current')
 					}}
 					type="button"
 				>
@@ -73,7 +67,7 @@ function TripSwitcher({
 				<button
 					className="cursor-pointer"
 					onClick={() => {
-						setSelectedTripsName('Past')						
+						setSelectedTripsName('Past')
 					}}
 					type="button"
 				>

@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation'
 import { use } from 'react'
 import type { Trip } from '@/lib/types/types'
+import { Pagination } from '../../pagination/pagination-buttons'
 
 export default function TripsTable({
 	tripsPromise,
@@ -11,14 +12,17 @@ export default function TripsTable({
 	const trips = use(tripsPromise)
 
 	return (
-		<table className="w-full overflow-hidden rounded-sm border shadow-sm">
-			<TableHead />
-			<TableBody selectedTrips={trips.trips} />
-		</table>
+		<>
+			<table className="w-full overflow-hidden rounded-sm border shadow-sm">
+				<TableHead />
+				<TableBody selectedTrips={trips.trips} />
+			</table>
+			<Pagination hasMorePastTrips={trips.hasMore} />
+		</>
 	)
 }
 
-function TableHead() {
+export function TableHead() {
 	return (
 		<thead>
 			<tr className="rounded-sm border-b bg-[var(--color-background)]">
