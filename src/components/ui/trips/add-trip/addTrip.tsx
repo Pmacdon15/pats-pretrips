@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect } from "react";
-import { AddDefect } from "@/components/ui/add-defect/AddDefect"
-import Input from '@/components/ui/input/Input'
-import { useAddTrip } from '@/hooks/mutations/mutations'
+import { AddDefect } from "@/components/ui/add-defect/AddDefect";
+import Input from '@/components/ui/input/Input';
+import { useAddTrip } from '@/hooks/mutations/mutations';
 import { useGetAddress } from "@/hooks/hooks";
-import { AddressResponse } from "@/types/types";
+import { AddressResponse } from "@/lib/types/types";
 
 export default function AddTrip({ driverEmail }: { driverEmail: string }) {
     const [showForm, setShowForm] = useState(false);

@@ -1,17 +1,19 @@
-import { Trip } from "@/types/types";
-import Link from "next/link";
+'use client'
+import { Trip } from "@/lib/types/types";
+import { useRouter } from "next/navigation";
+import { use } from "react";
 
-export default async function TripsTable({tripsPromise, driverEmailPromise}:{tripsPromise:Promise<Trip[]>, driverEmailPromise:Promise<string>}){
-    const currentTrips = await tripsPromise
-    const driverEmail = await driverEmailPromise
+export default function TripsTable({tripsPromise, driverEmailPromise}:{tripsPromise:Promise<{trips:Trip[], hasMore:boolean}>, driverEmailPromise:Promise<string>}){
+    const trips = use(tripsPromise)
+    const driverEmail = use(driverEmailPromise)
+
     return (
         <table className="w-full border rounded-sm overflow-hidden shadow-sm">
             <TableHead />
-            <TableBody selectedTrips={currentTrips} driverEmail={driverEmail} />
+            <TableBody selectedTrips={trips.trips} driverEmail={driverEmail} />
         </table>
     )
 }
-
 
 function TableHead() {
     return (
@@ -27,29 +29,27 @@ function TableHead() {
 }
 
 function TableBody({ selectedTrips, driverEmail }: { selectedTrips: Trip[], driverEmail: string }) {
+    const router = useRouter();
+
+    const handleRowClick = (tripId: string) => {
+        router.push(`/pretrip/${tripId}/${driverEmail}`);
+    };
+
     return (
         <tbody className='rounded-sm'>
             {selectedTrips?.map((trip: Trip, index: number) => (
-                <tr key={index} className="border">
+                <tr key={index} className="border cursor-pointer hover:bg-gray-100" onClick={() => handleRowClick(String(trip.tripid))}>
                     <td className="p-2 w-2/6">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}
-                        </Link>
+                        {new Date(trip.date).toLocaleString('en-CA', { dateStyle: 'short', timeStyle: 'short' })}
                     </td>
                     <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.truckplate}
-                        </Link>
+                        {trip.truckplate}
                     </td>
                     <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.trailerplatea}
-                        </Link>
+                        {trip.trailerplatea}
                     </td>
                     <td className="p-2">
-                        <Link href={`/pretrip/${trip.tripid}/${driverEmail}`}>
-                            {trip.defects ? trip.defects : 'No defects'}
-                        </Link>
+                        {trip.defects ? trip.defects : 'No defects'}
                     </td>
                 </tr>
             ))}

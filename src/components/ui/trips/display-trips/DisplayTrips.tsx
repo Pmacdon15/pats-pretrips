@@ -1,8 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { Trip } from '@/types/types'
-import { useGetPastTrips } from '@/hooks/hooks'
-import { useState, useEffect, use, Activity } from "react"
+import { Trip } from '@/lib/types/types'
+import { useState, useEffect, Activity } from "react"
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs"
 
 export default function DisplayTrips({ currentTripsComponent, pastTripsComponent}:{ currentTripsComponent:React.ReactNode,pastTripsComponent:React.ReactNode}) {
@@ -11,11 +10,10 @@ export default function DisplayTrips({ currentTripsComponent, pastTripsComponent
     const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');   
 
    
-    const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
+    // const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
 
-    const pastTrips = pastTripsData?.pastTrips;
-    const hasMorePastTrips = pastTripsData?.hasMore;
-
+    
+    const hasMorePastTrips = true;
      
 
     return (

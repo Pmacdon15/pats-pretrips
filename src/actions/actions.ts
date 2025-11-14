@@ -3,8 +3,8 @@
 import { neon } from '@neondatabase/serverless';
 
 import DOMPurify from 'isomorphic-dompurify';
-import { z } from 'zod'
-import { Trip } from '@/types/types';
+import { z } from 'zod';
+import { Trip } from '@/lib/types/types';
 
 const schemaAddTrip = z.object({
     carrier: z.string({

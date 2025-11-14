@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Trip } from '@/types/types'
+import { Trip } from '@/lib/types/types';
 import { getAddress } from '@/actions/actions';
 
 const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {

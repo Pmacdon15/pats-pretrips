@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { Trip } from '@/types/types';
+import { Trip } from '@/lib/types/types';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {

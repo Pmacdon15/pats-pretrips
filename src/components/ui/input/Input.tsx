@@ -1,4 +1,4 @@
-import { AddressResponse } from "@/types/types";
+import { AddressResponse } from "@/lib/types/types";
 
 export default function Input({
     name,

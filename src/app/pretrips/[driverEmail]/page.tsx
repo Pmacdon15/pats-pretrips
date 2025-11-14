@@ -1,6 +1,6 @@
 import DisplayTrips from "@/components/ui/trips/display-trips/DisplayTrips";
 import AddTrip from "@/components/ui/trips/add-trip/addTrip";
-import { fetchCurrentTrips} from "@/lib/DAL/trips";
+import { fetchCurrentTrips, fetchPastTrips} from "@/lib/DAL/trips";
 
 import TripsTable from "@/components/ui/trips/display-trips/trips-table";
 
@@ -12,7 +12,7 @@ export default function Page(props: PageProps<'/pretrips/[driverEmail]'>){
 	)
 
      const pastTripsPromise = props.params.then((params) =>
-		fetchCurrentTrips(decodeURIComponent(params.driverEmail)),
+		fetchPastTrips(decodeURIComponent(params.driverEmail)),
 	)
 
 

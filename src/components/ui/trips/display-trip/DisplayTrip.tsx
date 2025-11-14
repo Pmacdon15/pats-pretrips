@@ -1,10 +1,10 @@
 'use client'
-import { useGetTrip } from '@/hooks/hooks'
+import { useGetTrip } from '@/hooks/hooks';
 import Message from '@/components/ui/message/Message';
-import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm"
+import AddDefectForm from "@/components/ui/add-defect/add-defect-form/AddDefectForm";
 import { useAddDefectOnRoute } from '@/hooks/mutations/mutations';
 import { BackLink } from '../../links/back-home-button';
-import { Trip } from '@/types/types';
+import { Trip } from '@/lib/types/types';
 
 export default function DisplayTrip({ tripId, driverEmail, driverName }: { tripId: number, driverEmail: string, driverName: string }) {
 
