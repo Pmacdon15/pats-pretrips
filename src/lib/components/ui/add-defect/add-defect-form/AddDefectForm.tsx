@@ -20,7 +20,7 @@ export default function AddDefectForm({
 	)
 
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-	if (trip?.date && new Date(trip.date) > twentyFourHoursAgo) return null
+	if (trip?.date && new Date(trip.date) < twentyFourHoursAgo) return null
 
 	return (
 		<form

@@ -13,9 +13,13 @@ export default function DisplayTripsFallback() {
 			</div>
 			<table className="w-full overflow-hidden rounded-sm border shadow-sm">
 				<TableHead />
-				<tr>
-					<td>Loading....</td>
-				</tr>
+				<tbody className="rounded-sm">
+					<tr className="border-b">
+						<td className="w-1/3 rounded-sm p-2 text-left">
+							Loading....
+						</td>
+					</tr>
+				</tbody>
 			</table>
 		</div>
 	)
