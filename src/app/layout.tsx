@@ -28,14 +28,14 @@ export default function RootLayout({
 	return (
 		<html lang="en">
 			<Providers>
-				{/* <AuthProvider> */}
+				<AuthProvider>
 					<body
 						className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col `}
 					>
 						<Header />
 						{children}
 					</body>
-				{/* </AuthProvider> */}
+				</AuthProvider>
 			</Providers>
 		</html>
 	);

@@ -4,6 +4,7 @@ import { fetchCurrentTrips, fetchPastTrips} from "@/lib/DAL/trips";
 import TripsTable from "@/components/ui/trips/display-trips/trips-table";
 import { Suspense } from "react";
 
+
 export default function Page(){
     const currentTripsPromise = fetchCurrentTrips()
      const pastTripsPromise = fetchPastTrips()

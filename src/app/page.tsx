@@ -1,10 +1,10 @@
 import Link from "next/link";
 import HomePageButtons from "@/components/ui/home/home-page-buttons";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { Suspense } from "react";
 
-export default async function Home() {
-	 const { isAuthenticated } = getKindeServerSession();
-	//  console.log(await isAuthenticated())
+export default function Home() {
+	 const { isAuthenticated } = getKindeServerSession();	
 	return (
 		<div className="flex flex-col items-center justify-items-center gap-4 p-4  ">
 			<div className="flex flex-col bg-[var(--color-primary)] items-center justify-center rounded-md w-full md:w-4/6  p-4 shadow-md gap-4 ">
@@ -25,8 +25,9 @@ export default async function Home() {
 					</Link>
 					.
 				</p>
-
-				<HomePageButtons isLoggedInPromise={isAuthenticated()?.then(result => result)} />
+				<Suspense>
+					<HomePageButtons isLoggedInPromise={isAuthenticated()?.then(result => result)} />
+				</Suspense>
 			</div>
 		</div>
 	);
