@@ -3,7 +3,9 @@ import type { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
 export default async function PageHead({
 	userPromise,
 }: {
-	userPromise?: Promise<KindeUser<Record<string, string>> | null>|Promise<void>
+	userPromise?:
+		| Promise<KindeUser<Record<string, string>> | null>
+		| Promise<void>
 }) {
 	const user = await userPromise
 	return (

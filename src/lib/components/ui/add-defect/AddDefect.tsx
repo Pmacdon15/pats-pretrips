@@ -1,5 +1,20 @@
 'use client'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import type { Control } from 'react-hook-form'
+import type { z } from 'zod'
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select'
+import type { schemaAddTripForm } from '@/lib/ZOD/schemas'
+import { ControlledTextArea } from '../forms/controlled-text-area'
+
+interface AddDefectProps {
+	control: Control<z.infer<typeof schemaAddTripForm>>
+}
 
 const defects = [
 	'Air Brake System',
@@ -34,15 +49,13 @@ const defects = [
 	'Other',
 ]
 
-export function AddDefect({ required }: { required: boolean }) {
-	const defectSelectRef = useRef<HTMLSelectElement>(null)
+export function AddDefect({ control }: AddDefectProps) {
+	const [selectedDefect, setSelectedDefect] = useState<string>('')
 	const defectsRef = useRef<HTMLTextAreaElement>(null)
 
 	const onDefectAdded = () => {
-		if (defectSelectRef.current?.value && defectsRef.current) {
+		if (selectedDefect && defectsRef.current) {
 			const currentDefects = defectsRef.current.value
-			const selectedDefect = defectSelectRef.current.value
-
 			if (!currentDefects.includes(selectedDefect)) {
 				defectsRef.current.value = currentDefects
 					? `${currentDefects}, ${selectedDefect}`
@@ -51,51 +64,42 @@ export function AddDefect({ required }: { required: boolean }) {
 		}
 	}
 	return (
-		<>
-			<div className="flex w-full gap-4">
-				<select
-					className="w-5/6 rounded-sm border p-4 md:w-full"
-					name="input-defect"
-					ref={defectSelectRef}
-				>
-					<option className="text-black" value="">
-						Select Defect
-					</option>
+		<div className="flex flex-col w-full gap-4">
+			<Select onValueChange={setSelectedDefect} value={selectedDefect}>
+				<SelectTrigger className="w-5/6 rounded-sm border p-4 md:w-full">
+					<SelectValue placeholder="Select Defect" />
+				</SelectTrigger>
+				<SelectContent>
 					{defects.map((defect) => (
-						<option
-							className="text-black"
-							key={defect}
-							value={defect}
-						>
+						<SelectItem key={defect} value={defect}>
 							{defect}
-						</option>
+						</SelectItem>
 					))}
-				</select>
-				<div className="w-2/6 md:w-1/6">
-					<ButtonNormal
-						onClick={(e) => {
-							e.preventDefault()
-							onDefectAdded()
-						}}
-						text="Add Defect"
-					/>
-				</div>
+				</SelectContent>
+			</Select>
+			<div className="w-2/6 md:w-1/6">
+				<ButtonNormal
+					onClick={(e) => {
+						e.preventDefault()
+						onDefectAdded()
+					}}
+					text="Add Defect"
+				/>
 			</div>
-			<textarea
-				className="rounded-sm border p-4"
-				name="defects"
-				placeholder="Defects to Submit"
-				readOnly={true}
-				ref={defectsRef}
-				required={required}
-			/>
-			<textarea
-				className="rounded-sm border p-4"
-				name="remarks"
-				placeholder="Remarks"
-				required={required}
-			/>
-		</>
+			<div>
+				<ControlledTextArea
+					control={control}
+					label="Defects"
+					name="defects"
+					readOnly
+				/>
+				<ControlledTextArea
+					control={control}
+					label="Remarks"
+					name="remarks"					
+				/>
+			</div>
+		</div>
 	)
 }
 

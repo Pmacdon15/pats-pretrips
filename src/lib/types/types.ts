@@ -1,3 +1,5 @@
+import type { Control, FieldValues, Path } from 'react-hook-form'
+
 export interface Trip {
 	tripid?: number
 	driveremail: string
@@ -66,4 +68,12 @@ export interface GeocodingResponse {
 	results: GeocodingResult[]
 	status: string
 	error_message?: string
+}
+
+export interface ControlledTextAreaProps<T extends FieldValues> {
+	control: Control<T>
+	name: Path<T>
+	label: string
+	placeholder?: string
+	readOnly?:boolean
 }

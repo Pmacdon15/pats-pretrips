@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless'
 import type { Trip } from '@/lib/types/types'
 
 export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
+	'use cache: private'
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 
@@ -41,6 +42,7 @@ export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 }
 
 export async function fetchPastTrips(page: number = 1, limit: number = 7) {
+	'use cache: private'
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 
@@ -78,7 +80,7 @@ export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 		return { trips: result as Trip[], hasMore }
 	} catch (error) {
 		console.error('error:', error)
-		throw Error
+		return { trips: [] as Trip[], hasMore: false }
 	}
 }
 
@@ -99,6 +101,6 @@ export async function fetchTrip(tripId: number) {
 		return result[0] as Trip
 	} catch (error: unknown) {
 		console.log('Error', error)
-		throw Error('Failed To Fetch Trip')
+		// throw Error('Failed To Fetch Trip')
 	}
 }

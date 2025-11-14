@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import DisplayTripsFallback from '@/lib/components/ui/fallbacks/display-trips-fallback'
-import AddTrip from '@/lib/components/ui/trips/add-trip/addTrip'
+import AddTrip from '@/lib/components/ui/trips/add-trip/addTripContainer'
 import DisplayTrips from '@/lib/components/ui/trips/display-trips/DisplayTrips'
 import TripsTable from '@/lib/components/ui/trips/display-trips/trips-table'
 import { fetchCurrentTrips, fetchPastTrips } from '@/lib/DAL/trips'
