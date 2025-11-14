@@ -1,5 +1,6 @@
 import { BackLink } from '../links/back-home-button'
-import { PageHead, TableHeadTrip } from '../trips/display-trip/DisplayTrip'
+import { DisplayTripTableHead } from '../trips/display-trip/displayTripTable'
+import PageHead from '../trips/display-trip/page-head'
 
 export default function DisplayTripFallback() {
 	return (
@@ -8,7 +9,7 @@ export default function DisplayTripFallback() {
 			<PageHead />
 
 			<table className="w-full overflow-hidden rounded-sm border p-4">
-				<TableHeadTrip />
+				<DisplayTripTableHead />
 				<tbody className="rounded-sm">
 					<tr className="border-b">
 						<td className="w-1/3 rounded-sm p-2 text-left">

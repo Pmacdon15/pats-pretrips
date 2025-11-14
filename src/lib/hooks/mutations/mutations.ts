@@ -10,14 +10,14 @@ export const useAddDefectOnRoute = (tripId: number, _driverEmail: string) => {
 			tripId,
 		}: {
 			formData: FormData
-			driverEmail: string
-			tripId: number
+			driverEmail?: string
+			tripId: number| null
 		}) => {
 			const bindWithDriverEmail = addOnRouteDefects.bind(
 				null,
-				driverEmail,
+				driverEmail||"",
 			)
-			const bindActionWithTripId = bindWithDriverEmail.bind(null, tripId)
+			const bindActionWithTripId = bindWithDriverEmail.bind(null, Number(tripId))
 			return bindActionWithTripId(formData)
 		},
 		onSuccess: () => {

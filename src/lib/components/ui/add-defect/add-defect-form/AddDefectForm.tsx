@@ -1,17 +1,27 @@
+'use client'
+import { use } from 'react'
 import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
+import type { Trip } from '@/lib/types/types'
 import { AddDefect } from '../AddDefect'
 
 export default function AddDefectForm({
-	tripId,
-	driverEmail,
+	tripPromise,
 }: {
-	tripId: number
-	driverEmail: string
+	tripPromise: Promise<Trip>
 }) {
+	const trip = use(tripPromise)
+
+	const tripId = Number(trip.tripid || '')
+	const driverEmail = trip.driveremail
+
 	const { mutate, isError, isPending } = useAddDefectOnRoute(
-		tripId,
+		Number(tripId),
 		driverEmail,
 	)
+
+	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+	if (trip?.date && new Date(trip.date) > twentyFourHoursAgo) return null
+
 	return (
 		<form
 			action={(formData: FormData) => {
