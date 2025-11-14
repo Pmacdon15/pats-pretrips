@@ -1,5 +1,6 @@
 'use cache: private'
-import DisplayTrip from '@/components/ui/trips/display-trip/DisplayTrip'
+
+import DisplayTrip from '@/lib/components/ui/trips/display-trip/DisplayTrip'
 
 export default async function Page({
 	params,

@@ -1,10 +1,11 @@
 'use client'
-import AddDefectForm from '@/components/ui/add-defect/add-defect-form/AddDefectForm'
-import Message from '@/components/ui/message/Message'
-import { useGetTrip } from '@/hooks/hooks'
-import { useAddDefectOnRoute } from '@/hooks/mutations/mutations'
+
+import { useGetTrip } from '@/lib/hooks/hooks'
+import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { BackLink } from '../../links/back-home-button'
+import Message from '../../message/Message'
+import AddDefectForm from '../../add-defect/add-defect-form/AddDefectForm'
 
 export default function DisplayTrip({
 	tripId,

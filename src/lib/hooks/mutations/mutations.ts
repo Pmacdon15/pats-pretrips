@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { addOnRouteDefects, addTrip } from '@/actions/actions'
+import { addOnRouteDefects, addTrip } from '@/lib/actions/actions'
 
 export const useAddDefectOnRoute = (tripId: number, driverEmail: string) => {
 	const queryClient = useQueryClient()

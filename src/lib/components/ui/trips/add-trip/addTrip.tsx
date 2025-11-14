@@ -1,10 +1,10 @@
 'use client'
 import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs'
 import { useEffect, useState } from 'react'
-import { AddDefect } from '@/components/ui/add-defect/AddDefect'
-import Input from '@/components/ui/input/Input'
-import { useGetAddress } from '@/hooks/hooks'
-import { useAddTrip } from '@/hooks/mutations/mutations'
+import { useGetAddress } from '@/lib/hooks/hooks'
+import { useAddTrip } from '@/lib/hooks/mutations/mutations'
+import { AddDefect } from '../../add-defect/AddDefect'
+import Input from '../../input/Input'
 
 export default function AddTrip() {
 	const { user } = useKindeBrowserClient()
@@ -20,7 +20,7 @@ export default function AddTrip() {
 		driverEmail || '',
 	)
 	const formattedAddress =
-		addressData?.data?.features[0]?.properties?.formatted 
+		addressData?.data?.features[0]?.properties?.formatted
 
 	return (
 		<div className="flex w-full flex-col justify-between gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6 md:flex-row">

@@ -1,4 +1,5 @@
-import { AddDefect } from '@/components/ui/add-defect/AddDefect'
+import { AddDefect } from "../AddDefect"
+
 
 export default function AddDefectForm({
 	tripId,
@@ -31,7 +32,7 @@ export default function AddDefectForm({
 			<AddDefect required={true} />
 			{isError && (
 				<div className="text-center text-red-600">
-					Error Adding Deffect
+					Error Adding Defect
 				</div>
 			)}
 			<div className="flex w-full justify-center">
