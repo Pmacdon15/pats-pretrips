@@ -83,6 +83,7 @@ export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 }
 
 export async function fetchTrip(tripId: number) {
+	'use cache: private'
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 
