@@ -4,13 +4,15 @@ import { Trip } from '@/types/types'
 import { useGetPastTrips, useGetTrips } from '@/hooks/hooks'
 import Message from '@/components/ui/message/Message'
 import { useState, useEffect } from "react"
+import {useKindeBrowserClient} from "@kinde-oss/kinde-auth-nextjs";
 
-export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
+export default function DisplayTrips() {
+    const {user}= useKindeBrowserClient()
     const [page, setPage] = useState(1);
     const [selectedTripsName, setSelectedTripsName] = useState<'Current' | 'Past'>('Current');
 
-    const { data: currentTrips, isPending: isPendingCurrent, isError: isErrorLoadingCurrentTrips } = useGetTrips(driverEmail);
-    const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(driverEmail, page);
+    const { data: currentTrips, isPending: isPendingCurrent, isError: isErrorLoadingCurrentTrips } = useGetTrips(user?.email||"");
+    const { data: pastTripsData, isPending: isPendingPast, isError: isErrorLoadingPastTrips } = useGetPastTrips(user?.email|| "", page);
 
     const pastTrips = pastTripsData?.pastTrips;
     const hasMorePastTrips = pastTripsData?.hasMore;
@@ -37,7 +39,7 @@ export default function DisplayTrips({ driverEmail }: { driverEmail: string }) {
             )}
             <table className="w-full border rounded-sm overflow-hidden shadow-sm">
                 <TableHead />
-                <TableBody selectedTrips={selectedTrips} driverEmail={driverEmail} />
+                <TableBody selectedTrips={selectedTrips} driverEmail={user?.email||""} />
             </table>
             {selectedTripsName === "Past" && (
                 <Pagination
@@ -191,3 +193,4 @@ function useSelectedTrips(
 
     return { selectedTrips, setSelectedTrips };
 }
+

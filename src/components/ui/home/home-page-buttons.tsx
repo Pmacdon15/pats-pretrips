@@ -1,4 +1,5 @@
 import { LoginLink, LogoutLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import Link from "next/link";
 
 export default async function HomePageButtons({
 	isLoggedInPromise,
@@ -9,6 +10,7 @@ export default async function HomePageButtons({
 	return isLoggedIn ? (
 		<div>
 			<LogoutLink>Logout</LogoutLink>
+			<Link href={"pretrips/driverEmail"}>PreTrips</Link>
 		</div>
 	) : (
 		<div className="flex gap-4">		

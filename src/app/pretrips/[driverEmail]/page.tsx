@@ -1,23 +1,22 @@
-import DisplayTrips from "@/components/ui/trips/display-trips/DisplayTrips"
-import AddTrip from "@/components/ui/trips/add-trip/addTrip"
-import Authbutton from "@/components/ui/auth-buttons/auth-buttons";
-import { auth } from "@/auth";
+import DisplayTrips from "@/components/ui/trips/display-trips/DisplayTrips";
+import AddTrip from "@/components/ui/trips/add-trip/addTrip";
+import { fetchTrips} from "@/lib/DAL/trips";
 
-export default async function Page({
-    params,
-}: {
-    params: Promise<{ driverEmail: string }>
-}) {
-    const session = await auth();
 
-    const { driverEmail } = await params;
-    const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
+export default function Page(props: PageProps<'/pretrips/[driverEmail]'>){
+    // const session = await auth();
 
+    // const { driverEmail } = await params;
+    // const uriDecodedDriverEmail = decodeURIComponent(driverEmail);
+
+    	const currentTripsPromise = props.params.then((params) =>
+		fetchTrips(decodeURIComponent(params.driverEmail)),
+	)
     return (
         <div className="flex flex-col items-center justify-items-center gap-4 p-4  ">            
-            <AddTrip driverEmail={uriDecodedDriverEmail} />
-            <DisplayTrips driverEmail={uriDecodedDriverEmail} />
-            <Authbutton session={session} />
+            <AddTrip driverEmail={"pmacdonald15@gmail.com"} />
+            <DisplayTrips  />
+           
         </div>
     )
 }
