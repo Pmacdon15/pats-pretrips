@@ -83,13 +83,12 @@ export function useGetLocation() {
 						longitude: position.coords.longitude,
 					})
 				})
-				console.log("location",location)
 			} else {
 				console.log('Geolocation is not supported by this browser.')
 			}
 		}
 		getLocation()
-	}, [location])
+	}, [])
 
 	return { location }
 }

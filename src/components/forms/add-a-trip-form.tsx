@@ -12,7 +12,7 @@ import { AddDefect } from '../add-defect/AddDefect'
 import { Button } from '../ui/button'
 import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
-//TODO REMOVE THIS EMAIL ITS UNNEEDED
+
 export default function AddTripForm({
 	setShowForm,
 }: {
@@ -48,7 +48,7 @@ export default function AddTripForm({
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
-			inspectionAddress: '',
+			inspectionAddress: formattedAddress || '',
 			make: '',
 			model: '',
 			odometer: 0,
@@ -184,3 +184,4 @@ export default function AddTripForm({
 		</form>
 	)
 }
+
