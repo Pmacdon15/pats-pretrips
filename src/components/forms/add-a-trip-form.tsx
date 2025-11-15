@@ -2,7 +2,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleX } from 'lucide-react'
 import { Activity, useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { type UseFormReturn, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type * as z from 'zod'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
@@ -63,12 +63,7 @@ export default function AddTripForm({
 		},
 	})
 
-	useEffect(() => {
-		if (formattedAddress) {
-			form.setValue('inspectionAddress', formattedAddress)
-			console.log('Setting inspectionAddress:', formattedAddress)
-		}
-	}, [formattedAddress, form])
+	useSetCurrentAddress(formattedAddress, form)
 
 	function onSubmit(data: z.infer<typeof schemaAddTripForm>) {
 		mutate({ data })
@@ -185,11 +180,17 @@ export default function AddTripForm({
 			>
 				Submit
 			</Button>
-
 		</form>
 	)
 }
 
-
-
-
+const useSetCurrentAddress = (
+	formattedAddress: string | undefined,
+	form: UseFormReturn<z.infer<typeof schemaAddTripForm>>,
+) => {
+	useEffect(() => {
+		if (formattedAddress) {
+			form.setValue('inspectionAddress', formattedAddress)
+		}
+	}, [formattedAddress, form])
+}

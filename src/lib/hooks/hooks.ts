@@ -2,9 +2,9 @@
 // import { getAddress } from '@/lib/actions/actions'
 // import type { Trip } from '@/lib/types/types'
 
-import { useQuery } from "@tanstack/react-query"
-import { getAddress } from "../actions/actions"
-import { useEffect, useState } from "react"
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { getAddress } from '../actions/actions'
 
 // const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
 // 	const response = await fetch(`/api/trips/${driverEmail}?page=2`)
@@ -57,14 +57,11 @@ import { useEffect, useState } from "react"
 // 	})
 // }
 
-export const useGetAddress = (
-	lat: number,
-	long: number,	
-) => {
+export const useGetAddress = (lat: number, long: number) => {
 	return useQuery({
 		queryKey: ['inspectionAddress', lat, long],
 		queryFn: () => getAddress(lat, long),
-		enabled: !!lat && !!long
+		enabled: !!lat && !!long,
 	})
 }
 

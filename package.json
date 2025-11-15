@@ -26,7 +26,7 @@
 		"@vercel/analytics": "^1.5.0",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"class-variance-authority": "^0.7.1",
-		"clsx": "^2.1.1",	
+		"clsx": "^2.1.1",
 		"isomorphic-dompurify": "^2.23.0",
 		"lucide-react": "^0.553.0",
 		"next": "^16.0.3",
