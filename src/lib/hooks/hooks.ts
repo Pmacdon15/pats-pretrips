@@ -4,6 +4,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { getAddress } from "../actions/actions"
+import { useEffect, useState } from "react"
 
 // const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
 // 	const response = await fetch(`/api/trips/${driverEmail}?page=2`)
@@ -65,4 +66,29 @@ export const useGetAddress = (
 		queryFn: () => getAddress(lat, long),
 		enabled: !!lat && !!long
 	})
+}
+
+export function useGetLocation() {
+	const [location, setLocation] = useState<{
+		latitude: number
+		longitude: number
+	} | null>(null)
+
+	useEffect(() => {
+		async function getLocation() {
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(async (position) => {
+					setLocation({
+						latitude: position.coords.latitude,
+						longitude: position.coords.longitude,
+					})
+				})
+			} else {
+				console.log('Geolocation is not supported by this browser.')
+			}
+		}
+		getLocation()
+	}, [])
+
+	return { location }
 }
