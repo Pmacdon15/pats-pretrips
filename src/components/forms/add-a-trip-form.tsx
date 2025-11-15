@@ -1,7 +1,7 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleX } from 'lucide-react'
-import { Activity, useState } from 'react'
+import { Activity, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type * as z from 'zod'
@@ -12,7 +12,7 @@ import { AddDefect } from '../add-defect/AddDefect'
 import { Button } from '../ui/button'
 import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
-//TODO REMOVE THIS EMAIL ITS UNNEEDED
+
 export default function AddTripForm({
 	setShowForm,
 }: {
@@ -36,12 +36,15 @@ export default function AddTripForm({
 		},
 	})
 	const { location } = useGetLocation()
+	console.log('Location in AddTripForm:', location)
 	const { data: addressData } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
 	)
+	console.log('AddressData in AddTripForm:', addressData)
 	const formattedAddress =
 		addressData?.data?.features[0]?.properties?.formatted
+	console.log('FormattedAddress in AddTripForm:', formattedAddress)
 
 	const form = useForm<z.infer<typeof schemaAddTripForm>>({
 		resolver: zodResolver(schemaAddTripForm),
@@ -59,6 +62,13 @@ export default function AddTripForm({
 			remarks: '',
 		},
 	})
+
+	useEffect(() => {
+		if (formattedAddress) {
+			form.setValue('inspectionAddress', formattedAddress)
+			console.log('Setting inspectionAddress:', formattedAddress)
+		}
+	}, [formattedAddress, form])
 
 	function onSubmit(data: z.infer<typeof schemaAddTripForm>) {
 		mutate({ data })
@@ -175,6 +185,11 @@ export default function AddTripForm({
 			>
 				Submit
 			</Button>
+
 		</form>
 	)
 }
+
+
+
+
