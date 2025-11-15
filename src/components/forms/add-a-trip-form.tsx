@@ -27,7 +27,7 @@ export default function AddTripForm({
 	const { mutate } = useAddTrip({
 		onSuccess: () => {
 			toast.success('Pre-Trip received', {
-				description: 'Your message has been sent to Contractor Chris!',
+				description: 'Your trip has been sent to our servers!',
 			})
 			form.reset()
 			setShowForm(false)

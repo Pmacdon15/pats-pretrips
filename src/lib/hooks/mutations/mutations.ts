@@ -4,7 +4,13 @@ import { addOnRouteDefects, addTrip } from '@/lib/actions/actions'
 import { revalidatePathAction } from '@/lib/actions/revalidate-actions'
 import type { schemaAddDefects, schemaAddTripForm } from '@/lib/ZOD/schemas'
 
-export const useAddDefectOnRoute = (tripId: number) => {
+export const useAddDefectOnRoute = (
+	tripId: number,
+	options?: {
+		onSuccess?: () => void
+		onError?: (error: unknown) => void
+	},
+) => {
 	return useMutation({
 		mutationFn: async ({
 			data,
@@ -17,6 +23,7 @@ export const useAddDefectOnRoute = (tripId: number) => {
 			return addOnRouteDefects(data, tripId)
 		},
 		onSuccess: () => {
+			options?.onSuccess?.()
 			revalidatePathAction('/pretrips')
 			revalidatePathAction(`/pretrip/[${tripId}]`)
 		},

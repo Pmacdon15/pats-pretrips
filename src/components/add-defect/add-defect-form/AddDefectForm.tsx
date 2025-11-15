@@ -10,6 +10,7 @@ import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../AddDefect'
+import { toast } from 'sonner'
 
 interface AddDefectFormProps {
 	trip: Trip | undefined
@@ -30,8 +31,22 @@ export function AddDefectForm({
 		},
 	})
 
-	const { mutate, isError, isPending } = useAddDefectOnRoute(Number(tripId))
-
+	const { mutate, isError, isPending } = useAddDefectOnRoute(Number(tripId), {
+		onSuccess: () => {
+			toast.success('Defect received', {
+				description: 'Your message has been sent to our servers!',
+			})
+			form.reset()			
+		},
+		onError: (error) => {
+			toast.error('Error Sending Trip', {
+				description:
+					error instanceof Error
+						? error.message
+						: 'An error occurred while uploading your trip.',
+			})
+		},
+	})
 	const [defects, setDefects] = useState('')
 
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -39,8 +54,10 @@ export function AddDefectForm({
 
 	const handleSelectDefect = (defect: string) => {
 		if (defect !== '') {
-			form.setValue('defects', `${defect}, ${form.getValues().defects}`)
-			setDefects(`${defect}, ${form.getValues().defects}`)
+			const currentDefects = form.getValues().defects
+			const newDefects = currentDefects ? `${currentDefects}, ${defect}` : defect
+			form.setValue('defects', newDefects)
+			setDefects(newDefects)
 		}
 	}
 
@@ -49,15 +66,11 @@ export function AddDefectForm({
 
 		const updatedTrip = {
 			...trip,
-			defects: [trip.defects, data.defects]
-				.filter(Boolean)
-				.join(', '),
-			remarks: [trip.remarks, data.remarks]
-				.filter(Boolean)
-				.join(', '),
+			defects: [trip.defects, data.defects].filter(Boolean).join(', '),
+			remarks: [trip.remarks, data.remarks].filter(Boolean).join(', '),
 		}
 		updateOptimisticTrip(updatedTrip)
-		mutate({ tripId, data })
+		mutate({ tripId, data })		
 	}
 
 	return (
