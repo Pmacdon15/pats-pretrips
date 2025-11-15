@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import Footer from '@/components/footer/footer'
 import Header from '@/components/header/header'
@@ -36,6 +37,7 @@ export default function RootLayout({
 					>
 						<Header />
 						<main className="flex-grow">{children}</main>
+						<Analytics />
 						<Footer />
 						<Toaster />
 					</body>
