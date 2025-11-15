@@ -1,7 +1,7 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleX } from 'lucide-react'
-import { Activity, useState } from 'react'
+import { Activity, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import type * as z from 'zod'
@@ -48,7 +48,7 @@ export default function AddTripForm({
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
-			inspectionAddress: formattedAddress || '',
+			inspectionAddress: '',
 			make: '',
 			model: '',
 			odometer: 0,
@@ -59,6 +59,12 @@ export default function AddTripForm({
 			remarks: '',
 		},
 	})
+
+	useEffect(() => {
+		if (formattedAddress) {
+			form.setValue('inspectionAddress', formattedAddress)
+		}
+	}, [formattedAddress, form])
 
 	function onSubmit(data: z.infer<typeof schemaAddTripForm>) {
 		mutate({ data })
