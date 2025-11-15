@@ -1,13 +1,7 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { Suspense } from 'react'
-import AddDefectForm from '@/components/add-defect/add-defect-form/AddDefectForm'
 import DisplayTripFallback from '@/components/fallbacks/display-trip-fallback'
 import DisplayTrip from '@/components/trips/display-trip/DisplayTrip'
-import {
-	DisplayTripTableBody,
-	DisplayTripTableHead,
-} from '@/components/trips/display-trip/displayTripTable'
-import PageHead from '@/components/trips/display-trip/page-head'
 import { fetchTrip } from '@/lib/DAL/trips'
 
 export default function Page(props: PageProps<'/pretrip/[tripId]'>) {
@@ -20,14 +14,8 @@ export default function Page(props: PageProps<'/pretrip/[tripId]'>) {
 		<div className="flex flex-col items-center justify-items-center gap-4 p-4">
 			<Suspense fallback={<DisplayTripFallback />}>
 				<DisplayTrip
-					addDefectForm={<AddDefectForm tripPromise={tripPromise} />}
-					pageHead={<PageHead userPromise={userPromise} />}
-					tripTable={
-						<table className="w-full overflow-hidden rounded-sm border p-4">
-							<DisplayTripTableHead />
-							<DisplayTripTableBody dataPromise={tripPromise} />
-						</table>
-					}
+					tripPromise={tripPromise}
+					userPromise={userPromise}
 				/>
 			</Suspense>
 		</div>

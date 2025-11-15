@@ -8,33 +8,23 @@ import type { AddressResponse } from '@/lib/types/types'
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addOnRouteDefects(
-	driverEmail: string,
-	tripId: number,
 	data: z.infer<typeof schemaAddDefects>,
+	tripId?: number | null,
 ) {
-	const validatedFields = schemaAddDefects.safeParse({
-		defects: data.defects,
-		remarks: data.remarks,
-	})
+	const { getUser } = getKindeServerSession()
+	const user = await getUser()
+
+	const driverEmail = user?.email
+
+	if (!driverEmail) {
+		throw new Error('Must be logged in')
+	}
+
+	const validatedFields = schemaAddDefects.safeParse(data)
 
 	if (!validatedFields.success) {
 		throw new Error('Invalid form data')
 	}
-
-	const cleanDefects = DOMPurify.sanitize(
-		validatedFields?.data?.defects
-			? validatedFields.data?.defects.toString()
-			: '',
-	)
-	const cleanremarks = DOMPurify.sanitize(
-		validatedFields.data?.remarks
-			? validatedFields.data?.remarks.toString()
-			: '',
-	)
-
-	let cleanDefectsToAddArray = cleanDefects.toString().split(', ')
-
-	if (!cleanDefectsToAddArray) cleanDefectsToAddArray = []
 
 	try {
 		const sql = neon(`${process.env.DATABASE_URL}`)
@@ -48,7 +38,11 @@ export async function addOnRouteDefects(
 
 		const cleanCurrentDefects = result1?.defects || ''
 
-		cleanDefectsToAddArray.forEach((defect) => {
+		const defectsArray = validatedFields.data.defects
+			.split(',')
+			.map((defect) => defect.trim())
+
+		for (const defect of defectsArray) {
 			if (
 				defect !== '' &&
 				cleanCurrentDefects !== '' &&
@@ -56,30 +50,33 @@ export async function addOnRouteDefects(
 			) {
 				throw new Error(`Defect "${defect}" already listed`)
 			}
-		})
+		}
+
+		const cleanDefectsToAdd = defectsArray.join(', ')
+		const cleanRemarks = DOMPurify.sanitize(validatedFields.data.remarks)
 
 		const [result] = await sql`         
             UPDATE PTTrips
             SET defects = CASE 
-                            WHEN COALESCE(defects, '') = '' THEN ${cleanDefectsToAddArray.join(', ')}
-                            ELSE COALESCE(defects || ', ' || ${cleanDefectsToAddArray.join(', ')}, ${cleanDefectsToAddArray.join(', ')})
+                            WHEN COALESCE(defects, '') = '' THEN ${cleanDefectsToAdd}
+                            ELSE COALESCE(defects || ', ' || ${cleanDefectsToAdd}, ${cleanDefectsToAdd})
                           END,
                 remarks = CASE 
-                            WHEN COALESCE(remarks, '') = '' THEN ${cleanremarks}::text
-                            ELSE COALESCE(remarks || ', ' || ${cleanremarks}::text, ${cleanremarks}::text)
+                            WHEN COALESCE(remarks, '') = '' THEN ${cleanRemarks}::text
+                            ELSE COALESCE(remarks || ', ' || ${cleanRemarks}::text, ${cleanRemarks}::text)
                           END
             WHERE tripId = ${tripId} 
             AND driverEmail = ${driverEmail}
             AND date >= NOW() - INTERVAL '24 hour'
             RETURNING *;
         `
-		if (!result) throw new Error()
+		if (!result) throw new Error('Failed to update trip')
+		return result
 	} catch (e: unknown) {
 		const errorMessage = e instanceof Error ? e.message : String(e)
 		throw new Error(errorMessage)
 	}
 }
-
 export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()

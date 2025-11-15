@@ -1,57 +1,60 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { getAddress } from '@/lib/actions/actions'
-import type { Trip } from '@/lib/types/types'
+// import { keepPreviousData, useQuery } from '@tanstack/react-query'
+// import { getAddress } from '@/lib/actions/actions'
+// import type { Trip } from '@/lib/types/types'
 
-const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
-	const response = await fetch(`/api/trips/${driverEmail}?page=2`)
-	return await response.json()
-}
+import { useQuery } from "@tanstack/react-query"
+import { getAddress } from "../actions/actions"
 
-export const useGetTrips = (driverEmail: string) => {
-	return useQuery({
-		queryKey: ['trips', driverEmail],
-		queryFn: () => fetchTrips(driverEmail),
-		enabled: !!driverEmail,
-	})
-}
+// const fetchTrips = async (driverEmail: string): Promise<Array<Trip>> => {
+// 	const response = await fetch(`/api/trips/${driverEmail}?page=2`)
+// 	return await response.json()
+// }
 
-const fetchPastTrips = async ({
-	driverEmail,
-	page,
-}: {
-	driverEmail: string
-	page: number
-}) => {
-	const response = await fetch(
-		`/api/pastTrips/${driverEmail}?page=${page}&limit=${process.env.LIMIT_FOR_PAG || 4}`,
-	)
-	return await response.json()
-}
+// export const useGetTrips = (driverEmail: string) => {
+// 	return useQuery({
+// 		queryKey: ['trips', driverEmail],
+// 		queryFn: () => fetchTrips(driverEmail),
+// 		enabled: !!driverEmail,
+// 	})
+// }
 
-export const useGetPastTrips = (driverEmail: string, page: number) => {
-	return useQuery({
-		queryKey: ['trips', driverEmail, page],
-		queryFn: () => fetchPastTrips({ driverEmail, page }),
-		placeholderData: keepPreviousData,
-		enabled: !!driverEmail && !!page,
-	})
-}
+// const fetchPastTrips = async ({
+// 	driverEmail,
+// 	page,
+// }: {
+// 	driverEmail: string
+// 	page: number
+// }) => {
+// 	const response = await fetch(
+// 		`/api/pastTrips/${driverEmail}?page=${page}&limit=${process.env.LIMIT_FOR_PAG || 4}`,
+// 	)
+// 	return await response.json()
+// }
 
-const fetchTrip = async (
-	tripId: number,
-	driverEmail: string,
-): Promise<Trip> => {
-	const response = await fetch(`/api/trip/${tripId}/${driverEmail}`)
-	return await response.json()
-}
+// export const useGetPastTrips = (driverEmail: string, page: number) => {
+// 	return useQuery({
+// 		queryKey: ['trips', driverEmail, page],
+// 		queryFn: () => fetchPastTrips({ driverEmail, page }),
+// 		placeholderData: keepPreviousData,
+// 		enabled: !!driverEmail && !!page,
+// 	})
+// }
 
-export const useGetTrip = (tripId: number, driverEmail: string) => {
-	return useQuery({
-		queryKey: ['trip', tripId, driverEmail],
-		queryFn: () => fetchTrip(tripId, driverEmail),
-		enabled: !!tripId && !!driverEmail,
-	})
-}
+// const fetchTrip = async (
+// 	tripId: number,
+// 	driverEmail: string,
+// ): Promise<Trip> => {
+// 	const response = await fetch(`/api/trip/${tripId}/${driverEmail}`)
+// 	return await response.json()
+// }
+
+// export const useGetTrip = (tripId: number, driverEmail: string) => {
+// 	return useQuery({
+// 		queryKey: ['trip', tripId, driverEmail],
+// 		queryFn: () => fetchTrip(tripId, driverEmail),
+// 		enabled: !!tripId && !!driverEmail,
+// 	})
+// }
 
 export const useGetAddress = (
 	lat: number,

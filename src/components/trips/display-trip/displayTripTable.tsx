@@ -11,19 +11,14 @@ export function DisplayTripTableHead() {
 	)
 }
 
-export async function DisplayTripTableBody({
-	dataPromise,
-}: {
-	dataPromise: Promise<Trip | undefined>
-}) {
-	const data = await dataPromise
-	if (data)
+export function DisplayTripTableBody({ trip }: { trip: Trip | undefined }) {
+	if (trip)
 		return (
 			<tbody className="rounded-sm">
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Carrier</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.carrier}
+						{trip.carrier}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -31,7 +26,7 @@ export async function DisplayTripTableBody({
 						Carrier Address
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.carrieraddress}
+						{trip.carrieraddress}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -39,7 +34,7 @@ export async function DisplayTripTableBody({
 						Inspection Address
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.inspectionaddress}
+						{trip.inspectionaddress}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -47,7 +42,7 @@ export async function DisplayTripTableBody({
 						Truck Plate
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.truckplate}
+						{trip.truckplate}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -55,7 +50,7 @@ export async function DisplayTripTableBody({
 						Trailer Plate A
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.trailerplatea}
+						{trip.trailerplatea}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -63,37 +58,37 @@ export async function DisplayTripTableBody({
 						Trailer Plate B
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.trailerplateb}
+						{trip.trailerplateb}
 					</td>
 				</tr>
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Make</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.make}
+						{trip.make}
 					</td>
 				</tr>
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Model</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.model}
+						{trip.model}
 					</td>
 				</tr>
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Odometer</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.odometer}
+						{trip.odometer}
 					</td>
 				</tr>
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Defects</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.defects}
+						{trip.defects}
 					</td>
 				</tr>
 				<tr className="border-b">
 					<td className="w-1/3 rounded-sm p-2 text-left">Remarks</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{data.remarks}
+						{trip.remarks}
 					</td>
 				</tr>
 				<tr className="border-b">
@@ -101,7 +96,7 @@ export async function DisplayTripTableBody({
 						Inspection Date
 					</td>
 					<td className="w-1/3 rounded-sm p-2 text-left">
-						{new Date(data.date).toLocaleString('en-CA', {
+						{new Date(trip.date).toLocaleString('en-CA', {
 							dateStyle: 'short',
 							timeStyle: 'short',
 						})}

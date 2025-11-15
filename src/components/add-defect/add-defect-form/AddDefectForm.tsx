@@ -1,7 +1,7 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleX } from 'lucide-react'
-import { Activity, use, useState } from 'react'
+import { Activity, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type z from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
@@ -11,15 +11,16 @@ import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../AddDefect'
 
-export default function AddDefectForm({
-	tripPromise,
-}: {
-	tripPromise: Promise<Trip | undefined>
-}) {
-	const trip = use(tripPromise) // Still need to use 'use' for tripPromise to get trip data
+interface AddDefectFormProps {
+	trip: Trip | undefined
+	updateOptimisticTrip: (action: Trip) => void
+}
 
+export function AddDefectForm({
+	trip,
+	updateOptimisticTrip,
+}: AddDefectFormProps) {
 	const tripId = Number(trip?.tripid || '')
-	const driverEmail = trip?.driveremail || ''
 
 	const form = useForm<z.infer<typeof schemaAddDefects>>({
 		resolver: zodResolver(schemaAddDefects),
@@ -44,11 +45,19 @@ export default function AddDefectForm({
 	}
 
 	const onSubmit = (data: z.infer<typeof schemaAddDefects>) => {
-		mutate({
-			driverEmail,
-			tripId,
-			data,
-		})
+		if (!trip) return
+
+		const updatedTrip = {
+			...trip,
+			defects: [trip.defects, data.defects]
+				.filter(Boolean)
+				.join(', '),
+			remarks: [trip.remarks, data.remarks]
+				.filter(Boolean)
+				.join('\n'),
+		}
+		updateOptimisticTrip(updatedTrip)
+		mutate({ tripId, data })
 	}
 
 	return (

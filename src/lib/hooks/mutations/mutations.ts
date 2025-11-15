@@ -8,17 +8,13 @@ export const useAddDefectOnRoute = (tripId: number) => {
 	return useMutation({
 		mutationFn: async ({
 			data,
-			driverEmail,
 			tripId,
 		}: {
 			data: z.infer<typeof schemaAddDefects>
 			driverEmail?: string
 			tripId: number | null
 		}) => {
-			if (!driverEmail || !tripId) {
-				throw new Error('Driver email and trip ID are required')
-			}
-			return addOnRouteDefects(driverEmail, tripId, data)
+			return addOnRouteDefects(data, tripId)
 		},
 		onSuccess: () => {
 			revalidatePathAction('/pretrips')
