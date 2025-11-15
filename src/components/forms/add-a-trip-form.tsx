@@ -178,7 +178,7 @@ export default function AddTripForm({
 				className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
 				size={'lg'}
 				type="submit"
-				variant={'outline'}
+				// variant={'outline'}
 			>
 				Submit
 			</Button>

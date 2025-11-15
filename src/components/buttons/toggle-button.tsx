@@ -17,7 +17,7 @@ export function ButtonToggle({
 			onClick={onClick}
 			size={'lg'}
 			type="button"
-			variant={'outline'}
+			// variant={'outline'}
 		>
 			{toggle ? toggleText : text}
 		</Button>
