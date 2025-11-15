@@ -15,6 +15,6 @@ export const schemaAddTripForm = z.object({
 })
 
 export const schemaAddDefects = z.object({
-	defects: z.string(),
-	remarks: z.string(),
+	defects: z.string().min(3,'Must Add Defect'),
+	remarks: z.string().min(3,'Must Add Remark'),
 })

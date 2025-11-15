@@ -1,13 +1,14 @@
 import type { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
+import { use } from 'react'
 
-export default async function PageHead({
+export default function PageHead({
 	userPromise,
 }: {
-	userPromise?:
+	userPromise:
 		| Promise<KindeUser<Record<string, string>> | null>
-		| Promise<void>
+		| null
 }) {
-	const user = await userPromise
+	const user = userPromise ? use(userPromise) : null
 	return (
 		<div className="w-full rounded-sm bg-[var(--color-background)] p-4 shadow-xl">
 			Driver Name: {user?.given_name}

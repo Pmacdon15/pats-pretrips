@@ -12,9 +12,7 @@ export default function DisplayTrip({
 	userPromise,
 }: {
 	tripPromise: Promise<Trip | undefined>
-	userPromise:
-		| Promise<KindeUser<Record<string, string>> | null>
-		| Promise<void>
+	userPromise: Promise<KindeUser<Record<string, string>> | null>
 }) {
 	const trip = use(tripPromise)
 	const [optimisticTrip, updateOptimisticTrip] = useOptimistic(trip)
