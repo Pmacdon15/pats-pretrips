@@ -151,7 +151,6 @@ export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 export async function getAddress(
 	lat: number,
 	lng: number,
-	_driverEmail: string,
 ): Promise<{ data: AddressResponse | undefined }> {
 	const apiKey = process.env.REVERSE_GEOCODING_API_KEY
 	let data: AddressResponse | undefined
@@ -162,6 +161,7 @@ export async function getAddress(
 				cache: 'no-cache',
 			},
 		)
+		console.log('Data:', data)
 		data = await response.json()
 	} catch (error) {
 		console.error(

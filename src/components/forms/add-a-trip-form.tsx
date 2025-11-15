@@ -1,6 +1,5 @@
 'use client'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useKindeBrowserClient } from '@kinde-oss/kinde-auth-nextjs'
 import { CircleX } from 'lucide-react'
 import { Activity, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -20,10 +19,6 @@ export default function AddTripForm({
 }: {
 	setShowForm: (value: boolean) => void
 }) {
-	const { user } = useKindeBrowserClient()
-
-	const driverEmail = user?.email
-
 	const { mutate } = useAddTrip({
 		onSuccess: () => {
 			toast.success('Pre-Trip received', {
@@ -45,7 +40,6 @@ export default function AddTripForm({
 	const { data: addressData } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
-		driverEmail || '',
 	)
 	const formattedAddress =
 		addressData?.data?.features[0]?.properties?.formatted

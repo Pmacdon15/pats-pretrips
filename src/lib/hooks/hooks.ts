@@ -58,12 +58,11 @@ import { getAddress } from "../actions/actions"
 
 export const useGetAddress = (
 	lat: number,
-	long: number,
-	driverEmail: string,
+	long: number,	
 ) => {
 	return useQuery({
-		queryKey: ['inspectionAddress', lat, long, driverEmail],
-		queryFn: () => getAddress(lat, long, driverEmail),
-		enabled: !!lat && !!long && !!driverEmail,
+		queryKey: ['inspectionAddress', lat, long],
+		queryFn: () => getAddress(lat, long),
+		enabled: !!lat && !!long
 	})
 }
