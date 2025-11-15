@@ -36,12 +36,15 @@ export default function AddTripForm({
 		},
 	})
 	const { location } = useGetLocation()
+	console.log('Location in AddTripForm:', location)
 	const { data: addressData } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
 	)
+	console.log('AddressData in AddTripForm:', addressData)
 	const formattedAddress =
 		addressData?.data?.features[0]?.properties?.formatted
+	console.log('FormattedAddress in AddTripForm:', formattedAddress)
 
 	const form = useForm<z.infer<typeof schemaAddTripForm>>({
 		resolver: zodResolver(schemaAddTripForm),
@@ -63,6 +66,7 @@ export default function AddTripForm({
 	useEffect(() => {
 		if (formattedAddress) {
 			form.setValue('inspectionAddress', formattedAddress)
+			console.log('Setting inspectionAddress:', formattedAddress)
 		}
 	}, [formattedAddress, form])
 
@@ -181,7 +185,11 @@ export default function AddTripForm({
 			>
 				Submit
 			</Button>
+
 		</form>
 	)
 }
+
+
+
 
