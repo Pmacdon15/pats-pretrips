@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://www.patspretrips.ca
+
+# Sitemaps
+Sitemap: https://www.patspretrips.ca/sitemap.xml
