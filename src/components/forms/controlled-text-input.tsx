@@ -18,6 +18,7 @@ interface ControlledTextInputProps<T extends FieldValues> {
 	placeholder?: string
 	type?: 'number'
 	defaultValue?: string
+	showCopyButton?: boolean
 }
 
 export function ControlledTextInput<T extends FieldValues>({
@@ -27,6 +28,7 @@ export function ControlledTextInput<T extends FieldValues>({
 	placeholder,
 	type,
 	defaultValue,
+	showCopyButton,
 }: ControlledTextInputProps<T>) {
 	const id = `form-get-a-quote-${name}`
 	return (
@@ -51,6 +53,7 @@ export function ControlledTextInput<T extends FieldValues>({
 								}
 							}}
 							placeholder={placeholder}
+							showCopyButton={showCopyButton}
 							type={type}
 							value={
 								type === 'number' && field.value === 0

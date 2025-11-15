@@ -102,6 +102,7 @@ export default function AddTripForm({
 					label="Inspection Address"
 					name="inspectionAddress"
 					placeholder="123 North N St Calgary Ab"
+					showCopyButton={true}
 				/>
 			</div>
 			<div className="flex w-full gap-4">
