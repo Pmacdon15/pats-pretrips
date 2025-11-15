@@ -1,5 +1,5 @@
 'use client'
-import { Activity, useEffect, useState } from 'react'
+import { Activity, useState } from 'react'
 import { ButtonToggle } from '@/components/buttons/toggle-button'
 import AddTripForm from '../../forms/add-a-trip-form'
 
@@ -23,30 +23,4 @@ export default function AddTripContainer() {
 			</div>
 		</div>
 	)
-}
-
-export function useGetLocation() {
-	const [location, setLocation] = useState<{
-		latitude: number
-		longitude: number
-	} | null>(null)
-
-	useEffect(() => {
-		async function getLocation() {
-			if (navigator.geolocation) {
-				navigator.geolocation.getCurrentPosition(async (position) => {
-					setLocation({
-						latitude: position.coords.latitude,
-						longitude: position.coords.longitude,
-					})
-				})
-				console.log("location",location)
-			} else {
-				console.log('Geolocation is not supported by this browser.')
-			}
-		}
-		getLocation()
-	}, [location])
-
-	return { location }
 }

@@ -161,8 +161,8 @@ export async function getAddress(
 				cache: 'no-cache',
 			},
 		)
-		console.log('Data:', data)
 		data = await response.json()
+		console.log('Data:', data)
 	} catch (error) {
 		console.error(
 			'Error fetching:',
