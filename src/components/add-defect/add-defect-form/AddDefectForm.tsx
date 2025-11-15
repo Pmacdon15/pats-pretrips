@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleX } from 'lucide-react'
 import { Activity, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import type z from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,6 @@ import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../AddDefect'
-import { toast } from 'sonner'
 
 interface AddDefectFormProps {
 	trip: Trip | undefined
@@ -36,7 +36,7 @@ export function AddDefectForm({
 			toast.success('Defect received', {
 				description: 'Your message has been sent to our servers!',
 			})
-			form.reset()			
+			form.reset()
 		},
 		onError: (error) => {
 			toast.error('Error Sending Trip', {
@@ -55,9 +55,14 @@ export function AddDefectForm({
 	const handleSelectDefect = (defect: string) => {
 		if (defect !== '') {
 			const currentDefects = form.getValues().defects
-			const newDefects = currentDefects ? `${currentDefects}, ${defect}` : defect
-			form.setValue('defects', newDefects)
-			setDefects(newDefects)
+			const defectsArray = currentDefects
+				? currentDefects.split(',').map((d) => d.trim())
+				: []
+			if (!defectsArray.includes(defect)) {
+				const newDefects = [...defectsArray, defect].join(', ')
+				form.setValue('defects', newDefects)
+				setDefects(newDefects)
+			}
 		}
 	}
 
@@ -70,7 +75,7 @@ export function AddDefectForm({
 			remarks: [trip.remarks, data.remarks].filter(Boolean).join(', '),
 		}
 		updateOptimisticTrip(updatedTrip)
-		mutate({ tripId, data })		
+		mutate({ tripId, data })
 	}
 
 	return (

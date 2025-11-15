@@ -21,4 +21,4 @@ CREATE TABLE PTTrips (
 );
 
 
-select * from PTTRips;
+-- select * from PTTRips;
