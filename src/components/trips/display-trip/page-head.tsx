@@ -4,7 +4,7 @@ import { use } from 'react'
 export default function PageHead({
 	userPromise,
 }: {
-	userPromise:
+	userPromise?:
 		| Promise<KindeUser<Record<string, string>> | null>
 		| null
 }) {
