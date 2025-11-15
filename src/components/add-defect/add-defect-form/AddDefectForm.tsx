@@ -54,7 +54,7 @@ export function AddDefectForm({
 				.join(', '),
 			remarks: [trip.remarks, data.remarks]
 				.filter(Boolean)
-				.join('\n'),
+				.join(', '),
 		}
 		updateOptimisticTrip(updatedTrip)
 		mutate({ tripId, data })
