@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import type z from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
-import { useAddDefectOnRoute } from '@/lib/hooks/mutations/mutations'
+import { useAddDefectOnRoute } from '@/lib/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../AddDefect'
@@ -31,7 +31,7 @@ export function AddDefectForm({
 		},
 	})
 
-	const { mutate, isError, isPending } = useAddDefectOnRoute(Number(tripId), {
+	const { mutate, isError, isPending } = useAddDefectOnRoute({
 		onSuccess: () => {
 			toast.success('Defect received', {
 				description: 'Your message has been sent to our servers!',
