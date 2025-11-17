@@ -30,7 +30,7 @@ export function ControlledTextInput<T extends FieldValues>({
 	defaultValue,
 	showCopyButton,
 }: ControlledTextInputProps<T>) {
-	const id = `form-get-a-quote-${name}`
+	const id = `form-${name}`
 	return (
 		<FieldGroup>
 			<Controller

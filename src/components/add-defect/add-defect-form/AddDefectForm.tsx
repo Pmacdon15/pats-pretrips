@@ -81,7 +81,10 @@ export function AddDefectForm({
 	return (
 		<form
 			className="flex w-full flex-col gap-4"
-			onSubmit={form.handleSubmit(onSubmit)}
+			onSubmit={(e) => {
+				e.preventDefault()
+				form.handleSubmit(onSubmit)(e)
+			}}
 		>
 			{' '}
 			<AddDefect handleSelectDefect={handleSelectDefect}>

@@ -80,8 +80,11 @@ export default function AddTripForm({
 	return (
 		<form
 			className={'flex w-full flex-col gap-4'}
-			id="form-get-a-quote"
-			onSubmit={form.handleSubmit(onSubmit)}
+			id="form"
+			onSubmit={(e) => {
+				e.preventDefault()
+				form.handleSubmit(onSubmit)(e)
+			}}
 		>
 			<h1 className="text-2xl">Create a Trip</h1>
 			<div className="flex w-full flex-col gap-4">
