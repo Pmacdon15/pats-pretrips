@@ -25,7 +25,7 @@ export const useAddDefectOnRoute = (
 			options?.onSuccess?.()
 			updateTagAction('current-trips')
 			updateTagAction('trip')
-			updateTagAction('past-trips')
+			// updateTagAction('past-trips')
 		},
 		onError: (error) => {
 			console.error('Mutation error:', error)
@@ -43,7 +43,7 @@ export const useAddTrip = (options?: {
 		onSuccess: () => {
 			options?.onSuccess?.()
 			updateTagAction('current-trips')
-			updateTagAction('past-trips')
+			// updateTagAction('past-trips')
 		},
 		onError: options?.onError,
 	})
