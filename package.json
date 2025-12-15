@@ -3,9 +3,9 @@
 	"version": "2.7.1",
 	"private": true,
 	"scripts": {
-		"dev": "next dev --turbopack",
-		"build": "next build --turbopack",
-		"start": "next start",
+		"dev": "bun --bun next dev --turbopack",
+		"build": "bun --bun next build --turbopack",
+		"start": "bun --bun next start",
 		"lint": "biome check --write --unsafe",
 		"format": "biome format --write",
 		"postbuild": "next-sitemap --config next-sitemap.config.cjs"
