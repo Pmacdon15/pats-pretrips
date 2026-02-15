@@ -28,7 +28,7 @@ export default function Home() {
 				<Suspense>
 					<HomePageButtons
 						isLoggedInPromise={isAuthenticated()?.then(
-							(result) => result,
+							(result: boolean) => result,
 						)}
 					/>
 				</Suspense>
