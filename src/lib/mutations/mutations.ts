@@ -29,7 +29,7 @@ export const useAddDefectOnRoute = () => {
 			})
 		},
 		onError: (error) => {
-			toast.error('Error Sending Trip', {
+			toast.error('Error updating Trip', {
 				description:
 					error instanceof Error
 						? error.message

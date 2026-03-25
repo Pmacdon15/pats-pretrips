@@ -48,6 +48,7 @@ export function AddDefectForm({
 			}
 			updateOptimisticTrip(updatedTrip)
 			mutate({ data: value })
+			form.reset()
 		},
 	})
 

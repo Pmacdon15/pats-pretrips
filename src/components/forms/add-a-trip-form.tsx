@@ -47,6 +47,8 @@ export default function AddTripForm({
 		},
 		onSubmit: async ({ value }) => {
 			mutate({ data: value })
+			setShowForm(false)
+			form.reset()
 		},
 	})
 
