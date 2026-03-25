@@ -1,10 +1,9 @@
 'use client'
-import { zodResolver } from '@hookform/resolvers/zod'
+
+import { useForm } from '@tanstack/react-form'
 import { CircleX } from 'lucide-react'
 import { Activity, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { toast } from 'sonner'
-import type z from 'zod'
+import type { z } from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
 import { useAddDefectOnRoute } from '@/lib/mutations/mutations'
@@ -23,30 +22,35 @@ export function AddDefectForm({
 }: AddDefectFormProps) {
 	const tripId = Number(trip?.tripid || '')
 
-	const form = useForm<z.infer<typeof schemaAddDefects>>({
-		resolver: zodResolver(schemaAddDefects),
+	const { mutate } = useAddDefectOnRoute()
+
+	const form = useForm({
 		defaultValues: {
 			defects: '',
 			remarks: '',
+			trip_id: tripId,
+		} as z.infer<typeof schemaAddDefects>,
+		validators: {
+			onBlur: schemaAddDefects,
+			onSubmit: schemaAddDefects,
+		},
+		onSubmit: async ({ value }) => {
+			if (!trip) return
+
+			const updatedTrip = {
+				...trip,
+				defects: [trip.defects, value.defects]
+					.filter(Boolean)
+					.join(', '),
+				remarks: [trip.remarks, value.remarks]
+					.filter(Boolean)
+					.join(', '),
+			}
+			updateOptimisticTrip(updatedTrip)
+			mutate({ data: value })
 		},
 	})
 
-	const { mutate, isError, isPending } = useAddDefectOnRoute({
-		onSuccess: () => {
-			toast.success('Defect received', {
-				description: 'Your message has been sent to our servers!',
-			})
-			form.reset()
-		},
-		onError: (error) => {
-			toast.error('Error Sending Trip', {
-				description:
-					error instanceof Error
-						? error.message
-						: 'An error occurred while uploading your trip.',
-			})
-		},
-	})
 	const [defects, setDefects] = useState('')
 
 	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -54,28 +58,16 @@ export function AddDefectForm({
 
 	const handleSelectDefect = (defect: string) => {
 		if (defect !== '') {
-			const currentDefects = form.getValues().defects
+			const currentDefects = form.getFieldValue('defects')
 			const defectsArray = currentDefects
 				? currentDefects.split(',').map((d) => d.trim())
 				: []
 			if (!defectsArray.includes(defect)) {
 				const newDefects = [...defectsArray, defect].join(', ')
-				form.setValue('defects', newDefects)
+				form.setFieldValue('defects', newDefects)
 				setDefects(newDefects)
 			}
 		}
-	}
-
-	const onSubmit = (data: z.infer<typeof schemaAddDefects>) => {
-		if (!trip) return
-
-		const updatedTrip = {
-			...trip,
-			defects: [trip.defects, data.defects].filter(Boolean).join(', '),
-			remarks: [trip.remarks, data.remarks].filter(Boolean).join(', '),
-		}
-		updateOptimisticTrip(updatedTrip)
-		mutate({ tripId, data })
 	}
 
 	return (
@@ -83,17 +75,18 @@ export function AddDefectForm({
 			className="flex w-full flex-col gap-4"
 			onSubmit={(e) => {
 				e.preventDefault()
-				form.handleSubmit(onSubmit)(e)
+				e.stopPropagation()
+				form.handleSubmit()
 			}}
 		>
-			{' '}
+			<h1 className="text-2xl">Add On Route Defects</h1>
 			<AddDefect handleSelectDefect={handleSelectDefect}>
 				<div className="relative">
 					<Activity mode={defects === '' ? 'hidden' : 'visible'}>
 						<Button
 							className="absolute top-8 right-0"
 							onClick={() => {
-								form.setValue('defects', '')
+								form.setFieldValue('defects', '')
 								setDefects('')
 							}}
 							size={'icon-lg'}
@@ -104,7 +97,7 @@ export function AddDefectForm({
 						</Button>
 					</Activity>
 					<ControlledTextArea
-						control={form.control}
+						form={form}
 						label="Defects"
 						name="defects"
 						readOnly
@@ -112,27 +105,24 @@ export function AddDefectForm({
 				</div>
 
 				<ControlledTextArea
-					control={form.control}
+					form={form}
 					label="Remarks"
 					name="remarks"
 				/>
 			</AddDefect>
-			{isError && (
-				<div className="text-center text-red-600">
-					Error Adding Defect
-				</div>
-			)}
-			<div className="flex w-full justify-center">
-				<Button
-					className={`rounded-lg bg-green-500 p-4 hover:bg-green-600`}
-					disabled={isPending}
-					size={'lg'}
-					type="submit"
-					variant={'outline'}
-				>
-					Add on Route Defects
-				</Button>
-			</div>
+
+			<form.Subscribe selector={(state) => [state.isSubmitting]}>
+				{([isSubmitting]) => (
+					<Button
+						className="rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600"
+						disabled={isSubmitting}
+						size={'lg'}
+						type="submit"
+					>
+						{isSubmitting ? '...' : 'Add on Route Defects'}
+					</Button>
+				)}
+			</form.Subscribe>
 		</form>
 	)
 }

@@ -1,45 +1,59 @@
 'use client'
-import type { FieldValues } from 'react-hook-form'
-import { Controller } from 'react-hook-form'
-import {
-	Field,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-} from '@/components/ui/field'
-import { Textarea } from '@/components/ui/textarea'
-import type { ControlledTextAreaProps } from '@/lib/types/types'
 
-export function ControlledTextArea<T extends FieldValues>({
-	control,
+import type { AnyFormApi } from '@tanstack/react-form'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Textarea } from '@/components/ui/textarea'
+
+export interface ControlledTextAreaProps {
+	form: AnyFormApi & { Field: any }
+	name: string
+	label: string
+	placeholder?: string
+	readOnly?: boolean
+}
+
+export function ControlledTextArea({
+	form,
 	name,
 	label,
 	placeholder,
 	readOnly = false,
-}: ControlledTextAreaProps<T>) {
-	const id = `form-get-a-quote-${name}`
+}: ControlledTextAreaProps) {
+	const id = `form-textarea-${name}`
+
 	return (
 		<FieldGroup>
-			<Controller
-				control={control}
-				name={name}
-				render={({ field, fieldState }) => (
-					<Field data-invalid={fieldState.invalid}>
-						<FieldLabel htmlFor={id}>{label}</FieldLabel>
-						<Textarea
-							{...field}
-							aria-invalid={fieldState.invalid}
-							autoComplete="off"
-							id={id}
-							placeholder={placeholder}
-							readOnly={readOnly}
-						/>
-						{fieldState.invalid && (
-							<FieldError errors={[fieldState.error]} />
-						)}
-					</Field>
-				)}
-			/>
+			<form.Field name={name}>
+				{(field: any) => {
+					const { errors, isTouched } = field.state.meta
+					const isInvalid = isTouched && errors.length > 0
+
+					return (
+						<Field data-invalid={isInvalid}>
+							<FieldLabel htmlFor={id}>{label}</FieldLabel>
+							<Textarea
+								aria-invalid={isInvalid}
+								id={id}
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(e) =>
+									field.handleChange(e.target.value)
+								}
+								placeholder={placeholder}
+								readOnly={readOnly}
+								value={field.state.value ?? ''}
+							/>
+							{isInvalid && (
+								<span className="text-[10px] font-medium text-destructive mt-1 block">
+									{typeof errors[0] === 'string'
+										? errors[0]
+										: errors[0]?.message}
+								</span>
+							)}
+						</Field>
+					)
+				}}
+			</form.Field>
 		</FieldGroup>
 	)
 }

@@ -1,11 +1,12 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { neon } from '@neondatabase/serverless'
-import { cacheTag } from 'next/cache'
+import { cacheLife, cacheTag } from 'next/cache'
 import type { Trip } from '@/lib/types/types'
 
 export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 	'use cache: private'
 	cacheTag('current-trips')
+	cacheLife('hours')
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 
@@ -46,6 +47,7 @@ export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 	'use cache: private'
 	cacheTag('past-trips')
+	cacheLife('hours')
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 
@@ -89,7 +91,8 @@ export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 
 export async function fetchTrip(tripId: number) {
 	'use cache: private'
-	cacheTag('trip')
+	cacheTag(`trip-${tripId}`)
+	cacheLife('hours')
 	const { getUser } = getKindeServerSession()
 	const user = await getUser()
 

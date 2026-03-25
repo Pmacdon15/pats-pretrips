@@ -1,10 +1,8 @@
 'use client'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from '@tanstack/react-form'
 import { CircleX } from 'lucide-react'
 import { Activity, useEffect, useState } from 'react'
-import { type UseFormReturn, useForm } from 'react-hook-form'
-import { toast } from 'sonner'
-import type * as z from 'zod'
+import type { z } from 'zod'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
@@ -18,36 +16,16 @@ export default function AddTripForm({
 }: {
 	setShowForm: (value: boolean) => void
 }) {
-	const { mutate } = useAddTrip({
-		onSuccess: () => {
-			toast.success('Pre-Trip received', {
-				description: 'Your trip has been sent to our servers!',
-			})
-			form.reset()
-			setShowForm(false)
-		},
-		onError: (error) => {
-			toast.error('Error Sending Trip', {
-				description:
-					error instanceof Error
-						? error.message
-						: 'An error occurred while uploading your trip.',
-			})
-		},
-	})
+	const { mutate } = useAddTrip()
 	const { location } = useGetLocation()
-	console.log('Location in AddTripForm:', location)
 	const { data: addressData } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
 	)
-	console.log('AddressData in AddTripForm:', addressData)
 	const formattedAddress =
 		addressData?.data?.features[0]?.properties?.formatted
-	console.log('FormattedAddress in AddTripForm:', formattedAddress)
 
-	const form = useForm<z.infer<typeof schemaAddTripForm>>({
-		resolver: zodResolver(schemaAddTripForm),
+	const form = useForm({
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
@@ -60,20 +38,27 @@ export default function AddTripForm({
 			trailerPlateB: '',
 			defects: '',
 			remarks: '',
+		} as z.infer<typeof schemaAddTripForm>,
+
+		validators: {
+			// onChange: schemaAddTripForm,
+			onBlur: schemaAddTripForm,
+			onSubmit: schemaAddTripForm,
+		},
+		onSubmit: async ({ value }) => {
+			mutate({ data: value })
 		},
 	})
 
 	useSetCurrentAddress(formattedAddress, form)
 
-	function onSubmit(data: z.infer<typeof schemaAddTripForm>) {
-		mutate({ data })
-	}
-
 	const [defects, setDefects] = useState('')
 	const handleSelectDefect = (defect: string) => {
 		if (defect !== '') {
-			form.setValue('defects', `${defect}, ${form.getValues().defects}`)
-			setDefects(`${defect}, ${form.getValues().defects}`)
+			const currentDefects = form.getFieldValue('defects') as string
+			const newDefects = `${defect}, ${currentDefects}`
+			form.setFieldValue('defects', newDefects)
+			setDefects(newDefects)
 		}
 	}
 
@@ -83,25 +68,26 @@ export default function AddTripForm({
 			id="form"
 			onSubmit={(e) => {
 				e.preventDefault()
-				form.handleSubmit(onSubmit)(e)
+				e.stopPropagation()
+				form.handleSubmit()
 			}}
 		>
 			<h1 className="text-2xl">Create a Trip</h1>
 			<div className="flex w-full flex-col gap-4">
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Carrier"
 					name="carrier"
 					placeholder="Company Name"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Carrier Address"
 					name="carrierAddress"
 					placeholder="123 North N St Calgary Ab"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Inspection Address"
 					name="inspectionAddress"
 					placeholder="123 North N St Calgary Ab"
@@ -110,19 +96,19 @@ export default function AddTripForm({
 			</div>
 			<div className="flex w-full gap-4">
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Make"
 					name="make"
 					placeholder="Make of vehicle"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Model"
 					name="model"
 					placeholder="Model of vehicle"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Odometer"
 					name="odometer"
 					type="number"
@@ -130,17 +116,17 @@ export default function AddTripForm({
 			</div>
 			<div className="flex w-full gap-4">
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Truck Plate"
 					name="truckPlate"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Trailer Plate"
 					name="trailerPlateA"
 				/>
 				<ControlledTextInput
-					control={form.control}
+					form={form}
 					label="Trailer B Plate"
 					name="trailerPlateB"
 				/>
@@ -151,7 +137,7 @@ export default function AddTripForm({
 						<Button
 							className="absolute top-8 right-0"
 							onClick={() => {
-								form.setValue('defects', '')
+								form.setFieldValue('defects', '')
 								setDefects('')
 							}}
 							size={'icon-lg'}
@@ -162,7 +148,7 @@ export default function AddTripForm({
 						</Button>
 					</Activity>
 					<ControlledTextArea
-						control={form.control}
+						form={form}
 						label="Defects"
 						name="defects"
 						readOnly
@@ -170,31 +156,36 @@ export default function AddTripForm({
 				</div>
 
 				<ControlledTextArea
-					control={form.control}
+					form={form}
 					label="Remarks"
 					name="remarks"
 				/>
 			</AddDefect>
 
-			<Button
-				className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
-				size={'lg'}
-				type="submit"
-				// variant={'outline'}
-			>
-				Submit
-			</Button>
+			<form.Subscribe selector={(state) => [state.isSubmitting]}>
+				{([, isSubmitting]) => (
+					<Button
+						className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
+						disabled={isSubmitting}
+						size={'lg'}
+						type="submit"
+					>
+						{isSubmitting ? '...' : 'Submit'}
+					</Button>
+				)}
+			</form.Subscribe>
 		</form>
 	)
 }
 
 const useSetCurrentAddress = (
 	formattedAddress: string | undefined,
-	form: UseFormReturn<z.infer<typeof schemaAddTripForm>>,
+	// biome-ignore lint/suspicious/noExplicitAny: form generic
+	form: any,
 ) => {
 	useEffect(() => {
 		if (formattedAddress) {
-			form.setValue('inspectionAddress', formattedAddress)
+			form.setFieldValue('inspectionAddress', formattedAddress)
 		}
 	}, [formattedAddress, form])
 }

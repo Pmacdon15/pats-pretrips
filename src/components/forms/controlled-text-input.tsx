@@ -1,72 +1,67 @@
 'use client'
 
-import type { Control, FieldValues, Path } from 'react-hook-form'
-import { Controller } from 'react-hook-form'
-
-import {
-	Field,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-} from '@/components/ui/field'
+import type { AnyFormApi } from '@tanstack/react-form'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 
-interface ControlledTextInputProps<T extends FieldValues> {
-	control: Control<T>
-	name: Path<T>
-	label: string
-	placeholder?: string
-	type?: 'number'
-	defaultValue?: string
-	showCopyButton?: boolean
+interface ControlledTextInputProps {
+    form: AnyFormApi & { Field: any }
+    name: string
+    label: string
+    placeholder?: string
+    type?: 'text' | 'number' | 'password' | 'email'
+    defaultValue?: string
+    showCopyButton?: boolean
 }
 
-export function ControlledTextInput<T extends FieldValues>({
-	control,
-	name,
-	label,
-	placeholder,
-	type,
-	defaultValue,
-	showCopyButton,
-}: ControlledTextInputProps<T>) {
-	const id = `form-${name}`
-	return (
-		<FieldGroup>
-			<Controller
-				control={control}
-				name={name}
-				render={({ field, fieldState }) => (
-					<Field data-invalid={fieldState.invalid}>
-						<FieldLabel htmlFor={id}>{label}</FieldLabel>
-						<Input
-							{...field}
-							aria-invalid={fieldState.invalid}
-							autoComplete="off"
-							defaultValue={defaultValue}
-							id={id}
-							onChange={(e) => {
-								if (type === 'number') {
-									field.onChange(Number(e.target.value))
-								} else {
-									field.onChange(e.target.value)
-								}
-							}}
-							placeholder={placeholder}
-							showCopyButton={showCopyButton}
-							type={type}
-							value={
-								type === 'number' && field.value === 0
-									? ''
-									: field.value
-							}
-						/>
-						{fieldState.invalid && (
-							<FieldError errors={[fieldState.error]} />
-						)}
-					</Field>
-				)}
-			/>
-		</FieldGroup>
-	)
+export function ControlledTextInput({
+    form,
+    name,
+    label,
+    placeholder,
+    type = 'text',
+    showCopyButton,
+}: ControlledTextInputProps) {
+    const id = `form-${name}`
+
+    return (
+        <FieldGroup>
+            <form.Field name={name}>
+                {(field: any) => {
+                    // FIX: isTouched and errors are siblings in field.state.meta
+                    const { errors, isTouched } = field.state.meta
+                    const isInvalid = isTouched && errors.length > 0
+
+                    return (
+                        <Field data-invalid={isInvalid}>
+                            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+                            <Input
+                                aria-invalid={isInvalid}
+                                autoComplete="off"
+                                id={id}
+                                name={field.name}
+                                onBlur={field.handleBlur} // This triggers "isTouched"
+                                onChange={(e) => {
+                                    const val = e.target.value
+                                    field.handleChange(
+                                        type === 'number' ? Number(val) : val,
+                                    )
+                                }}
+                                placeholder={placeholder}
+                                showCopyButton={showCopyButton}
+                                type={type}
+                                value={field.state.value ?? ''}
+                            />
+                            {isInvalid && (
+                                <span className="text-[10px] font-medium text-destructive mt-1 block">
+                                    {/* Handle both string errors and Zod error objects */}
+                                    {typeof errors[0] === 'string' ? errors[0] : errors[0]?.message}
+                                </span>
+                            )}
+                        </Field>
+                    )
+                }}
+            </form.Field>
+        </FieldGroup>
+    )
 }
