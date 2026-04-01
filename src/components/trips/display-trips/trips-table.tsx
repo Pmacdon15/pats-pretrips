@@ -1,16 +1,10 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { use } from 'react'
 import type { Trip } from '@/lib/types/types'
 import { Pagination } from '../../pagination/pagination-buttons'
+import type { TripsResponse } from './DisplayTrips'
 
-export default function TripsTable({
-	tripsPromise,
-}: {
-	tripsPromise: Promise<{ trips: Trip[]; hasMore: boolean }>
-}) {
-	const trips = use(tripsPromise)
-
+export default function TripsTable({ trips }: { trips: TripsResponse }) {
 	return (
 		<>
 			<table className="w-full overflow-hidden rounded-sm border shadow-sm">

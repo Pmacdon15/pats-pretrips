@@ -1,10 +1,11 @@
 'use client'
 import { useForm } from '@tanstack/react-form'
 import { CircleX } from 'lucide-react'
-import { Activity, useEffect, useState } from 'react'
+import { Activity, startTransition, useEffect, useState } from 'react'
 import type { z } from 'zod'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
+import type { Trip } from '@/lib/types/types'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
 import { AddDefect } from '../add-defect/AddDefect'
 import { Button } from '../ui/button'
@@ -13,8 +14,13 @@ import { ControlledTextInput } from './controlled-text-input'
 
 export default function AddTripForm({
 	setShowForm,
+	setOptimisticCurrentTrips,
 }: {
 	setShowForm: (value: boolean) => void
+	setOptimisticCurrentTrips: (action: {
+		type: 'ADD' | 'REMOVE' | 'UPDATE'
+		payload: any
+	}) => void
 }) {
 	const { mutate } = useAddTrip()
 	const { location } = useGetLocation()
@@ -46,9 +52,7 @@ export default function AddTripForm({
 			onSubmit: schemaAddTripForm,
 		},
 		onSubmit: async ({ value }) => {
-			mutate({ data: value })
-			setShowForm(false)
-			form.reset()
+			handleAddTrip(value)
 		},
 	})
 
@@ -63,7 +67,31 @@ export default function AddTripForm({
 			setDefects(newDefects)
 		}
 	}
+	const handleAddTrip = (formData: z.infer<typeof schemaAddTripForm>) => {
+		const newTrip: Trip = {
+			tripid: Math.random(),
+			driveremail: '',
+			carrier: formData.carrier ?? '',
+			carrieraddress: formData.carrierAddress ?? '',
+			inspectionaddress: formData.inspectionAddress ?? '',
+			make: formData.make ?? '',
+			model: formData.model ?? '',
+			odometer: formData.odometer ?? 0,
+			truckplate: formData.truckPlate ?? undefined,
+			trailerplatea: formData.trailerPlateA ?? undefined,
+			trailerplateb: formData.trailerPlateB ?? undefined,
+			date: new Date(),
+			defects: formData.defects ?? 'None',
+			remarks: formData.remarks ?? '',
+		}
 
+		startTransition(() => {
+			setOptimisticCurrentTrips({ type: 'ADD', payload: newTrip })
+			mutate({ data: formData })
+			setShowForm(false)
+			form.reset()
+		})
+	}
 	return (
 		<form
 			className={'flex w-full flex-col gap-4'}
