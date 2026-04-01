@@ -1,5 +1,4 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
-import DOMPurify from 'isomorphic-dompurify'
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
 import {
@@ -73,13 +72,12 @@ export async function addOnRouteDefectsDAL(
 		}
 
 		const cleanDefectsToAdd = defectsArray.join(', ')
-		const cleanRemarks = DOMPurify.sanitize(data.remarks)
-
+		
 		const trip = await updateTripDefectsDb(
 			data.trip_id,
 			driverEmail,
 			cleanDefectsToAdd,
-			cleanRemarks,
+			data.remarks,
 		)
 		return okAsync(trip)
 	} catch (e) {

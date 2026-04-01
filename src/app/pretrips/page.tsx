@@ -1,8 +1,6 @@
 import { Suspense } from 'react'
 import DisplayTripsFallback from '@/components/fallbacks/display-trips-fallback'
-import AddTripContainer from '@/components/trips/add-trip/addTripContainer'
 import DisplayTrips from '@/components/trips/display-trips/DisplayTrips'
-import TripsTable from '@/components/trips/display-trips/trips-table'
 import { fetchCurrentTrips, fetchPastTrips } from '@/lib/DAL/trips'
 
 export default function Page(props: PageProps<'/pretrips'>) {
@@ -15,15 +13,10 @@ export default function Page(props: PageProps<'/pretrips'>) {
 
 	return (
 		<div className="flex flex-col items-center justify-items-center gap-4 p-4">
-			<AddTripContainer />
 			<Suspense fallback={<DisplayTripsFallback />}>
 				<DisplayTrips
-					currentTripsComponent={
-						<TripsTable tripsPromise={currentTripsPromise} />
-					}
-					pastTripsComponent={
-						<TripsTable tripsPromise={pastTripsPromise} />
-					}
+					currentTripsPromise={currentTripsPromise}
+					pastTripsPromise={pastTripsPromise}
 				/>
 			</Suspense>
 		</div>
