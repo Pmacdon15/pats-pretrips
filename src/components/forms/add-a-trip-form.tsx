@@ -29,7 +29,7 @@ export default function AddTripForm({
 		location?.longitude ?? 0,
 	)
 	const formattedAddress =
-		addressData?.data?.features[0]?.properties?.formatted
+		addressData?.data?.features?.[0]?.properties?.formatted
 
 	const form = useForm({
 		defaultValues: {

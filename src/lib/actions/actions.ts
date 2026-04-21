@@ -47,6 +47,11 @@ export async function getAddress(
 	lng: number,
 ): Promise<{ data: AddressResponse | undefined }> {
 	const apiKey = process.env.REVERSE_GEOCODING_API_KEY
+	if (!apiKey) {
+		console.error('REVERSE_GEOCODING_API_KEY is not defined')
+		return { data: undefined }
+	}
+
 	let data: AddressResponse | undefined
 	try {
 		const response = await fetch(
@@ -55,11 +60,21 @@ export async function getAddress(
 				cache: 'no-cache',
 			},
 		)
+
+		if (!response.ok) {
+			const errorText = await response.text()
+			console.error(
+				`Geocoding API error: ${response.status} ${response.statusText}`,
+				errorText,
+			)
+			return { data: undefined }
+		}
+
 		data = await response.json()
-		console.log('Data:', data)
+		console.log('Geocoding Data:', JSON.stringify(data, null, 2))
 	} catch (error) {
 		console.error(
-			'Error fetching:',
+			'Error fetching geocoding:',
 			error instanceof Error ? error.message : error,
 		)
 	}
