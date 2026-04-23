@@ -45,11 +45,13 @@ export default function Home() {
 								<div className="h-12 w-full animate-pulse rounded-lg bg-white/10" />
 							}
 						>
-							<HomePageButtons
-								isLoggedInPromise={isAuthenticated()?.then(
-									(result: boolean) => result,
-								)}
-							/>
+							<div className='mx-auto'>
+								<HomePageButtons
+									isLoggedInPromise={isAuthenticated()?.then(
+										(result: boolean) => result,
+									)}
+								/>
+							</div>
 						</Suspense>
 						<div className="mt-2 text-xs text-gray-400">
 							By joining, you agree to our{' '}
