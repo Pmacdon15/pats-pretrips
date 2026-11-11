@@ -35,16 +35,16 @@ describe.each([
 		hook: useAddDefectOnRoute,
 		action: mocks.addOnRouteDefects,
 		data: defects,
-		ok: 'Defect received',
-		fail: 'Error updating Trip',
+		ok: 'On-route defects saved',
+		fail: 'Could not add defects',
 	},
 	{
 		name: 'useAddTrip',
 		hook: useAddTrip,
 		action: mocks.addTrip,
 		data: form,
-		ok: 'Pre-Trip received',
-		fail: 'Error Sending Trip',
+		ok: 'Pre-trip saved',
+		fail: 'Could not save pre-trip',
 	},
 ])('$name', ({ hook, action, data, ok, fail }) => {
 	const run = async () => {
@@ -63,7 +63,7 @@ describe.each([
 
 		await waitFor(() => expect(result.current.data).toEqual({ tripid: 3 }))
 		expect(action).toHaveBeenCalledWith(data)
-		expect(mocks.success).toHaveBeenCalledWith(ok, expect.any(Object))
+		expect(mocks.success).toHaveBeenCalledWith(ok)
 	})
 
 	it('shows the server error message', async () => {

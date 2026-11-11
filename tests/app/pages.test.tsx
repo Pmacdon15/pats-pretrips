@@ -33,6 +33,10 @@ vi.mock('next/font/google', () => ({
 	Geist_Mono: () => ({ variable: 'geist-mono' }),
 }))
 vi.mock('@vercel/analytics/next', () => ({ Analytics: () => null }))
+// The header reads the session itself; it has its own tests.
+vi.mock('@/components/header/header', () => ({
+	default: () => <header>header</header>,
+}))
 vi.mock('@/components/providers/auth-provider', () => ({
 	AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
@@ -42,6 +46,7 @@ const Show = ({ label, value }: { label: string; value: Promise<unknown> }) => (
 	<pre data-testid={label}>{JSON.stringify(use(value))}</pre>
 )
 vi.mock('@/components/trips/display-trips/DisplayTrips', () => ({
+	PageTitle: () => <h1>Your pre-trips</h1>,
 	default: (p: Record<string, Promise<unknown>>) => (
 		<>
 			<Show label="current" value={p.currentTripsPromise} />
@@ -63,7 +68,7 @@ vi.mock('@/components/home/home-page-buttons', () => ({
 	),
 }))
 
-import RootLayout, { metadata } from '@/app/layout'
+import RootLayout, { metadata, viewport } from '@/app/layout'
 import Home from '@/app/page'
 import TripPage from '@/app/pretrip/[tripId]/page'
 import TripsPage from '@/app/pretrips/page'
@@ -98,14 +103,14 @@ describe('/pretrips', () => {
 		expect(screen.getByTestId('current')).toHaveTextContent('now')
 		expect(screen.getByTestId('past')).toHaveTextContent('old')
 		expect(mocks.fetchCurrentTrips).toHaveBeenCalledWith(3)
-		expect(mocks.fetchPastTrips).toHaveBeenCalledWith(3)
+		expect(mocks.fetchPastTrips).toHaveBeenCalledWith(1)
 	})
 
-	it('defaults to page 1', async () => {
+	it('pages past trips separately, defaulting bad pages to 1', async () => {
 		await renderAsync(
 			<TripsPage
 				params={Promise.resolve({})}
-				searchParams={Promise.resolve({ page: 'x' })}
+				searchParams={Promise.resolve({ page: 'x', pastPage: '-2' })}
 			/>,
 		)
 		expect(mocks.fetchCurrentTrips).toHaveBeenCalledWith(1)
@@ -132,17 +137,15 @@ describe('/', () => {
 		await renderAsync(<Home />)
 		expect(screen.getByTestId('logged-in')).toHaveTextContent('true')
 		expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-			'Streamline Your Pre-Trips',
+			'Pre-trips done in minutes, not paperwork.',
 		)
+		expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(6)
 		expect(
 			screen.getByRole('link', { name: 'Terms of Service' }),
 		).toHaveAttribute('href', '/termsOfService')
 		expect(
 			screen.getByRole('link', { name: 'Privacy Policy' }),
 		).toHaveAttribute('href', '/privacy')
-		expect(
-			screen.getByRole('link', { name: /Start Pre-Tripping Now/ }),
-		).toHaveAttribute('href', '/api/auth/login')
 	})
 })
 
@@ -176,5 +179,6 @@ describe('RootLayout', () => {
 		)
 		expect(html).toContain('patrick@patmac.ca')
 		expect(metadata.title).toBe("Pat's PreTrips")
+		expect(viewport.themeColor).toHaveLength(2)
 	})
 })

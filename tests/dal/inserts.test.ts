@@ -44,6 +44,11 @@ describe('addTripDAL', () => {
 		expect(mocks.createTripDb).toHaveBeenCalledWith(form, 'pat@x.com')
 	})
 
+	it('saves only the validated fields', async () => {
+		await addTripDAL({ ...form, extra: 'x' } as typeof form)
+		expect(mocks.createTripDb).toHaveBeenCalledWith(form, 'pat@x.com')
+	})
+
 	it('requires a signed-in driver', async () => {
 		mocks.getUser.mockResolvedValue(null)
 		const result = await addTripDAL(form)
@@ -68,7 +73,9 @@ describe('addTripDAL', () => {
 	it('reports a database error', async () => {
 		mocks.createTripDb.mockRejectedValue(new Error('down'))
 		const result = await addTripDAL(form)
-		expect(result._unsafeUnwrapErr()).toEqual({ reason: 'Db error' })
+		expect(result._unsafeUnwrapErr()).toEqual({
+			reason: 'Could not save your trip. Please try again.',
+		})
 	})
 })
 
@@ -112,8 +119,27 @@ describe('addOnRouteDefectsDAL', () => {
 		const result = await addOnRouteDefectsDAL(defects)
 
 		expect(result._unsafeUnwrapErr()).toEqual({
-			reason: 'Failed update trip',
+			reason: '"Horn" is already listed on this trip',
 		})
 		expect(mocks.updateTripDefectsDb).not.toHaveBeenCalled()
+	})
+
+	it('matches whole defects, not substrings', async () => {
+		mocks.getTripDefectsDb.mockResolvedValue('Air Horn')
+		mocks.updateTripDefectsDb.mockResolvedValue({ tripid: 3 })
+
+		const result = await addOnRouteDefectsDAL(defects)
+
+		expect(result.isOk()).toBe(true)
+	})
+
+	it('reports a database error', async () => {
+		mocks.getTripDefectsDb.mockRejectedValue(new Error('down'))
+
+		const result = await addOnRouteDefectsDAL(defects)
+
+		expect(result._unsafeUnwrapErr()).toEqual({
+			reason: 'Could not update this trip. It may be older than 24 hours.',
+		})
 	})
 })
