@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Suspense } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -84,7 +84,10 @@ describe('DisplayTrip', () => {
 			screen.getByRole('button', { name: 'Add on-route defects' }),
 		)
 
-		expect(screen.getAllByRole('listitem')).toHaveLength(1)
+		// The rollback re-renders after the rejected save settles.
+		await waitFor(() =>
+			expect(screen.getAllByRole('listitem')).toHaveLength(1),
+		)
 	})
 
 	it('locks a trip older than 24 hours', async () => {

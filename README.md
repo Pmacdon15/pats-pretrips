@@ -1,3 +1,5 @@
+![Pat's PreTrips — Pre-trips done in minutes, not paperwork.](public/banner.png)
+
 # Pat's PreTrips 2.0
  
 Pat's PreTrips is a web application designed to help truck drivers manage and document their pre-trip inspections. This app allows drivers to record inspection details, track defects, and maintain a history of their pre-trip inspections.
@@ -8,6 +10,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 - **Pre-Trip Management**: Create, view, and manage pre-trip inspection records
 - **Defect Tracking**: Document and track vehicle defects
 - **Responsive Design**: Works on desktop and mobile devices
+- **Installable PWA**: Add to your home screen for a full-screen, app-like experience with an offline fallback page
  
 ## Technology Stack
  

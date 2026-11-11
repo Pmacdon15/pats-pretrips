@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 import Footer from '@/components/footer/footer'
 import Header from '@/components/header/header'
 import Providers from '@/components/providers/Providers'
+import ServiceWorkerRegister from '@/components/pwa/service-worker-register'
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -17,9 +18,32 @@ const geistMono = Geist_Mono({
 	subsets: ['latin'],
 })
 
+const description =
+	'Record pre-trip inspections, flag defects and keep a clean history of every trip — right from your phone.'
+
 export const metadata: Metadata = {
+	metadataBase: new URL('https://patspretrips.ca'),
 	title: "Pat's PreTrips",
-	description: 'An application to help track commercial vehicle inspections',
+	description,
+	applicationName: "Pat's PreTrips",
+	appleWebApp: {
+		capable: true,
+		title: 'PreTrips',
+		statusBarStyle: 'black-translucent',
+	},
+	formatDetection: { telephone: false },
+	openGraph: {
+		type: 'website',
+		siteName: "Pat's PreTrips",
+		title: "Pat's PreTrips — Pre-trips done in minutes",
+		description,
+		url: '/',
+	},
+	twitter: {
+		card: 'summary_large_image',
+		title: "Pat's PreTrips — Pre-trips done in minutes",
+		description,
+	},
 }
 
 export const viewport: Viewport = {
@@ -46,6 +70,7 @@ export default function RootLayout({
 					<Toaster position="top-center" richColors />
 				</Providers>
 				<Analytics />
+				<ServiceWorkerRegister />
 			</body>
 		</html>
 	)

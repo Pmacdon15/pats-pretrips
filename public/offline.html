@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Offline · Pat's PreTrips</title>
+		<meta name="theme-color" content="#059669" />
+		<style>
+			:root {
+				--bg: #f8fafc;
+				--fg: #0f172a;
+				--muted: #475569;
+				--primary: #059669;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #0b1020;
+					--fg: #f1f5f9;
+					--muted: #94a3b8;
+					--primary: #10b981;
+				}
+			}
+			* { box-sizing: border-box; }
+			body {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 100vh;
+				padding: 24px 16px;
+				margin: 0;
+				font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+				color: var(--fg);
+				text-align: center;
+				background: var(--bg);
+			}
+			main { max-width: 360px; }
+			img { width: 72px; height: 72px; border-radius: 16px; }
+			h1 { margin: 20px 0 8px; font-size: 1.5rem; }
+			p { margin: 0 0 24px; line-height: 1.5; color: var(--muted); }
+			button {
+				min-height: 48px;
+				padding: 12px 24px;
+				font: inherit;
+				font-weight: 600;
+				color: #fff;
+				appearance: none;
+				cursor: pointer;
+				background: var(--primary);
+				border: 0;
+				border-radius: 10px;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<img src="/icons/icon-192.png" alt="" />
+			<h1>You're offline</h1>
+			<p>
+				Pat's PreTrips needs a connection to save and load your trips.
+				Check your signal and try again.
+			</p>
+			<button type="button" onclick="location.reload()">Try again</button>
+		</main>
+	</body>
+</html>
