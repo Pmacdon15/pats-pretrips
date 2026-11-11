@@ -24,12 +24,10 @@ export const useAddDefectOnRoute = () => {
 			return res
 		},
 		onSuccess: () => {
-			toast.success('Defect received', {
-				description: 'Your message has been sent to our servers!',
-			})
+			toast.success('On-route defects saved')
 		},
 		onError: (error) => {
-			toast.error('Error updating Trip', {
+			toast.error('Could not add defects', {
 				description:
 					error instanceof Error
 						? error.message
@@ -56,12 +54,10 @@ export const useAddTrip = () => {
 			return res
 		},
 		onSuccess: () => {
-			toast.success('Pre-Trip received', {
-				description: 'Your trip has been sent to our servers!',
-			})
+			toast.success('Pre-trip saved')
 		},
 		onError: (error) => {
-			toast.error('Error Sending Trip', {
+			toast.error('Could not save pre-trip', {
 				description:
 					error instanceof Error
 						? error.message

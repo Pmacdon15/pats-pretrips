@@ -1,5 +1,3 @@
-import type { Control, FieldValues, Path } from 'react-hook-form'
-
 export interface Trip {
 	tripid?: number
 	driveremail: string
@@ -15,20 +13,19 @@ export interface Trip {
 	date: Date
 	defects: string
 	remarks: string
+	/** Set on optimistic trips that have not been saved yet. */
+	pending?: boolean
 }
 
-export interface AddressResponse {
-	features: {
-		properties: {
-			housenumber: string
-			street: string
-			country_code: string
-			county: string
-			state_code: string
-			formatted: string
-		}
-	}[]
+export interface TripsResponse {
+	trips: Trip[]
+	hasMore: boolean
 }
+
+export type TripsAction =
+	| { type: 'ADD'; payload: Trip }
+	| { type: 'REMOVE'; payload: number }
+	| { type: 'UPDATE'; payload: Trip }
 
 export interface AddressComponent {
 	long_name?: string
@@ -68,17 +65,4 @@ export interface GeocodingResponse {
 	results: GeocodingResult[]
 	status: string
 	error_message?: string
-}
-
-export interface ControlledTextAreaProps<T extends FieldValues> {
-	control: Control<T>
-	name: Path<T>
-	label: string
-	placeholder?: string
-	readOnly?: boolean
-}
-
-export interface FormData {
-	defects: string
-	remarks: string
 }

@@ -1,15 +1,31 @@
-import GoHomeButton from '../go-home-button/GoHomeButton'
+import { ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import { buttonVariants } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function Disclaimer({ text, name }: { text: string; name: string }) {
 	return (
-		<div className="flex flex-col items-center justify-items-center gap-8 p-4">
-			<div className="flex w-5/6 flex-col items-center justify-center gap-4 rounded-md bg-[var(--color-primary)] p-8 shadow-md md:w-3/6">
-				<h1> {name} </h1>
-				<p className="rounded-sm bg-[var(--color-background)] p-8 indent-8 text-sm shadow-md">
-					{text}
-				</p>
-				<GoHomeButton />
-			</div>
+		<div className="mx-auto w-full max-w-2xl px-4 py-12">
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-2xl">{name.trim()}</CardTitle>
+				</CardHeader>
+				<CardContent className="flex flex-col gap-6">
+					<p className="text-muted-foreground leading-relaxed">
+						{text.replace(/\s+/g, ' ').trim()}
+					</p>
+					<Link
+						className={buttonVariants({
+							variant: 'outline',
+							className: 'self-start',
+						})}
+						href="/"
+					>
+						<ArrowLeft />
+						Back home
+					</Link>
+				</CardContent>
+			</Card>
 		</div>
 	)
 }

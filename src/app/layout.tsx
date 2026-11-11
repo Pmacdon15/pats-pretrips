@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
@@ -23,6 +23,13 @@ export const metadata: Metadata = {
 	description: 'An application to help track commercial vehicle inspections',
 }
 
+export const viewport: Viewport = {
+	themeColor: [
+		{ media: '(prefers-color-scheme: light)', color: '#f8fafc' },
+		{ media: '(prefers-color-scheme: dark)', color: '#0b1020' },
+	],
+}
+
 export default function RootLayout({
 	children,
 }: Readonly<{
@@ -30,19 +37,19 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
-			<Providers>
-				<AuthProvider>
-					<body
-						className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col antialiased`}
-					>
+			<body
+				className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans antialiased`}
+			>
+				<Providers>
+					<AuthProvider>
 						<Header />
 						<main className="flex-grow">{children}</main>
-						<Analytics />
 						<Footer />
-						<Toaster />
-					</body>
-				</AuthProvider>
-			</Providers>
+						<Toaster position="top-center" richColors />
+					</AuthProvider>
+				</Providers>
+				<Analytics />
+			</body>
 		</html>
 	)
 }

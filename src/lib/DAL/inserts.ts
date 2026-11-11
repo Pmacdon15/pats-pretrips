@@ -30,11 +30,13 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 		} as const)
 	}
 	try {
-		const trip = await createTripDb(data, driverEmail)
+		const trip = await createTripDb(validatedFields.data, driverEmail)
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Db error adding trip: ', e)
-		return errAsync({ reason: 'Db error' })
+		return errAsync({
+			reason: 'Could not save your trip. Please try again.',
+		})
 	}
 }
 
@@ -65,14 +67,20 @@ export async function addOnRouteDefectsDAL(
 			.map((d: string) => d.trim())
 			.filter((d) => d !== '')
 
-		for (const defect of defectsArray) {
-			if (currentDefects.toLowerCase().includes(defect.toLowerCase())) {
-				throw new Error(`Defect "${defect}" already listed`)
-			}
+		const existing = currentDefects
+			.split(',')
+			.map((d: string) => d.trim().toLowerCase())
+		const duplicate = defectsArray.find((d) =>
+			existing.includes(d.toLowerCase()),
+		)
+		if (duplicate) {
+			return errAsync({
+				reason: `"${duplicate}" is already listed on this trip`,
+			} as const)
 		}
 
 		const cleanDefectsToAdd = defectsArray.join(', ')
-		
+
 		const trip = await updateTripDefectsDb(
 			data.trip_id,
 			driverEmail,
@@ -82,6 +90,8 @@ export async function addOnRouteDefectsDAL(
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error updating trip:', e)
-		return errAsync({ reason: 'Failed update trip' } as const)
+		return errAsync({
+			reason: 'Could not update this trip. It may be older than 24 hours.',
+		} as const)
 	}
 }

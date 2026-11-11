@@ -1,18 +1,17 @@
 'use client'
 
 import { useForm } from '@tanstack/react-form'
-import { CircleX } from 'lucide-react'
-import { Activity, useState } from 'react'
 import type { z } from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
 import { useAddDefectOnRoute } from '@/lib/mutations/mutations'
 import type { Trip } from '@/lib/types/types'
+import { joinDefects, parseDefects } from '@/lib/utils-defects'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
-import { AddDefect } from '../AddDefect'
+import { DefectPicker } from '../defect-picker'
 
 interface AddDefectFormProps {
-	trip: Trip | undefined
+	trip: Trip
 	updateOptimisticTrip: (action: Trip) => void
 }
 
@@ -20,107 +19,76 @@ export function AddDefectForm({
 	trip,
 	updateOptimisticTrip,
 }: AddDefectFormProps) {
-	const tripId = Number(trip?.tripid || '')
-
 	const { mutate } = useAddDefectOnRoute()
+	const existingDefects = parseDefects(trip.defects)
 
 	const form = useForm({
 		defaultValues: {
 			defects: '',
 			remarks: '',
-			trip_id: tripId,
+			trip_id: Number(trip.tripid ?? 0),
 		} as z.infer<typeof schemaAddDefects>,
 		validators: {
-			onBlur: schemaAddDefects,
 			onSubmit: schemaAddDefects,
 		},
 		onSubmit: async ({ value }) => {
-			if (!trip) return
-
-			const updatedTrip = {
+			updateOptimisticTrip({
 				...trip,
-				defects: [trip.defects, value.defects]
-					.filter(Boolean)
-					.join(', '),
+				defects: joinDefects([
+					...existingDefects,
+					...parseDefects(value.defects),
+				]),
 				remarks: [trip.remarks, value.remarks]
 					.filter(Boolean)
 					.join(', '),
-			}
-			updateOptimisticTrip(updatedTrip)
+			})
 			mutate({ data: value })
 			form.reset()
 		},
 	})
 
-	const [defects, setDefects] = useState('')
-
-	const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-	if (trip?.date && new Date(trip.date) < twentyFourHoursAgo) return null
-
-	const handleSelectDefect = (defect: string) => {
-		if (defect !== '') {
-			const currentDefects = form.getFieldValue('defects')
-			const defectsArray = currentDefects
-				? currentDefects.split(',').map((d) => d.trim())
-				: []
-			if (!defectsArray.includes(defect)) {
-				const newDefects = [...defectsArray, defect].join(', ')
-				form.setFieldValue('defects', newDefects)
-				setDefects(newDefects)
-			}
-		}
-	}
-
 	return (
 		<form
-			className="flex w-full flex-col gap-4"
+			className="flex flex-col gap-6"
+			noValidate
 			onSubmit={(e) => {
 				e.preventDefault()
 				e.stopPropagation()
 				form.handleSubmit()
 			}}
 		>
-			<h1 className="text-2xl">Add On Route Defects</h1>
-			<AddDefect handleSelectDefect={handleSelectDefect}>
-				<div className="relative">
-					<Activity mode={defects === '' ? 'hidden' : 'visible'}>
-						<Button
-							className="absolute top-8 right-0"
-							onClick={() => {
-								form.setFieldValue('defects', '')
-								setDefects('')
-							}}
-							size={'icon-lg'}
-							type="button"
-							variant={'ghost'}
-						>
-							<CircleX />
-						</Button>
-					</Activity>
-					<ControlledTextArea
-						form={form}
-						label="Defects"
-						name="defects"
-						readOnly
-					/>
-				</div>
+			<form.Field name="defects">
+				{(field) => (
+					<div className="flex flex-col gap-1.5">
+						<DefectPicker
+							disabledOptions={existingDefects}
+							onChange={(v) => field.handleChange(v)}
+							value={field.state.value}
+						/>
+						{field.state.meta.errors.length > 0 && (
+							<span className="font-medium text-destructive text-xs">
+								Select at least one defect.
+							</span>
+						)}
+					</div>
+				)}
+			</form.Field>
 
-				<ControlledTextArea
-					form={form}
-					label="Remarks"
-					name="remarks"
-				/>
-			</AddDefect>
+			<ControlledTextArea
+				form={form}
+				label="Remarks"
+				name="remarks"
+				placeholder="Where and when did you notice it?"
+			/>
 
-			<form.Subscribe selector={(state) => [state.isSubmitting]}>
-				{([isSubmitting]) => (
+			<form.Subscribe selector={(state) => state.isSubmitting}>
+				{(isSubmitting) => (
 					<Button
-						className="rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600"
+						className="h-11 self-stretch px-8 sm:self-end"
 						disabled={isSubmitting}
-						size={'lg'}
 						type="submit"
 					>
-						{isSubmitting ? '...' : 'Add on Route Defects'}
+						{isSubmitting ? 'Saving…' : 'Add on-route defects'}
 					</Button>
 				)}
 			</form.Subscribe>

@@ -1,41 +1,39 @@
 'use client'
 import { useForm } from '@tanstack/react-form'
-import { CircleX } from 'lucide-react'
-import { Activity, startTransition, useEffect, useState } from 'react'
+import { LocateFixed } from 'lucide-react'
+import { startTransition, useEffect } from 'react'
 import type { z } from 'zod'
+import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
-import type { Trip } from '@/lib/types/types'
+import type { Trip, TripsAction } from '@/lib/types/types'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
-import { AddDefect } from '../add-defect/AddDefect'
 import { Button } from '../ui/button'
 import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
 
+type TripForm = z.infer<typeof schemaAddTripForm>
+
 export default function AddTripForm({
-	setShowForm,
+	onDone,
 	setOptimisticCurrentTrips,
 }: {
-	setShowForm: (value: boolean) => void
-	setOptimisticCurrentTrips: (action: {
-		type: 'ADD' | 'REMOVE' | 'UPDATE'
-		payload: any
-	}) => void
+	onDone: () => void
+	setOptimisticCurrentTrips: (action: TripsAction) => void
 }) {
 	const { mutate } = useAddTrip()
-	const { location } = useGetLocation()
-	const { data: addressData } = useGetAddress(
+	const { location, status: locationStatus } = useGetLocation()
+	const { data: addressData, isFetching: isFetchingAddress } = useGetAddress(
 		location?.latitude ?? 0,
 		location?.longitude ?? 0,
 	)
 	const formattedAddress = addressData?.data?.results?.[0]?.formatted_address
-	console.log('Final Formatted Address:', formattedAddress)
 
 	const form = useForm({
 		defaultValues: {
 			carrier: '',
 			carrierAddress: '',
-			inspectionAddress: formattedAddress || '',
+			inspectionAddress: '',
 			make: '',
 			model: '',
 			odometer: 0,
@@ -44,10 +42,8 @@ export default function AddTripForm({
 			trailerPlateB: '',
 			defects: '',
 			remarks: '',
-		} as z.infer<typeof schemaAddTripForm>,
-
+		} as TripForm,
 		validators: {
-			// onChange: schemaAddTripForm,
 			onBlur: schemaAddTripForm,
 			onSubmit: schemaAddTripForm,
 		},
@@ -56,166 +52,200 @@ export default function AddTripForm({
 		},
 	})
 
-	useSetCurrentAddress(formattedAddress, form)
-
-	const [defects, setDefects] = useState('')
-	const handleSelectDefect = (defect: string) => {
-		if (defect !== '') {
-			const currentDefects = form.getFieldValue('defects') as string
-			const newDefects = `${defect}, ${currentDefects}`
-			form.setFieldValue('defects', newDefects)
-			setDefects(newDefects)
+	// Fill the inspection address from GPS once it resolves, without
+	// overwriting anything the driver already typed.
+	useEffect(() => {
+		if (formattedAddress && !form.getFieldValue('inspectionAddress')) {
+			form.setFieldValue('inspectionAddress', formattedAddress)
 		}
-	}
-	const handleAddTrip = (formData: z.infer<typeof schemaAddTripForm>) => {
+	}, [formattedAddress, form])
+
+	const handleAddTrip = (formData: TripForm) => {
 		const newTrip: Trip = {
-			tripid: Math.random(),
+			tripid: -Date.now(),
 			driveremail: '',
-			carrier: formData.carrier ?? '',
-			carrieraddress: formData.carrierAddress ?? '',
-			inspectionaddress: formData.inspectionAddress ?? '',
-			make: formData.make ?? '',
-			model: formData.model ?? '',
-			odometer: formData.odometer ?? 0,
+			carrier: formData.carrier,
+			carrieraddress: formData.carrierAddress,
+			inspectionaddress: formData.inspectionAddress,
+			make: formData.make,
+			model: formData.model,
+			odometer: formData.odometer,
 			truckplate: formData.truckPlate ?? undefined,
 			trailerplatea: formData.trailerPlateA ?? undefined,
 			trailerplateb: formData.trailerPlateB ?? undefined,
 			date: new Date(),
-			defects: formData.defects ?? 'None',
-			remarks: formData.remarks ?? '',
+			defects: formData.defects ?? '',
+			remarks: formData.remarks,
+			pending: true,
 		}
 
 		startTransition(() => {
 			setOptimisticCurrentTrips({ type: 'ADD', payload: newTrip })
 			mutate({ data: formData })
-			setShowForm(false)
 			form.reset()
+			if (formattedAddress) {
+				form.setFieldValue('inspectionAddress', formattedAddress)
+			}
+			onDone()
 		})
 	}
+
+	const locationHint =
+		locationStatus === 'denied'
+			? 'Location access is off — enter the address manually.'
+			: isFetchingAddress || locationStatus === 'loading'
+				? 'Finding your location…'
+				: formattedAddress
+					? 'Filled in from your current location.'
+					: undefined
+
 	return (
 		<form
-			className={'flex w-full flex-col gap-4'}
-			id="form"
+			className="flex flex-col gap-8"
+			noValidate
 			onSubmit={(e) => {
 				e.preventDefault()
 				e.stopPropagation()
 				form.handleSubmit()
 			}}
 		>
-			<h1 className="text-2xl">Create a Trip</h1>
-			<div className="flex w-full flex-col gap-4">
-				<ControlledTextInput
-					form={form}
-					label="Carrier"
-					name="carrier"
-					placeholder="Company Name"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Carrier Address"
-					name="carrierAddress"
-					placeholder="123 North N St Calgary Ab"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Inspection Address"
-					name="inspectionAddress"
-					placeholder="123 North N St Calgary Ab"
-					showCopyButton={true}
-				/>
-			</div>
-			<div className="flex w-full gap-4">
-				<ControlledTextInput
-					form={form}
-					label="Make"
-					name="make"
-					placeholder="Make of vehicle"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Model"
-					name="model"
-					placeholder="Model of vehicle"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Odometer"
-					name="odometer"
-					type="number"
-				/>
-			</div>
-			<div className="flex w-full gap-4">
-				<ControlledTextInput
-					form={form}
-					label="Truck Plate"
-					name="truckPlate"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Trailer Plate"
-					name="trailerPlateA"
-				/>
-				<ControlledTextInput
-					form={form}
-					label="Trailer B Plate"
-					name="trailerPlateB"
-				/>
-			</div>
-			<AddDefect handleSelectDefect={handleSelectDefect}>
-				<div className="relative">
-					<Activity mode={defects === '' ? 'hidden' : 'visible'}>
-						<Button
-							className="absolute top-8 right-0"
-							onClick={() => {
-								form.setFieldValue('defects', '')
-								setDefects('')
-							}}
-							size={'icon-lg'}
-							type="button"
-							variant={'ghost'}
-						>
-							<CircleX />
-						</Button>
-					</Activity>
-					<ControlledTextArea
+			<FormSection title="Carrier">
+				<div className="grid gap-4 sm:grid-cols-2">
+					<ControlledTextInput
 						form={form}
-						label="Defects"
-						name="defects"
-						readOnly
+						label="Carrier"
+						name="carrier"
+						placeholder="Company name"
+					/>
+					<ControlledTextInput
+						form={form}
+						label="Carrier address"
+						name="carrierAddress"
+						placeholder="123 North N St, Calgary AB"
 					/>
 				</div>
+				<div className="flex flex-col gap-1.5">
+					<ControlledTextInput
+						form={form}
+						label="Inspection address"
+						name="inspectionAddress"
+						placeholder="Where are you doing the inspection?"
+						showCopyButton
+					/>
+					{locationHint && (
+						<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+							<LocateFixed className="size-3.5" />
+							{locationHint}
+						</p>
+					)}
+				</div>
+			</FormSection>
 
+			<FormSection title="Vehicle">
+				<div className="grid gap-4 sm:grid-cols-3">
+					<ControlledTextInput
+						form={form}
+						label="Make"
+						name="make"
+						placeholder="e.g. Freightliner"
+					/>
+					<ControlledTextInput
+						form={form}
+						label="Model"
+						name="model"
+						placeholder="e.g. Cascadia"
+					/>
+					<ControlledTextInput
+						form={form}
+						label="Odometer"
+						name="odometer"
+						placeholder="km"
+						type="number"
+					/>
+				</div>
+				<div className="grid gap-4 sm:grid-cols-3">
+					<ControlledTextInput
+						autoCapitalize="characters"
+						form={form}
+						label="Truck plate"
+						name="truckPlate"
+						optional
+					/>
+					<ControlledTextInput
+						autoCapitalize="characters"
+						form={form}
+						label="Trailer plate"
+						name="trailerPlateA"
+						optional
+					/>
+					<ControlledTextInput
+						autoCapitalize="characters"
+						form={form}
+						label="Trailer B plate"
+						name="trailerPlateB"
+						optional
+					/>
+				</div>
+			</FormSection>
+
+			<FormSection title="Inspection">
+				<form.Field name="defects">
+					{(field) => (
+						<DefectPicker
+							onChange={(v) => field.handleChange(v)}
+							value={field.state.value ?? ''}
+						/>
+					)}
+				</form.Field>
 				<ControlledTextArea
 					form={form}
 					label="Remarks"
 					name="remarks"
+					placeholder="Anything worth noting about the inspection"
 				/>
-			</AddDefect>
+			</FormSection>
 
-			<form.Subscribe selector={(state) => [state.isSubmitting]}>
-				{([, isSubmitting]) => (
-					<Button
-						className={`rounded-lg bg-green-500 p-4 shadow-lg hover:bg-green-600`}
-						disabled={isSubmitting}
-						size={'lg'}
-						type="submit"
-					>
-						{isSubmitting ? '...' : 'Submit'}
-					</Button>
-				)}
-			</form.Subscribe>
+			<div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-end">
+				<Button
+					className="h-11"
+					onClick={() => {
+						form.reset()
+						onDone()
+					}}
+					type="button"
+					variant="outline"
+				>
+					Cancel
+				</Button>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSubmitting) => (
+						<Button
+							className="h-11 px-8"
+							disabled={isSubmitting}
+							type="submit"
+						>
+							{isSubmitting ? 'Saving…' : 'Save pre-trip'}
+						</Button>
+					)}
+				</form.Subscribe>
+			</div>
 		</form>
 	)
 }
 
-const useSetCurrentAddress = (
-	formattedAddress: string | undefined,
-	// biome-ignore lint/suspicious/noExplicitAny: form generic
-	form: any,
-) => {
-	useEffect(() => {
-		if (formattedAddress) {
-			form.setFieldValue('inspectionAddress', formattedAddress)
-		}
-	}, [formattedAddress, form])
+function FormSection({
+	title,
+	children,
+}: {
+	title: string
+	children: React.ReactNode
+}) {
+	return (
+		<div className="flex flex-col gap-4">
+			<h3 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+				{title}
+			</h3>
+			{children}
+		</div>
+	)
 }

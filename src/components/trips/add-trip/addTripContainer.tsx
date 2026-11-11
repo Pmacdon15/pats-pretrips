@@ -1,36 +1,55 @@
 'use client'
+import { Plus } from 'lucide-react'
 import { Activity, useState } from 'react'
-import { ButtonToggle } from '@/components/buttons/toggle-button'
+import { Button } from '@/components/ui/button'
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui/card'
+import type { TripsAction } from '@/lib/types/types'
 import AddTripForm from '../../forms/add-a-trip-form'
 
 export default function AddTripContainer({
 	setOptimisticCurrentTrips,
 }: {
-	setOptimisticCurrentTrips: (action: {
-		type: 'ADD' | 'REMOVE' | 'UPDATE'
-		payload: any
-	}) => void
+	setOptimisticCurrentTrips: (action: TripsAction) => void
 }) {
 	const [showForm, setShowForm] = useState(false)
 
 	return (
-		<div className="flex w-full flex-col justify-between gap-4 rounded-sm bg-[var(--color-primary)] p-4 md:w-4/6 md:flex-row ml-auto">
-			<div className="flex w-full flex-col">
-				<Activity mode={showForm ? 'visible' : 'hidden'}>
-					<AddTripForm
-						setOptimisticCurrentTrips={setOptimisticCurrentTrips}
-						setShowForm={setShowForm}
-					/>
-				</Activity>
-			</div>
-			<div className="flex w-full flex-col justify-end md:w-1/6">
-				<ButtonToggle
-					onClick={() => setShowForm(!showForm)}
-					text="Add Trip"
-					toggle={showForm}
-					toggleText="Cancel"
-				></ButtonToggle>
-			</div>
-		</div>
+		<>
+			<Activity mode={showForm ? 'hidden' : 'visible'}>
+				<Button
+					className="h-14 w-full text-base shadow-sm"
+					onClick={() => setShowForm(true)}
+					size="lg"
+				>
+					<Plus className="size-5" />
+					Start a new pre-trip
+				</Button>
+			</Activity>
+			<Activity mode={showForm ? 'visible' : 'hidden'}>
+				<Card>
+					<CardHeader>
+						<CardTitle>New pre-trip inspection</CardTitle>
+						<CardDescription>
+							Fill in the unit details and flag any defects you
+							found on your walk-around.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<AddTripForm
+							onDone={() => setShowForm(false)}
+							setOptimisticCurrentTrips={
+								setOptimisticCurrentTrips
+							}
+						/>
+					</CardContent>
+				</Card>
+			</Activity>
+		</>
 	)
 }

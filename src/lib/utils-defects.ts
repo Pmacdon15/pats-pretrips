@@ -30,3 +30,16 @@ export const defects = [
 	'Air Lines',
 	'Other',
 ]
+
+/** Split a comma separated defects string into a clean list. */
+export function parseDefects(value: string | null | undefined): string[] {
+	if (!value) return []
+	return value
+		.split(',')
+		.map((d) => d.trim())
+		.filter((d) => d !== '' && d.toLowerCase() !== 'none')
+}
+
+export function joinDefects(list: string[]): string {
+	return list.join(', ')
+}

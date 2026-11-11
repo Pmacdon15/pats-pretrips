@@ -35,12 +35,12 @@ export async function createTripDb(
                 ${data.trailerPlateA},
                 ${data.trailerPlateB},
                 ${new Date().toISOString()},
-                ${data.defects},
+                ${data.defects ?? ''},
                 ${data.remarks}
                 )
                 RETURNING *;
             `
-	return result[0] as Trip
+	return result as Trip
 }
 
 // Fetch current defects for a specific trip
