@@ -1,12 +1,19 @@
+import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { Button } from '../ui/button'
+import { buttonVariants } from '../ui/button'
 
 export function BackLink() {
 	return (
-		<Link className="w-fit rounded-sm border p-2" href={`/pretrips`}>
-			<Button size={'lg'} type="button" variant={'outline'}>
-				Back to Trips
-			</Button>
+		<Link
+			className={buttonVariants({
+				variant: 'ghost',
+				size: 'sm',
+				className: '-ml-3 self-start text-muted-foreground',
+			})}
+			href="/pretrips"
+		>
+			<ArrowLeft />
+			Back to trips
 		</Link>
 	)
 }

@@ -1,47 +1,53 @@
 'use client'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Activity } from 'react'
+import { Button } from '@/components/ui/button'
 
 interface PaginationProps {
-	hasMorePastTrips: boolean | undefined
+	hasMore: boolean | undefined
+	/** Search param that stores the page number for this list. */
+	param: string
 }
 
-export function Pagination({ hasMorePastTrips }: PaginationProps) {
+export function Pagination({ hasMore, param }: PaginationProps) {
 	const searchParams = useSearchParams()
 	const router = useRouter()
-	const page = searchParams.get('page') || '1'
-	const currentPage = parseInt(page, 10)
+	const currentPage = Math.max(1, Number(searchParams.get(param)) || 1)
+
+	if (currentPage === 1 && !hasMore) return null
 
 	const handlePageChange = (newPage: number) => {
 		const params = new URLSearchParams(searchParams)
-		params.set('page', newPage.toString())
-		router.push(`?${params.toString()}`)
+		if (newPage <= 1) params.delete(param)
+		else params.set(param, newPage.toString())
+		const query = params.toString()
+		router.push((query ? `?${query}` : '?') as Route, { scroll: false })
 	}
 
 	return (
-		<div className="mt-4 grid grid-cols-3 items-center">
-			<div className="col-span-1">
-				<Activity mode={currentPage !== 1 ? 'visible' : 'hidden'}>
-					<button
-						disabled={currentPage === 1}
-						onClick={() => handlePageChange(currentPage - 1)}
-						type="button"
-					>
-						Previous Page
-					</button>
-				</Activity>
-			</div>
-			<span className="flex justify-center">Page {currentPage}</span>
-
-			<Activity mode={hasMorePastTrips ? 'visible' : 'hidden'}>
-				<button
-					disabled={!hasMorePastTrips}
-					onClick={() => handlePageChange(currentPage + 1)}
-					type="button"
-				>
-					Next Page
-				</button>
-			</Activity>
+		<div className="flex items-center justify-between gap-2 border-t px-5 py-3 sm:px-6">
+			<Button
+				disabled={currentPage === 1}
+				onClick={() => handlePageChange(currentPage - 1)}
+				size="sm"
+				variant="outline"
+			>
+				<ChevronLeft />
+				Previous
+			</Button>
+			<span className="text-muted-foreground text-sm">
+				Page {currentPage}
+			</span>
+			<Button
+				disabled={!hasMore}
+				onClick={() => handlePageChange(currentPage + 1)}
+				size="sm"
+				variant="outline"
+			>
+				Next
+				<ChevronRight />
+			</Button>
 		</div>
 	)
 }

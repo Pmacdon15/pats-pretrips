@@ -1,107 +1,80 @@
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import type { Trip } from '@/lib/types/types'
+import { parseDefects } from '@/lib/utils-defects'
 
-export function DisplayTripTableHead() {
+function Item({
+	label,
+	children,
+	wide,
+}: {
+	label: string
+	children: React.ReactNode
+	wide?: boolean
+}) {
 	return (
-		<thead>
-			<tr className="border-b">
-				<th className="w-1/3 rounded-sm p-2 text-left">Category</th>
-				<th className="w-1/3 rounded-sm p-2 text-left">Value</th>
-			</tr>
-		</thead>
+		<div className={wide ? 'sm:col-span-2' : undefined}>
+			<dt className="text-muted-foreground text-xs uppercase tracking-wider">
+				{label}
+			</dt>
+			<dd className="mt-1 break-words">{children || '—'}</dd>
+		</div>
 	)
 }
 
-export function DisplayTripTableBody({ trip }: { trip: Trip | undefined }) {
-	if (trip)
-		return (
-			<tbody className="rounded-sm">
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Carrier</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.carrier}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Carrier Address
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.carrieraddress}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Inspection Address
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.inspectionaddress}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Truck Plate
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.truckplate}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Trailer Plate A
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.trailerplatea}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Trailer Plate B
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.trailerplateb}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Make</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.make}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Model</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.model}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Odometer</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.odometer}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Defects</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.defects}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">Remarks</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{trip.remarks}
-					</td>
-				</tr>
-				<tr className="border-b">
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						Inspection Date
-					</td>
-					<td className="w-1/3 rounded-sm p-2 text-left">
-						{new Date(trip.date).toLocaleString('en-CA', {
-							dateStyle: 'short',
-							timeStyle: 'short',
-						})}
-					</td>
-				</tr>
-			</tbody>
-		)
+export function TripDetails({ trip }: { trip: Trip }) {
+	return (
+		<dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+			<Item label="Carrier">{trip.carrier}</Item>
+			<Item label="Carrier address">{trip.carrieraddress}</Item>
+			<Item label="Inspection address" wide>
+				{trip.inspectionaddress}
+			</Item>
+			<Item label="Make / model">
+				{[trip.make, trip.model].filter(Boolean).join(' ')}
+			</Item>
+			<Item label="Odometer">
+				{trip.odometer ? `${trip.odometer.toLocaleString()} km` : ''}
+			</Item>
+			<Item label="Truck plate">{trip.truckplate}</Item>
+			<Item label="Trailer plates">
+				{[trip.trailerplatea, trip.trailerplateb]
+					.filter(Boolean)
+					.join(' · ')}
+			</Item>
+		</dl>
+	)
+}
+
+export function TripDefects({ trip }: { trip: Trip }) {
+	const defects = parseDefects(trip.defects)
+	return (
+		<div className="flex flex-col gap-4">
+			{defects.length === 0 ? (
+				<Badge className="self-start text-sm" variant="success">
+					<CheckCircle2 />
+					No defects reported
+				</Badge>
+			) : (
+				<ul className="flex flex-wrap gap-2">
+					{defects.map((d) => (
+						<li key={d}>
+							<Badge className="text-sm" variant="warning">
+								<AlertTriangle />
+								{d}
+							</Badge>
+						</li>
+					))}
+				</ul>
+			)}
+			<div>
+				<h3 className="text-muted-foreground text-xs uppercase tracking-wider">
+					Remarks
+				</h3>
+				<p className="mt-1 whitespace-pre-line">
+					{trip.remarks || '—'}
+				</p>
+			</div>
+		</div>
+	)
 }

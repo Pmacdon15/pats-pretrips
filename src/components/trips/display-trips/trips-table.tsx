@@ -1,62 +1,108 @@
 'use client'
-import { useRouter } from 'next/navigation'
-import type { Trip } from '@/lib/types/types'
+import {
+	AlertTriangle,
+	CheckCircle2,
+	ChevronRight,
+	Loader2,
+} from 'lucide-react'
+import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import type { Trip, TripsResponse } from '@/lib/types/types'
+import { parseDefects } from '@/lib/utils-defects'
 import { Pagination } from '../../pagination/pagination-buttons'
-import type { TripsResponse } from './DisplayTrips'
+import { TripDate } from '../trip-date'
 
-export default function TripsTable({ trips }: { trips: TripsResponse }) {
+export default function TripsTable({
+	trips,
+	pageParam,
+	emptyMessage,
+}: {
+	trips: TripsResponse
+	pageParam: string
+	emptyMessage: string
+}) {
 	return (
 		<>
-			<table className="w-full overflow-hidden rounded-sm border shadow-sm">
-				<TableHead />
-				<TableBody selectedTrips={trips.trips} />
-			</table>
-			<Pagination hasMorePastTrips={trips.hasMore} />
+			{trips.trips.length === 0 ? (
+				<p className="px-5 py-12 text-center text-muted-foreground text-sm sm:px-6">
+					{emptyMessage}
+				</p>
+			) : (
+				<ul className="divide-y">
+					{trips.trips.map((trip) => (
+						<li key={trip.tripid}>
+							<TripRow trip={trip} />
+						</li>
+					))}
+				</ul>
+			)}
+			<Pagination hasMore={trips.hasMore} param={pageParam} />
 		</>
 	)
 }
 
-export function TableHead() {
-	return (
-		<thead>
-			<tr className="rounded-sm border-b bg-[var(--color-background)]">
-				<th className="p-2 text-left">Date</th>
-				<th className="p-2 text-left">Truck</th>
-				<th className="p-2 text-left">Trailer</th>
-				<th className="p-2 text-left">Defects</th>
-			</tr>
-		</thead>
+function TripRow({ trip }: { trip: Trip }) {
+	const defectList = parseDefects(trip.defects)
+	const units = [trip.truckplate, trip.trailerplatea, trip.trailerplateb]
+		.filter(Boolean)
+		.join(' · ')
+
+	const content = (
+		<>
+			<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<span className="font-medium">
+						<TripDate date={trip.date} />
+					</span>
+					{defectList.length === 0 ? (
+						<Badge variant="success">
+							<CheckCircle2 />
+							No defects
+						</Badge>
+					) : (
+						<Badge variant="warning">
+							<AlertTriangle />
+							{defectList.length} defect
+							{defectList.length === 1 ? '' : 's'}
+						</Badge>
+					)}
+				</div>
+				<p className="truncate text-muted-foreground text-sm">
+					{[trip.carrier, `${trip.make} ${trip.model}`.trim(), units]
+						.filter(Boolean)
+						.join(' — ')}
+				</p>
+				{defectList.length > 0 && (
+					<p className="truncate text-warning-foreground text-xs">
+						{defectList.join(', ')}
+					</p>
+				)}
+			</div>
+			{trip.pending ? (
+				<Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+			) : (
+				<ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+			)}
+		</>
 	)
-}
 
-function TableBody({ selectedTrips }: { selectedTrips: Trip[] }) {
-	const router = useRouter()
+	const className =
+		'flex items-center gap-4 px-5 py-4 sm:px-6 transition-colors'
 
-	const handleRowClick = (tripId: string) => {
-		router.push(`/pretrip/${tripId}`)
+	if (trip.pending || !trip.tripid || trip.tripid < 0) {
+		return (
+			<div aria-busy="true" className={`${className} opacity-70`}>
+				{content}
+			</div>
+		)
 	}
 
 	return (
-		<tbody className="rounded-sm">
-			{selectedTrips?.map((trip: Trip, index: number) => (
-				<tr
-					className="cursor-pointer border hover:bg-gray-100"
-					key={index}
-					onClick={() => handleRowClick(String(trip.tripid))}
-				>
-					<td className="w-2/6 p-2">
-						{new Date(trip.date).toLocaleString('en-CA', {
-							dateStyle: 'short',
-							timeStyle: 'short',
-						})}
-					</td>
-					<td className="p-2">{trip.truckplate}</td>
-					<td className="p-2">{trip.trailerplatea}</td>
-					<td className="p-2">
-						{trip.defects ? trip.defects : 'No defects'}
-					</td>
-				</tr>
-			))}
-		</tbody>
+		<Link
+			className={`${className} hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none`}
+			href={`/pretrip/${trip.tripid}`}
+		>
+			{content}
+		</Link>
 	)
 }

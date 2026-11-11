@@ -1,14 +1,16 @@
 'use client'
 
+import { useSearchParams } from 'next/navigation'
 import { Activity, use, useOptimistic, useState } from 'react'
-import type { Trip } from '@/lib/types/types'
+import { Card } from '@/components/ui/card'
+import type { Trip, TripsAction, TripsResponse } from '@/lib/types/types'
+import { cn } from '@/lib/utils'
 import AddTripContainer from '../add-trip/addTripContainer'
 import TripsTable from './trips-table'
 
-export interface TripsResponse {
-	trips: Trip[]
-	hasMore: boolean
-}
+export type { TripsResponse }
+
+type View = 'current' | 'past'
 
 export default function DisplayTrips({
 	currentTripsPromise,
@@ -17,23 +19,21 @@ export default function DisplayTrips({
 	currentTripsPromise: Promise<TripsResponse>
 	pastTripsPromise: Promise<TripsResponse>
 }) {
-	const [selectedTripsName, setSelectedTripsName] = useState<
-		'Current' | 'Past'
-	>('Current')
+	const searchParams = useSearchParams()
+	const [view, setView] = useState<View>(
+		searchParams.has('pastPage') ? 'past' : 'current',
+	)
 
 	const currentTripsResult = use(currentTripsPromise)
-	const pastTripsResult = use(pastTripsPromise)
+	const pastTrips = use(pastTripsPromise)
 
-	const [optimisticCurrentTrips, setOptimisticCurrentTrips] = useOptimistic<
+	const [currentTrips, setOptimisticCurrentTrips] = useOptimistic<
 		TripsResponse,
-		{ type: 'ADD' | 'REMOVE' | 'UPDATE'; payload: any }
+		TripsAction
 	>(currentTripsResult, (state, action) => {
 		switch (action.type) {
 			case 'ADD':
-				return {
-					...state,
-					trips: [action.payload as Trip, ...state.trips],
-				}
+				return { ...state, trips: [action.payload, ...state.trips] }
 			case 'REMOVE':
 				return {
 					...state,
@@ -44,7 +44,7 @@ export default function DisplayTrips({
 			case 'UPDATE':
 				return {
 					...state,
-					trips: state.trips.map((t) =>
+					trips: state.trips.map((t: Trip) =>
 						t.tripid === action.payload.tripid
 							? { ...t, ...action.payload }
 							: t,
@@ -55,67 +55,94 @@ export default function DisplayTrips({
 		}
 	})
 
-	// This is now the object { trips: Trip[]; hasMore: boolean }
-	const currentTrips: TripsResponse = optimisticCurrentTrips
-
-	// Mapping past trips to match the same object structure
-	const pastTrips: TripsResponse = pastTripsResult
-
 	return (
-		<div className="flex w-full flex-col gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6">
+		<div className="flex flex-col gap-6">
+			<PageTitle />
 			<AddTripContainer
 				setOptimisticCurrentTrips={setOptimisticCurrentTrips}
 			/>
-			<div className="flex items-center justify-between">
-				<h1 className="min-w-fit text-2xl">
-					{selectedTripsName} Trips
-				</h1>
-			</div>
-			<TripSwitcher
-				selectedTripsName={selectedTripsName}
-				setSelectedTripsName={setSelectedTripsName}
-			/>
-
-			<Activity
-				mode={selectedTripsName === 'Current' ? 'visible' : 'hidden'}
-			>
-				{/* Ensure TripsTable is updated to accept the object or just the array */}
-				<TripsTable trips={currentTrips} />
-			</Activity>
-			<Activity
-				mode={selectedTripsName !== 'Current' ? 'visible' : 'hidden'}
-			>
-				<TripsTable trips={pastTrips} />
-			</Activity>
+			<Card className="overflow-hidden">
+				<div className="flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+					<div>
+						<h2 className="font-semibold text-lg">
+							{view === 'current'
+								? "Today's trips"
+								: 'Past trips'}
+						</h2>
+						<p className="text-muted-foreground text-sm">
+							{view === 'current'
+								? 'Inspections from the last 24 hours. You can still add on-route defects.'
+								: 'Inspections older than 24 hours.'}
+						</p>
+					</div>
+					<TripSwitcher onChange={setView} value={view} />
+				</div>
+				<Activity mode={view === 'current' ? 'visible' : 'hidden'}>
+					<TripsTable
+						emptyMessage="No pre-trips in the last 24 hours. Start one above."
+						pageParam="page"
+						trips={currentTrips}
+					/>
+				</Activity>
+				<Activity mode={view === 'past' ? 'visible' : 'hidden'}>
+					<TripsTable
+						emptyMessage="No past trips yet."
+						pageParam="pastPage"
+						trips={pastTrips}
+					/>
+				</Activity>
+			</Card>
 		</div>
 	)
 }
 
-interface TripSwitcherProps {
-	selectedTripsName: 'Current' | 'Past'
-	setSelectedTripsName: React.Dispatch<
-		React.SetStateAction<'Current' | 'Past'>
-	>
+export function PageTitle() {
+	return (
+		<div>
+			<h1 className="font-bold text-2xl tracking-tight sm:text-3xl">
+				Your pre-trips
+			</h1>
+			<p className="mt-1 text-muted-foreground">
+				Record a new inspection or look back at previous ones.
+			</p>
+		</div>
+	)
 }
 
-function TripSwitcher({
-	selectedTripsName,
-	setSelectedTripsName,
-}: TripSwitcherProps) {
+export function TripSwitcher({
+	value,
+	onChange,
+}: {
+	value: View
+	onChange?: (view: View) => void
+}) {
+	const options: { id: View; label: string }[] = [
+		{ id: 'current', label: 'Today' },
+		{ id: 'past', label: 'Past' },
+	]
 	return (
-		<div className="flex justify-end gap-2 rounded-sm bg-[var(--color-background)] p-2">
-			<button
-				className="cursor-pointer"
-				onClick={() => {
-					const nextMode =
-						selectedTripsName === 'Current' ? 'Past' : 'Current'
-					setSelectedTripsName(nextMode)
-				}}
-				type="button"
-			>
-				View {selectedTripsName === 'Current' ? 'Past' : 'Current'}{' '}
-				Trips
-			</button>
+		<div
+			aria-label="Choose which trips to show"
+			className="inline-flex self-start rounded-lg bg-muted p-1"
+			role="tablist"
+		>
+			{options.map((option) => (
+				<button
+					aria-selected={value === option.id}
+					className={cn(
+						'rounded-md px-4 py-1.5 font-medium text-sm transition-colors',
+						value === option.id
+							? 'bg-card text-foreground shadow-sm'
+							: 'text-muted-foreground hover:text-foreground',
+					)}
+					key={option.id}
+					onClick={() => onChange?.(option.id)}
+					role="tab"
+					type="button"
+				>
+					{option.label}
+				</button>
+			))}
 		</div>
 	)
 }

@@ -1,26 +1,28 @@
-import { TableHead } from '../trips/display-trips/trips-table'
+import { Card } from '@/components/ui/card'
+import { PageTitle } from '../trips/display-trips/DisplayTrips'
 
 export default function DisplayTripsFallback() {
 	return (
-		<div className="flex w-full flex-col gap-4 rounded-sm bg-[var(--color-primary)] p-4 shadow-sm md:w-4/6">
-			<div className="flex items-center justify-between">
-				<h1 className="min-w-fit text-2xl">Current Trips</h1>
-			</div>
-			<div className="flex justify-end gap-2 rounded-sm bg-[var(--color-background)] p-2">
-				<button className="cursor-pointer" type="button">
-					View Past Trips
-				</button>
-			</div>
-			<table className="w-full overflow-hidden rounded-sm border shadow-sm">
-				<TableHead />
-				<tbody className="rounded-sm">
-					<tr className="border-b">
-						<td className="w-1/3 rounded-sm p-2 text-left">
-							Loading....
-						</td>
-					</tr>
-				</tbody>
-			</table>
+		<div className="flex flex-col gap-6">
+			<PageTitle />
+			<div className="h-14 w-full animate-pulse rounded-md bg-muted" />
+			<Card className="overflow-hidden">
+				<div className="flex flex-col gap-2 border-b px-5 py-4 sm:px-6">
+					<div className="h-5 w-32 animate-pulse rounded bg-muted" />
+					<div className="h-4 w-64 animate-pulse rounded bg-muted" />
+				</div>
+				<ul className="divide-y">
+					{[0, 1, 2].map((i) => (
+						<li
+							className="flex flex-col gap-2 px-5 py-4 sm:px-6"
+							key={i}
+						>
+							<div className="h-4 w-40 animate-pulse rounded bg-muted" />
+							<div className="h-3 w-56 animate-pulse rounded bg-muted" />
+						</li>
+					))}
+				</ul>
+			</Card>
 		</div>
 	)
 }
