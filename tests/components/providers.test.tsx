@@ -3,11 +3,6 @@ import { act, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@kinde-oss/kinde-auth-nextjs', () => ({
-	KindeProvider: ({ children }: { children: React.ReactNode }) => (
-		<div data-testid="kinde">{children}</div>
-	),
-}))
 const auth = vi.hoisted(() => ({ isAuthenticated: vi.fn() }))
 vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
 	getKindeServerSession: () => auth,
@@ -36,7 +31,6 @@ vi.mock('@kinde-oss/kinde-auth-nextjs/components', () => {
 
 import Header from '@/components/header/header'
 import HomePageButtons from '@/components/home/home-page-buttons'
-import { AuthProvider } from '@/components/providers/auth-provider'
 import Providers from '@/components/providers/Providers'
 
 describe('Providers', () => {
@@ -95,15 +89,6 @@ describe('Providers', () => {
 		)
 		expect(clients[0]).not.toBe(clients[1])
 		vi.doUnmock('@tanstack/react-query')
-	})
-
-	it('AuthProvider wraps children in Kinde', () => {
-		render(
-			<AuthProvider>
-				<p>hi</p>
-			</AuthProvider>,
-		)
-		expect(screen.getByTestId('kinde')).toHaveTextContent('hi')
 	})
 })
 

@@ -37,9 +37,6 @@ vi.mock('@vercel/analytics/next', () => ({ Analytics: () => null }))
 vi.mock('@/components/header/header', () => ({
 	default: () => <header>header</header>,
 }))
-vi.mock('@/components/providers/auth-provider', () => ({
-	AuthProvider: ({ children }: { children: React.ReactNode }) => children,
-}))
 
 // Children that consume a promise: render what it resolved to.
 const Show = ({ label, value }: { label: string; value: Promise<unknown> }) => (
