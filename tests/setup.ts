@@ -17,13 +17,6 @@ process.env.TZ = 'UTC'
 
 // The build project extends this config but runs in node, without a DOM.
 if (typeof window !== 'undefined') {
-	// Radix Select calls pointer-capture and scroll APIs that jsdom lacks.
-	Object.assign(Element.prototype, {
-		hasPointerCapture: () => false,
-		releasePointerCapture: () => {},
-		scrollIntoView: () => {},
-	})
-
 	// next-themes and sonner read the colour-scheme media query.
 	window.matchMedia ??= ((query: string) => ({
 		matches: false,

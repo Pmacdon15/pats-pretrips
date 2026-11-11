@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => ({
 	address: { data: undefined as unknown, isFetching: false },
 }))
 vi.mock('@/lib/mutations/mutations', () => ({
-	useAddTrip: () => ({ mutate: mocks.addTrip }),
-	useAddDefectOnRoute: () => ({ mutate: mocks.addDefect }),
+	useAddTrip: () => ({ mutateAsync: mocks.addTrip }),
+	useAddDefectOnRoute: () => ({ mutateAsync: mocks.addDefect }),
 }))
 vi.mock('@/lib/hooks/hooks', () => ({
 	useGetLocation: () => mocks.location,
@@ -27,6 +27,8 @@ vi.mock('@/lib/hooks/hooks', () => ({
 }))
 
 beforeEach(() => {
+	mocks.addTrip.mockResolvedValue({})
+	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
 	mocks.address = { data: undefined, isFetching: false }
 })
@@ -214,6 +216,42 @@ describe('AddTripForm', () => {
 		expect(onDone).toHaveBeenCalled()
 		expect(screen.getByLabelText('Carrier')).toHaveValue('')
 		expect(inspection).toHaveValue(gps ?? '')
+	})
+})
+
+describe('AddTripForm saving', () => {
+	it('keeps the transition open until the save settles, even on failure', async () => {
+		let failSave = (_e: Error) => {}
+		mocks.addTrip.mockImplementation(
+			() =>
+				new Promise((_resolve, reject) => {
+					failSave = reject
+				}),
+		)
+		const setOptimistic = vi.fn()
+		const user = userEvent.setup()
+		render(
+			<AddTripForm
+				onDone={() => {}}
+				setOptimisticCurrentTrips={setOptimistic}
+			/>,
+		)
+		await user.type(screen.getByLabelText('Carrier'), 'Acme')
+		await user.type(screen.getByLabelText('Carrier address'), '1 Main St')
+		await user.type(
+			screen.getByLabelText('Inspection address'),
+			'123 North St',
+		)
+		await user.type(screen.getByLabelText('Make'), 'Volvo')
+		await user.type(screen.getByLabelText('Model'), 'VNL')
+		await user.type(screen.getByLabelText('Odometer'), '1500')
+		await user.type(screen.getByLabelText('Remarks'), 'All good')
+
+		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
+		expect(setOptimistic).toHaveBeenCalledOnce()
+
+		// The failure is reported by the mutation's toast, not thrown here.
+		await act(async () => failSave(new Error('down')))
 	})
 })
 

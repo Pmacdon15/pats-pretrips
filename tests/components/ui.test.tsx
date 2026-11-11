@@ -13,16 +13,6 @@ import {
 	FieldTitle,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectSeparator,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/sonner'
 import { Textarea } from '@/components/ui/textarea'
@@ -158,52 +148,12 @@ describe('Textarea and Toaster', () => {
 	})
 })
 
-describe('Select', () => {
-	it('renders groups, labels and separators when open', () => {
-		render(
-			<Select defaultOpen>
-				<SelectTrigger aria-label="Pick" size="sm">
-					<SelectValue placeholder="Pick one" />
-				</SelectTrigger>
-				<SelectContent position="item-aligned">
-					<SelectGroup>
-						<SelectLabel>Brakes</SelectLabel>
-						<SelectItem value="air">Air</SelectItem>
-					</SelectGroup>
-					<SelectSeparator />
-				</SelectContent>
-			</Select>,
-		)
-		expect(screen.getByRole('group')).toHaveAttribute(
+describe('FieldGroup', () => {
+	it('renders its slot', () => {
+		render(<FieldGroup>fields</FieldGroup>)
+		expect(screen.getByText('fields')).toHaveAttribute(
 			'data-slot',
-			'select-group',
+			'field-group',
 		)
-		expect(screen.getByText('Brakes')).toHaveAttribute(
-			'data-slot',
-			'select-label',
-		)
-		expect(
-			document.querySelector('[data-slot=select-separator]'),
-		).not.toBeNull()
-		expect(screen.getByRole('option', { name: 'Air' })).toBeInTheDocument()
-	})
-})
-
-describe('FieldGroup and popper Select', () => {
-	it('render', () => {
-		render(
-			<FieldGroup>
-				<Select defaultOpen>
-					<SelectTrigger aria-label="Pick">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="a">A</SelectItem>
-					</SelectContent>
-				</Select>
-			</FieldGroup>,
-		)
-		expect(document.querySelector('[data-slot=field-group]')).not.toBeNull()
-		expect(screen.getByRole('listbox')).toHaveAttribute('data-side')
 	})
 })

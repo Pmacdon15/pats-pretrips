@@ -27,7 +27,7 @@ const form = {
 	odometer: 1000,
 	truckPlate: 'ABC',
 	trailerPlateA: 'T1',
-	trailerPlateB: null,
+	trailerPlateB: undefined,
 	defects: 'Cab',
 	remarks: 'All good',
 }
@@ -54,18 +54,12 @@ describe('createTripDb', () => {
 			1000,
 			'ABC',
 			'T1',
-			null,
+			undefined,
 			'2026-01-02T03:04:05.000Z',
 			'Cab',
 			'All good',
 		])
 	})
-})
-
-it('stores missing defects as an empty string', async () => {
-	sql.respond(() => [{}])
-	await createTripDb({ ...form, defects: null }, 'pat@x.com')
-	expect(sql.queries()[0].values[11]).toBe('')
 })
 
 describe('getTripDefectsDb', () => {

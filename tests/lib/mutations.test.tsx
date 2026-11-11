@@ -26,6 +26,7 @@ const form = {
 	make: 'Volvo',
 	model: 'VNL',
 	odometer: 1000,
+	defects: '',
 	remarks: 'All good',
 }
 

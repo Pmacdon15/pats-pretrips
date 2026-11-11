@@ -8,23 +8,24 @@ const trip = {
 	make: 'Volvo',
 	model: 'VNL',
 	odometer: 1000,
+	defects: '',
 	remarks: 'All good',
 }
 
 describe('schemaAddTripForm', () => {
-	it('accepts a complete trip with the optional fields left out', () => {
+	it('accepts a complete trip with the plates left out', () => {
 		expect(schemaAddTripForm.safeParse(trip).success).toBe(true)
 	})
 
-	it('accepts null plates and defects', () => {
-		const result = schemaAddTripForm.safeParse({
-			...trip,
-			truckPlate: null,
-			trailerPlateA: null,
-			trailerPlateB: null,
-			defects: null,
-		})
-		expect(result.success).toBe(true)
+	it('rejects null plates', () => {
+		expect(
+			schemaAddTripForm.safeParse({ ...trip, truckPlate: null }).success,
+		).toBe(false)
+	})
+
+	it('requires defects, even if empty', () => {
+		const { defects: _, ...noDefects } = trip
+		expect(schemaAddTripForm.safeParse(noDefects).success).toBe(false)
 	})
 
 	it.each([

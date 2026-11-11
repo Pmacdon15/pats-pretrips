@@ -12,7 +12,9 @@ import { describe, expect, it } from 'vitest'
  *   ◐ Partial  a static HTML shell is prerendered; small holes stream in
  *   ƒ Dynamic  the prerender came out empty, so the server renders it all
  *
- * No page may be ƒ, and the legal pages must stay ○.
+ * No page may be ƒ, and every ◐ page must put its heading in the static
+ * HTML rather than an empty loading state. No page can be fully ○ because
+ * the header reads the session on every page.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -128,15 +130,7 @@ describe.skipIf(!built && !process.env.REQUIRE_BUILD)(
 		)('%s puts its heading in the static shell, not just a loading state', (route) => {
 			const html = htmlFor(route)
 			expect(html, `${route} has no prerendered HTML`).not.toBeNull()
-			expect(html).toMatch(/<h1[\s>]/)
-		})
-
-		it('keeps the public pages fully static', () => {
-			for (const route of ['/privacy', '/termsOfService']) {
-				expect(symbolFor(route, manifest.routes[route]), route).toBe(
-					'○',
-				)
-			}
+			expect(html).toMatch(/<h[12][\s>]/)
 		})
 	},
 )

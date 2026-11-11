@@ -24,7 +24,9 @@ describe('proxy', () => {
 			expect.any(Function),
 			{ publicPaths: ['/'] },
 		])
-		await expect((proxy as unknown as () => Promise<void>)()).resolves.toBeUndefined()
+		await expect(
+			(proxy as unknown as () => Promise<void>)(),
+		).resolves.toBeUndefined()
 	})
 
 	const matcher = new RegExp(`^${config.matcher[0]}$`)

@@ -6,9 +6,9 @@ import DisplayTrip from '@/components/trips/display-trip/DisplayTrip'
 import type { Trip } from '@/lib/types/types'
 import { trip } from '../helpers/fixtures'
 
-const mocks = vi.hoisted(() => ({ mutate: vi.fn() }))
+const mocks = vi.hoisted(() => ({ save: vi.fn() }))
 vi.mock('@/lib/mutations/mutations', () => ({
-	useAddDefectOnRoute: () => ({ mutate: mocks.mutate }),
+	useAddDefectOnRoute: () => ({ mutateAsync: mocks.save }),
 }))
 
 beforeEach(() => {
@@ -34,7 +34,14 @@ const show = async (value: Trip | undefined) => {
 }
 
 describe('DisplayTrip', () => {
-	it('shows the trip and sends new defects', async () => {
+	it('shows new defects until the save finishes', async () => {
+		let finishSave = () => {}
+		mocks.save.mockImplementation(
+			() =>
+				new Promise<void>((resolve) => {
+					finishSave = resolve
+				}),
+		)
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 		await show(trip())
 
@@ -53,9 +60,31 @@ describe('DisplayTrip', () => {
 			screen.getByRole('button', { name: 'Add on-route defects' }),
 		)
 
-		expect(mocks.mutate).toHaveBeenCalledWith({
+		expect(mocks.save).toHaveBeenCalledWith({
 			data: { defects: 'Horn', remarks: 'Too loud', trip_id: 1 },
 		})
+		const listed = () =>
+			screen.getAllByRole('listitem').map((li) => li.textContent)
+		expect(listed()).toEqual(['Cab', 'Horn'])
+		expect(screen.getByText('Cracked, Too loud')).toBeInTheDocument()
+
+		// Once saved, the page shows the server's trip again.
+		await act(async () => finishSave())
+		expect(listed()).toEqual(['Cab'])
+	})
+
+	it('drops the new defects if the save fails', async () => {
+		mocks.save.mockRejectedValue(new Error('down'))
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+		await show(trip())
+
+		await user.click(screen.getByRole('button', { name: 'Horn' }))
+		await user.type(screen.getByLabelText('Remarks'), 'Too loud')
+		await user.click(
+			screen.getByRole('button', { name: 'Add on-route defects' }),
+		)
+
+		expect(screen.getAllByRole('listitem')).toHaveLength(1)
 	})
 
 	it('locks a trip older than 24 hours', async () => {
