@@ -92,6 +92,27 @@ This project is ready to deploy on [Vercel](https://vercel.com):
 5. Configure environment variables with geoapify, and O Auth credentials
 6. Deploy
  
+## Running Tests
+
+Tests use [Vitest](https://vitest.dev) and React Testing Library. The setup matches the invoices and clock-out-2 apps.
+
+```bash
+bun run test            # every project
+bun run test:watch      # rerun on change
+bun run test:coverage   # with the 100% coverage gate
+bun run test:build      # next build, then check every page keeps a static shell
+bun run typecheck
+```
+
+The suite is split into Vitest projects (see `vitest.config.mts`):
+
+- `unit`: `tests/lib`, `tests/db`, `tests/dal`, `tests/actions`, plus `tests/no-async-pages.test.ts`, which fails if any page, layout or other route component under `src/app` is `async`.
+- `components`: `tests/components`, rendered in jsdom.
+- `app`: `tests/app`, covering pages, the layout, `proxy.ts` and the auth route.
+- `build`: `tests/build/static-shell.test.ts`, which reads `.next/` after `next build`.
+
+The database is never hit: `tests/db/sql-mock.ts` stands in for the `neon()` tagged template and records every query. In CI (`.github/workflows/tests.yml`), each project runs as its own job. A final job merges their coverage and fails below 100%. `scripts/check-untested-files.ts` then catches any source file that no test imports.
+
 ## Contact
 
 - Email: patrick@patmac.ca

@@ -21,7 +21,7 @@ export default function AddTripForm({
 	onDone: () => void
 	setOptimisticCurrentTrips: (action: TripsAction) => void
 }) {
-	const { mutate } = useAddTrip()
+	const { mutateAsync } = useAddTrip()
 	const { location, status: locationStatus } = useGetLocation()
 	const { data: addressData, isFetching: isFetchingAddress } = useGetAddress(
 		location?.latitude ?? 0,
@@ -70,24 +70,26 @@ export default function AddTripForm({
 			make: formData.make,
 			model: formData.model,
 			odometer: formData.odometer,
-			truckplate: formData.truckPlate ?? undefined,
-			trailerplatea: formData.trailerPlateA ?? undefined,
-			trailerplateb: formData.trailerPlateB ?? undefined,
+			truckplate: formData.truckPlate,
+			trailerplatea: formData.trailerPlateA,
+			trailerplateb: formData.trailerPlateB,
 			date: new Date(),
-			defects: formData.defects ?? '',
+			defects: formData.defects,
 			remarks: formData.remarks,
 			pending: true,
 		}
 
-		startTransition(() => {
+		// Keep the transition open until the save finishes so the optimistic
+		// row stays visible. Errors are already reported by the mutation's toast.
+		startTransition(async () => {
 			setOptimisticCurrentTrips({ type: 'ADD', payload: newTrip })
-			mutate({ data: formData })
-			form.reset()
-			if (formattedAddress) {
-				form.setFieldValue('inspectionAddress', formattedAddress)
-			}
-			onDone()
+			await mutateAsync({ data: formData }).catch(() => {})
 		})
+		form.reset()
+		if (formattedAddress) {
+			form.setFieldValue('inspectionAddress', formattedAddress)
+		}
+		onDone()
 	}
 
 	const locationHint =
@@ -193,7 +195,7 @@ export default function AddTripForm({
 					{(field) => (
 						<DefectPicker
 							onChange={(v) => field.handleChange(v)}
-							value={field.state.value ?? ''}
+							value={field.state.value}
 						/>
 					)}
 				</form.Field>
@@ -224,7 +226,7 @@ export default function AddTripForm({
 							disabled={isSubmitting}
 							type="submit"
 						>
-							{isSubmitting ? 'Saving…' : 'Save pre-trip'}
+							Save pre-trip
 						</Button>
 					)}
 				</form.Subscribe>

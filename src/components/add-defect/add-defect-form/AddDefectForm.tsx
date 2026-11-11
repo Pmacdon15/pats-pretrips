@@ -1,6 +1,7 @@
 'use client'
 
 import { useForm } from '@tanstack/react-form'
+import { startTransition } from 'react'
 import type { z } from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,7 @@ export function AddDefectForm({
 	trip,
 	updateOptimisticTrip,
 }: AddDefectFormProps) {
-	const { mutate } = useAddDefectOnRoute()
+	const { mutateAsync } = useAddDefectOnRoute()
 	const existingDefects = parseDefects(trip.defects)
 
 	const form = useForm({
@@ -32,17 +33,21 @@ export function AddDefectForm({
 			onSubmit: schemaAddDefects,
 		},
 		onSubmit: async ({ value }) => {
-			updateOptimisticTrip({
-				...trip,
-				defects: joinDefects([
-					...existingDefects,
-					...parseDefects(value.defects),
-				]),
-				remarks: [trip.remarks, value.remarks]
-					.filter(Boolean)
-					.join(', '),
+			// Keep the transition open until the save finishes so the optimistic
+			// defects stay visible. Errors are already reported by a toast.
+			startTransition(async () => {
+				updateOptimisticTrip({
+					...trip,
+					defects: joinDefects([
+						...existingDefects,
+						...parseDefects(value.defects),
+					]),
+					remarks: [trip.remarks, value.remarks]
+						.filter(Boolean)
+						.join(', '),
+				})
+				await mutateAsync({ data: value }).catch(() => {})
 			})
-			mutate({ data: value })
 			form.reset()
 		},
 	})
