@@ -70,11 +70,11 @@ export default function AddTripForm({
 			make: formData.make,
 			model: formData.model,
 			odometer: formData.odometer,
-			truckplate: formData.truckPlate ?? undefined,
-			trailerplatea: formData.trailerPlateA ?? undefined,
-			trailerplateb: formData.trailerPlateB ?? undefined,
+			truckplate: formData.truckPlate,
+			trailerplatea: formData.trailerPlateA,
+			trailerplateb: formData.trailerPlateB,
 			date: new Date(),
-			defects: formData.defects ?? '',
+			defects: formData.defects,
 			remarks: formData.remarks,
 			pending: true,
 		}
@@ -195,7 +195,7 @@ export default function AddTripForm({
 					{(field) => (
 						<DefectPicker
 							onChange={(v) => field.handleChange(v)}
-							value={field.state.value ?? ''}
+							value={field.state.value}
 						/>
 					)}
 				</form.Field>
@@ -226,7 +226,7 @@ export default function AddTripForm({
 							disabled={isSubmitting}
 							type="submit"
 						>
-							{isSubmitting ? 'Saving…' : 'Save pre-trip'}
+							Save pre-trip
 						</Button>
 					)}
 				</form.Subscribe>

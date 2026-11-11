@@ -7,10 +7,10 @@ export const schemaAddTripForm = z.object({
 	make: z.string().min(1, 'Vehicle make is required'),
 	model: z.string().min(1, 'Vehicle model is required'),
 	odometer: z.number().positive('Odometer reading must be a positive number'),
-	truckPlate: z.string().nullable().optional(),
-	trailerPlateA: z.string().nullable().optional(),
-	trailerPlateB: z.string().nullable().optional(),
-	defects: z.string().nullable().optional(),
+	truckPlate: z.string().optional(),
+	trailerPlateA: z.string().optional(),
+	trailerPlateB: z.string().optional(),
+	defects: z.string(),
 	remarks: z.string().min(4, 'Remarks are required'),
 })
 
