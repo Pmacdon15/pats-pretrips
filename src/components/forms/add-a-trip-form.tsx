@@ -21,7 +21,7 @@ export default function AddTripForm({
 	onDone: () => void
 	setOptimisticCurrentTrips: (action: TripsAction) => void
 }) {
-	const { mutate } = useAddTrip()
+	const { mutateAsync } = useAddTrip()
 	const { location, status: locationStatus } = useGetLocation()
 	const { data: addressData, isFetching: isFetchingAddress } = useGetAddress(
 		location?.latitude ?? 0,
@@ -79,15 +79,17 @@ export default function AddTripForm({
 			pending: true,
 		}
 
-		startTransition(() => {
+		// Keep the transition open until the save finishes so the optimistic
+		// row stays visible. Errors are already reported by the mutation's toast.
+		startTransition(async () => {
 			setOptimisticCurrentTrips({ type: 'ADD', payload: newTrip })
-			mutate({ data: formData })
-			form.reset()
-			if (formattedAddress) {
-				form.setFieldValue('inspectionAddress', formattedAddress)
-			}
-			onDone()
+			await mutateAsync({ data: formData }).catch(() => {})
 		})
+		form.reset()
+		if (formattedAddress) {
+			form.setFieldValue('inspectionAddress', formattedAddress)
+		}
+		onDone()
 	}
 
 	const locationHint =
