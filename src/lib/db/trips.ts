@@ -35,7 +35,7 @@ export async function createTripDb(
                 ${data.trailerPlateA},
                 ${data.trailerPlateB},
                 ${new Date().toISOString()},
-                ${data.defects ?? ''},
+                ${data.defects},
                 ${data.remarks}
                 )
                 RETURNING *;

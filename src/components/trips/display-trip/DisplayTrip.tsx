@@ -1,7 +1,7 @@
 'use client'
 import type { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
 import { Lock } from 'lucide-react'
-import { startTransition, use, useOptimistic } from 'react'
+import { use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
 import {
 	Card,
@@ -48,12 +48,6 @@ export default function DisplayTrip({
 	const isEditable =
 		Date.now() - new Date(optimisticTrip.date).getTime() < DAY_MS
 
-	const handleUpdate = (newTrip: Trip) => {
-		startTransition(() => {
-			updateOptimisticTrip(newTrip)
-		})
-	}
-
 	return (
 		<div className="flex flex-col gap-6">
 			<BackLink />
@@ -99,7 +93,7 @@ export default function DisplayTrip({
 					<CardContent>
 						<AddDefectForm
 							trip={optimisticTrip}
-							updateOptimisticTrip={handleUpdate}
+							updateOptimisticTrip={updateOptimisticTrip}
 						/>
 					</CardContent>
 				</Card>
