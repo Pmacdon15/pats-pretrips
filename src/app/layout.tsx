@@ -5,7 +5,6 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import Footer from '@/components/footer/footer'
 import Header from '@/components/header/header'
-import { AuthProvider } from '@/components/providers/auth-provider'
 import Providers from '@/components/providers/Providers'
 
 const geistSans = Geist({
@@ -41,12 +40,10 @@ export default function RootLayout({
 				className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans antialiased`}
 			>
 				<Providers>
-					<AuthProvider>
-						<Header />
-						<main className="flex-grow">{children}</main>
-						<Footer />
-						<Toaster position="top-center" richColors />
-					</AuthProvider>
+					<Header />
+					<main className="flex-grow">{children}</main>
+					<Footer />
+					<Toaster position="top-center" richColors />
 				</Providers>
 				<Analytics />
 			</body>
