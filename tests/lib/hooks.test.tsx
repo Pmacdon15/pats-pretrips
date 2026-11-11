@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { queryWrapper } from '../helpers/query'
 
 const mocks = vi.hoisted(() => ({ getAddress: vi.fn() }))
@@ -31,36 +31,47 @@ describe('useGetAddress', () => {
 })
 
 describe('useGetLocation', () => {
-	beforeEach(() => {
-		vi.spyOn(console, 'log').mockImplementation(() => {})
+	const stubGeolocation = (
+		getCurrentPosition: (ok: PositionCallback, fail: () => void) => void,
+	) => vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+
+	afterEach(() => {
+		vi.unstubAllGlobals()
 	})
 
-	it("returns the browser's position", async () => {
-		vi.stubGlobal('navigator', {
-			geolocation: {
-				getCurrentPosition: (cb: PositionCallback) =>
-					cb({ coords: { latitude: 51, longitude: -114 } } as never),
-			},
-		})
+	it('starts loading', () => {
+		stubGeolocation(() => {})
+		const { result } = renderHook(() => useGetLocation())
+		expect(result.current).toEqual({ location: null, status: 'loading' })
+	})
+
+	it("returns the browser's position rounded to ~10m", async () => {
+		stubGeolocation((ok) =>
+			ok({
+				coords: { latitude: 51.044_73, longitude: -114.071_88 },
+			} as never),
+		)
 
 		const { result } = renderHook(() => useGetLocation())
 
 		await waitFor(() =>
-			expect(result.current.location).toEqual({
-				latitude: 51,
-				longitude: -114,
+			expect(result.current).toEqual({
+				location: { latitude: 51.0447, longitude: -114.0719 },
+				status: 'ready',
 			}),
 		)
-		vi.unstubAllGlobals()
 	})
 
-	it('stays null without geolocation', () => {
+	it('reports a denied permission', async () => {
+		stubGeolocation((_ok, fail) => fail())
+		const { result } = renderHook(() => useGetLocation())
+		await waitFor(() => expect(result.current.status).toBe('denied'))
+	})
+
+	it('reports a browser without geolocation', async () => {
 		vi.stubGlobal('navigator', {})
 		const { result } = renderHook(() => useGetLocation())
+		await waitFor(() => expect(result.current.status).toBe('unsupported'))
 		expect(result.current.location).toBeNull()
-		expect(console.log).toHaveBeenCalledWith(
-			'Geolocation is not supported by this browser.',
-		)
-		vi.unstubAllGlobals()
 	})
 })

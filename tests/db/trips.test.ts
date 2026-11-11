@@ -62,6 +62,12 @@ describe('createTripDb', () => {
 	})
 })
 
+it('stores missing defects as an empty string', async () => {
+	sql.respond(() => [{}])
+	await createTripDb({ ...form, defects: null }, 'pat@x.com')
+	expect(sql.queries()[0].values[11]).toBe('')
+})
+
 describe('getTripDefectsDb', () => {
 	it("returns the trip's defects", async () => {
 		sql.respond(() => [{ defects: 'Cab, Horn' }])

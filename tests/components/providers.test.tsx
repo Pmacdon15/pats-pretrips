@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -8,18 +8,33 @@ vi.mock('@kinde-oss/kinde-auth-nextjs', () => ({
 		<div data-testid="kinde">{children}</div>
 	),
 }))
-vi.mock('@kinde-oss/kinde-auth-nextjs/components', () => ({
-	LoginLink: ({ children }: { children: React.ReactNode }) => (
-		<a href="/login">{children}</a>
-	),
-	LogoutLink: ({ children }: { children: React.ReactNode }) => (
-		<a href="/logout">{children}</a>
-	),
-	RegisterLink: ({ children }: { children: React.ReactNode }) => (
-		<a href="/register">{children}</a>
-	),
+const auth = vi.hoisted(() => ({ isAuthenticated: vi.fn() }))
+vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
+	getKindeServerSession: () => auth,
 }))
+vi.mock('@kinde-oss/kinde-auth-nextjs/components', () => {
+	const link =
+		(href: string) =>
+		({
+			children,
+			postLoginRedirectURL,
+			...rest
+		}: {
+			children: React.ReactNode
+			postLoginRedirectURL?: string
+		}) => (
+			<a data-redirect={postLoginRedirectURL} href={href} {...rest}>
+				{children}
+			</a>
+		)
+	return {
+		LoginLink: link('/login'),
+		LogoutLink: link('/logout'),
+		RegisterLink: link('/register'),
+	}
+})
 
+import Header from '@/components/header/header'
 import HomePageButtons from '@/components/home/home-page-buttons'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import Providers from '@/components/providers/Providers'
@@ -93,27 +108,55 @@ describe('Providers', () => {
 })
 
 describe('HomePageButtons', () => {
-	it('offers logout and pre-trips when signed in', async () => {
+	it('links a signed-in driver to their trips', async () => {
 		render(
 			await HomePageButtons({ isLoggedInPromise: Promise.resolve(true) }),
 		)
-		expect(screen.getByRole('link', { name: 'Logout' })).toHaveAttribute(
+		expect(
+			screen.getByRole('link', { name: 'Go to my trips' }),
+		).toHaveAttribute('href', '/pretrips')
+	})
+
+	it('offers sign up and sign in otherwise, landing on the trips page', async () => {
+		render(await HomePageButtons({}))
+		for (const name of ['Create free account', 'Sign in']) {
+			expect(screen.getByRole('link', { name })).toHaveAttribute(
+				'data-redirect',
+				'/pretrips',
+			)
+		}
+	})
+})
+
+describe('Header', () => {
+	const renderHeader = async () => {
+		await act(async () => {
+			render(<Header />)
+		})
+	}
+
+	it('links home and offers sign in when signed out', async () => {
+		auth.isAuthenticated.mockResolvedValue(false)
+		await renderHeader()
+		expect(
+			screen.getByRole('link', { name: "Pat's PreTrips" }),
+		).toHaveAttribute('href', '/')
+		expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
 			'href',
-			'/logout',
-		)
-		expect(screen.getByRole('link', { name: 'PreTrips' })).toHaveAttribute(
-			'href',
-			'/pretrips',
+			'/login',
 		)
 	})
 
-	it('offers sign in and sign up otherwise', async () => {
-		render(await HomePageButtons({}))
-		expect(
-			screen.getByRole('link', { name: 'Sign in' }),
-		).toBeInTheDocument()
-		expect(
-			screen.getByRole('link', { name: 'Sign up' }),
-		).toBeInTheDocument()
+	it('shows trips and sign out when signed in', async () => {
+		auth.isAuthenticated.mockResolvedValue(true)
+		await renderHeader()
+		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
+			'href',
+			'/pretrips',
+		)
+		expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute(
+			'href',
+			'/logout',
+		)
 	})
 })

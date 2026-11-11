@@ -6,6 +6,7 @@ import {
 	FieldContent,
 	FieldDescription,
 	FieldError,
+	FieldGroup,
 	FieldLegend,
 	FieldSeparator,
 	FieldSet,
@@ -185,5 +186,24 @@ describe('Select', () => {
 			document.querySelector('[data-slot=select-separator]'),
 		).not.toBeNull()
 		expect(screen.getByRole('option', { name: 'Air' })).toBeInTheDocument()
+	})
+})
+
+describe('FieldGroup and popper Select', () => {
+	it('render', () => {
+		render(
+			<FieldGroup>
+				<Select defaultOpen>
+					<SelectTrigger aria-label="Pick">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="a">A</SelectItem>
+					</SelectContent>
+				</Select>
+			</FieldGroup>,
+		)
+		expect(document.querySelector('[data-slot=field-group]')).not.toBeNull()
+		expect(screen.getByRole('listbox')).toHaveAttribute('data-side')
 	})
 })
