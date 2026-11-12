@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	fetchCurrentTrips: vi.fn(),
 	fetchPastTrips: vi.fn(),
 	fetchTrip: vi.fn(),
+	getApiKeysDAL: vi.fn(),
 	getUser: vi.fn(),
 	isAuthenticated: vi.fn(),
 }))
@@ -15,6 +16,14 @@ vi.mock('@/lib/DAL/trips', () => ({
 	fetchCurrentTrips: mocks.fetchCurrentTrips,
 	fetchPastTrips: mocks.fetchPastTrips,
 	fetchTrip: mocks.fetchTrip,
+}))
+vi.mock('@/lib/DAL/api-keys', () => ({
+	getApiKeysDAL: mocks.getApiKeysDAL,
+}))
+vi.mock('@/components/connect/connect-ai', () => ({
+	ConnectAi: (p: { keysPromise: Promise<unknown> }) => (
+		<Show label="keys" value={p.keysPromise} />
+	),
 }))
 vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
 	getKindeServerSession: () => ({
@@ -65,6 +74,7 @@ vi.mock('@/components/home/home-page-buttons', () => ({
 	),
 }))
 
+import ConnectPage from '@/app/connect/page'
 import RootLayout, { metadata, viewport } from '@/app/layout'
 import Home from '@/app/page'
 import TripPage from '@/app/pretrip/[tripId]/page'
@@ -126,6 +136,14 @@ describe('/pretrip/[tripId]', () => {
 		expect(mocks.fetchTrip).toHaveBeenCalledWith(4)
 		expect(screen.getByTestId('trip')).toHaveTextContent('"tripid":4')
 		expect(screen.getByTestId('user')).toHaveTextContent('pat@x.com')
+	})
+})
+
+describe('/connect', () => {
+	it("loads the driver's API keys", async () => {
+		mocks.getApiKeysDAL.mockResolvedValue([{ id: 1 }])
+		await renderAsync(<ConnectPage />)
+		expect(screen.getByTestId('keys')).toHaveTextContent('"id":1')
 	})
 })
 

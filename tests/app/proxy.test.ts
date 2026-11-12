@@ -19,10 +19,10 @@ import { GET } from '@/app/api/auth/[kindeAuth]/route'
 import proxy, { config } from '@/proxy'
 
 describe('proxy', () => {
-	it('protects every page except the home page', async () => {
+	it('protects every page except the home page and the AI connector', async () => {
 		expect(mocks.withAuthArgs).toEqual([
 			expect.any(Function),
-			{ publicPaths: ['/'] },
+			{ publicPaths: ['/', '/api/mcp', '/.well-known/'] },
 		])
 		await expect(
 			(proxy as unknown as () => Promise<void>)(),
@@ -36,6 +36,9 @@ describe('proxy', () => {
 		'/pretrips',
 		'/pretrip/4',
 		'/api/auth/login',
+		'/api/mcp',
+		'/connect',
+		'/.well-known/oauth-protected-resource/api/mcp',
 	])('runs on %s', (path) => {
 		expect(matcher.test(path)).toBe(true)
 	})

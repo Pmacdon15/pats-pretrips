@@ -1,6 +1,6 @@
 import { LoginLink, LogoutLink } from '@kinde-oss/kinde-auth-nextjs/components'
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
-import { ClipboardCheck, LogOut, Truck } from 'lucide-react'
+import { Bot, ClipboardCheck, LogOut, Truck } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { buttonVariants } from '@/components/ui/button'
@@ -52,6 +52,14 @@ async function HeaderNav() {
 			>
 				<ClipboardCheck />
 				My Trips
+			</Link>
+			<Link
+				aria-label="Connect your AI"
+				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				href="/connect"
+			>
+				<Bot />
+				<span className="hidden sm:inline">Connect AI</span>
 			</Link>
 			<LogoutLink
 				aria-label="Sign out"

@@ -112,3 +112,82 @@ describe('updateTripDefectsDb', () => {
 		).rejects.toThrow('Failed to update trip or trip not found')
 	})
 })
+
+describe('connector queries', () => {
+	it('reads the latest trip', async () => {
+		const { getLatestTripDb } = await import('@/lib/db/trips')
+		sql.respond(() => [{ tripid: 3 }])
+		await expect(getLatestTripDb('pat@x.com')).resolves.toEqual({
+			tripid: 3,
+		})
+		expect(sql.queries()[0].text).toContain('ORDER BY date DESC LIMIT 1')
+	})
+
+	it('finds the latest trip for a plate, ignoring spaces, dashes and case', async () => {
+		const { getLatestTripForPlateDb, normalizePlate } = await import(
+			'@/lib/db/trips'
+		)
+		expect(normalizePlate('abc-12 3')).toBe('ABC123')
+		await expect(
+			getLatestTripForPlateDb('pat@x.com', 'abc 123'),
+		).resolves.toBeUndefined()
+		expect(sql.queries()[0].values).toEqual(['pat@x.com', 'ABC123'])
+	})
+
+	it.each([
+		['current', '>='],
+		['past', '<'],
+	] as const)('lists %s trips a page at a time', async (when, op) => {
+		const { listTripsDb } = await import('@/lib/db/trips')
+		sql.respond(() => [{ tripid: 1 }, { tripid: 2 }, { tripid: 3 }])
+		await expect(listTripsDb('pat@x.com', when, 2, 2)).resolves.toEqual({
+			trips: [{ tripid: 1 }, { tripid: 2 }],
+			hasMore: true,
+		})
+		const [query] = sql.queries()
+		expect(query.text).toContain(`date ${op} NOW() - INTERVAL '24 hours'`)
+		expect(query.values).toEqual(['pat@x.com', 3, 2])
+	})
+
+	it("reads one of the driver's trips", async () => {
+		const { getTripDb } = await import('@/lib/db/trips')
+		await expect(getTripDb(4, 'pat@x.com')).resolves.toBeUndefined()
+		expect(sql.queries()[0].values).toEqual([4, 'pat@x.com'])
+	})
+
+	it('updates only the fields passed, for trips in the last 24 hours', async () => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		sql.respond(() => [{ tripid: 4 }])
+		await expect(
+			updateTripDb(4, 'pat@x.com', {
+				odometer: 5,
+				make: 'Mack',
+				defects: 'Cab',
+				addRemarks: 'Late',
+			}),
+		).resolves.toEqual({ tripid: 4 })
+		const [query] = sql.queries()
+		expect(query.text).toContain("date >= NOW() - INTERVAL '24 hours'")
+		expect(query.values).toEqual([
+			null,
+			null,
+			null,
+			'Mack',
+			null,
+			5,
+			null,
+			null,
+			null,
+			'Cab',
+			'Late',
+			'Late',
+			'Late',
+			4,
+			'pat@x.com',
+		])
+		await updateTripDb(4, 'pat@x.com', {})
+		expect(sql.queries()[1].values.slice(0, 11)).toEqual(
+			Array(11).fill(null),
+		)
+	})
+})
