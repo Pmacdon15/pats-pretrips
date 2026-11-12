@@ -8,8 +8,10 @@ const mocks = vi.hoisted(() => ({
 	addOnRouteDefectsDAL: vi.fn(),
 }))
 
-vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
-	getKindeServerSession: () => ({ getUser: mocks.getUser }),
+// Stands in for Clerk's current user: `getUser` gives the user or null.
+vi.mock('@/lib/auth', () => ({
+	getDriverEmail: async () =>
+		((await mocks.getUser()) as { email?: string } | null)?.email ?? null,
 }))
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
 vi.mock('@/lib/DAL/inserts', () => ({

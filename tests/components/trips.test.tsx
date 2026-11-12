@@ -206,8 +206,8 @@ describe('PageHead', () => {
 				<Suspense>
 					<PageHead
 						userPromise={Promise.resolve({
-							given_name: 'Pat',
-							family_name: 'Mac',
+							givenName: 'Pat',
+							familyName: 'Mac',
 							email: 'pat@x.com',
 						} as never)}
 					/>

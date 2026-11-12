@@ -1,8 +1,8 @@
 'use server'
 
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { updateTag } from 'next/cache'
 import type { z } from 'zod'
+import { getDriverEmail } from '@/lib/auth'
 import type { GeocodingResponse } from '@/lib/types/types'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
 import type { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
@@ -47,10 +47,7 @@ export async function getAddress(
 	lat: number,
 	lng: number,
 ): Promise<{ data: GeocodingResponse | undefined }> {
-	const { getUser } = getKindeServerSession()
-	const user = await getUser()
-
-	const driverEmail = user?.email
+	const driverEmail = await getDriverEmail()
 
 	if (!driverEmail) {
 		throw new Error('Must be logged in')

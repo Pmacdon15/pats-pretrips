@@ -20,11 +20,11 @@
 	},
 	"dependencies": {
 		"@biomejs/biome": "^2.4.16",
+		"@clerk/nextjs": "^7.9.25",
 		"@fortawesome/fontawesome-svg-core": "^7.2.0",
 		"@fortawesome/free-brands-svg-icons": "^7.2.0",
 		"@fortawesome/react-fontawesome": "^3.3.1",
 		"@hookform/resolvers": "^5.4.0",
-		"@kinde-oss/kinde-auth-nextjs": "^2.12.2",
 		"@modelcontextprotocol/server": "^2.4.0",
 		"@neondatabase/serverless": "^1.1.0",
 		"@radix-ui/react-label": "^2.1.8",

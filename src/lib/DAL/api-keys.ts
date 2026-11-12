@@ -1,5 +1,5 @@
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { errAsync, okAsync } from 'neverthrow'
+import { getDriverEmail } from '@/lib/auth'
 import {
 	apiKeyNameSchema,
 	generateApiKey,
@@ -12,11 +12,7 @@ import { createApiKeyDb, listApiKeysDb, revokeApiKeyDb } from '../db/api-keys'
  * Personal API keys for the AI connector, for the signed-in driver only.
  */
 
-async function signedInEmail() {
-	const { getUser } = getKindeServerSession()
-	const user = await getUser()
-	return user?.email ?? null
-}
+const signedInEmail = getDriverEmail
 
 export async function getApiKeysDAL() {
 	const email = await signedInEmail()

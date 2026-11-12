@@ -3,29 +3,33 @@ import { act, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-const auth = vi.hoisted(() => ({ isAuthenticated: vi.fn() }))
-vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
-	getKindeServerSession: () => auth,
-}))
-vi.mock('@kinde-oss/kinde-auth-nextjs/components', () => {
-	const link =
-		(href: string) =>
+const auth = vi.hoisted(() => ({ isSignedIn: vi.fn() }))
+vi.mock('@/lib/auth', () => auth)
+vi.mock('@clerk/nextjs', () => {
+	// Clerk's buttons wrap the child button; the stand-in records where
+	// they'd send the driver.
+	const wrap =
+		(action: string) =>
 		({
 			children,
-			postLoginRedirectURL,
-			...rest
+			forceRedirectUrl,
+			redirectUrl,
 		}: {
 			children: React.ReactNode
-			postLoginRedirectURL?: string
+			forceRedirectUrl?: string
+			redirectUrl?: string
 		}) => (
-			<a data-redirect={postLoginRedirectURL} href={href} {...rest}>
+			<span
+				data-action={action}
+				data-redirect={forceRedirectUrl ?? redirectUrl}
+			>
 				{children}
-			</a>
+			</span>
 		)
 	return {
-		LoginLink: link('/login'),
-		LogoutLink: link('/logout'),
-		RegisterLink: link('/register'),
+		SignInButton: wrap('sign-in'),
+		SignOutButton: wrap('sign-out'),
+		SignUpButton: wrap('sign-up'),
 	}
 })
 
@@ -104,11 +108,13 @@ describe('HomePageButtons', () => {
 
 	it('offers sign up and sign in otherwise, landing on the trips page', async () => {
 		render(await HomePageButtons({}))
-		for (const name of ['Create free account', 'Sign in']) {
-			expect(screen.getByRole('link', { name })).toHaveAttribute(
-				'data-redirect',
-				'/pretrips',
-			)
+		for (const [name, action] of [
+			['Create free account', 'sign-up'],
+			['Sign in', 'sign-in'],
+		]) {
+			const wrapper = screen.getByRole('button', { name }).parentElement
+			expect(wrapper).toHaveAttribute('data-action', action)
+			expect(wrapper).toHaveAttribute('data-redirect', '/pretrips')
 		}
 	})
 })
@@ -121,19 +127,21 @@ describe('Header', () => {
 	}
 
 	it('links home and offers sign in when signed out', async () => {
-		auth.isAuthenticated.mockResolvedValue(false)
+		auth.isSignedIn.mockResolvedValue(false)
 		await renderHeader()
 		expect(
 			screen.getByRole('link', { name: "Pat's PreTrips" }),
 		).toHaveAttribute('href', '/')
-		expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
-			'href',
-			'/login',
+		const signIn = screen.getByRole('button', { name: 'Sign in' })
+		expect(signIn.parentElement).toHaveAttribute('data-action', 'sign-in')
+		expect(signIn.parentElement).toHaveAttribute(
+			'data-redirect',
+			'/pretrips',
 		)
 	})
 
 	it('shows trips, Connect AI and sign out when signed in', async () => {
-		auth.isAuthenticated.mockResolvedValue(true)
+		auth.isSignedIn.mockResolvedValue(true)
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
 			'href',
@@ -142,9 +150,8 @@ describe('Header', () => {
 		expect(
 			screen.getByRole('link', { name: 'Connect your AI' }),
 		).toHaveAttribute('href', '/connect')
-		expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute(
-			'href',
-			'/logout',
-		)
+		const signOut = screen.getByRole('button', { name: 'Sign out' })
+		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
+		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')
 	})
 })

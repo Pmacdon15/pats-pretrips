@@ -7,20 +7,20 @@ The rules below are sent to every assistant automatically when it connects (the 
 ## Connecting
 
 1. In your AI app, add a custom connector with the URL `https://patspretrips.ca/api/mcp`.
-2. When it asks, sign in with your PreTrips account (Kinde, the same sign-in as the website). The assistant only ever sees your own trips.
+2. When it asks, sign in with your PreTrips account (Clerk, the same sign-in as the website). The assistant only ever sees your own trips.
 3. Send it your photos, e.g. *"Start my pre-trip"* with a picture of the dash and one of the plate.
 
 If your app can't sign in with OAuth, open **Connect AI** in PreTrips (`/connect`), choose **Create API key**, and give the app the URL plus the key (as `Authorization: Bearer ppt_…`). The key is shown once; you can revoke it there at any time.
 
-### Setting up sign-in (once, in Kinde)
+### Setting up sign-in (once, in Clerk)
 
-Budget and Clock Out use Clerk, which registers AI apps by itself. PreTrips signs in with Kinde, so it needs Kinde set up for AI apps:
+PreTrips signs in with Clerk, like Budget and Clock Out. Clerk registers AI apps by itself, as long as it's switched on:
 
-- **Claude, ChatGPT and other apps that register themselves**: turn on Kinde's MCP / AI agent support for this business so it accepts dynamic client registration (and Client ID Metadata Documents, for claude.ai). If Kinde gives the MCP connection its own issuer URL, set `MCP_OAUTH_ISSUER` to it; otherwise PreTrips names `KINDE_ISSUER_URL`.
-- **Apps that ask for a Client ID (Muse, sometimes Gemini)**: in Kinde, add an application for that app (a front-end/SPA app with PKCE, no secret, or a back-end app if the app also asks for a secret), add the app's callback URL as an allowed callback, and give the app that Client ID with `https://patspretrips.ca/api/mcp` as the server URL. Gemini's callback looks like `https://oauth-redirect.googleusercontent.com/r/...`.
-- **Optional:** to only accept tokens issued for the connector, register an API in Kinde for `https://patspretrips.ca/api/mcp` and set `MCP_TOKEN_AUDIENCE` to its audience.
+- **Claude, ChatGPT and other apps that register themselves**: in the Clerk dashboard for PreTrips, go to **Configure → OAuth applications** and turn on **Dynamic client registration**. That's all: the AI app finds Clerk through `/.well-known/oauth-protected-resource/api/mcp`, registers, and sends the driver to sign in.
+- **Apps that ask for a Client ID (Muse, sometimes Gemini)**: in **OAuth applications**, add an application for that app, add its callback URL (Gemini's looks like `https://oauth-redirect.googleusercontent.com/r/...`), turn on PKCE (public client) or keep the secret for apps that ask for one, and give the app the Client ID with `https://patspretrips.ca/api/mcp` as the server URL.
+- **Optional:** set `MCP_TOKEN_AUDIENCE` to only accept tokens issued for that audience.
 
-PreTrips needs the driver's email from the token. Add the email claim to access tokens in Kinde, or PreTrips asks Kinde's user profile endpoint with the token instead. Ask for the scopes `openid profile email offline_access`; `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
+The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `openid profile email offline_access`; `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
 
 ### Database
 
@@ -48,4 +48,4 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 
 ## How it's built
 
-The same way as Budget and Clock Out: `src/app/api/mcp/route.ts` runs [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) (Streamable HTTP, stateless) behind `src/mcp/http.ts`, which handles CORS, case-insensitive `Bearer` tokens, the `401` sign-in challenge pointing to `/.well-known/oauth-protected-resource/api/mcp`, and plain JSON answers for clients that don't take event streams. Tool schemas are advertised in the JSON Schema subset Gemini accepts (`src/mcp/portable-schema.ts`). `src/mcp/auth.ts` checks Kinde access tokens against Kinde's signing keys (`<issuer>/.well-known/jwks`) and issuer, or looks up an API key's hash. Tools take the driver only from the verified token, never from their arguments.
+The same way as Budget and Clock Out: `src/app/api/mcp/route.ts` runs [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) (Streamable HTTP, stateless) behind `src/mcp/http.ts`, which handles CORS, case-insensitive `Bearer` tokens, the `401` sign-in challenge pointing to `/.well-known/oauth-protected-resource/api/mcp`, and plain JSON answers for clients that don't take event streams. Tool schemas are advertised in the JSON Schema subset Gemini accepts (`src/mcp/portable-schema.ts`). `src/mcp/auth.ts` checks Clerk OAuth access tokens with Clerk's Backend API, or looks up an API key's hash. Tools take the driver only from the verified token, never from their arguments.

@@ -1,9 +1,9 @@
-import { LoginLink, LogoutLink } from '@kinde-oss/kinde-auth-nextjs/components'
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
+import { SignInButton, SignOutButton } from '@clerk/nextjs'
 import { Bot, ClipboardCheck, LogOut, Truck } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { buttonVariants } from '@/components/ui/button'
+import { isSignedIn } from '@/lib/auth'
 
 export default function Header() {
 	return (
@@ -30,17 +30,18 @@ export default function Header() {
 }
 
 async function HeaderNav() {
-	const { isAuthenticated } = getKindeServerSession()
-	const loggedIn = await isAuthenticated()
+	const loggedIn = await isSignedIn()
 
 	if (!loggedIn) {
 		return (
-			<LoginLink
-				className={buttonVariants({ size: 'sm' })}
-				postLoginRedirectURL="/pretrips"
-			>
-				Sign in
-			</LoginLink>
+			<SignInButton forceRedirectUrl="/pretrips">
+				<button
+					className={buttonVariants({ size: 'sm' })}
+					type="button"
+				>
+					Sign in
+				</button>
+			</SignInButton>
 		)
 	}
 
@@ -61,13 +62,16 @@ async function HeaderNav() {
 				<Bot />
 				<span className="hidden sm:inline">Connect AI</span>
 			</Link>
-			<LogoutLink
-				aria-label="Sign out"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-			>
-				<LogOut />
-				<span className="hidden sm:inline">Sign out</span>
-			</LogoutLink>
+			<SignOutButton redirectUrl="/">
+				<button
+					aria-label="Sign out"
+					className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+					type="button"
+				>
+					<LogOut />
+					<span className="hidden sm:inline">Sign out</span>
+				</button>
+			</SignOutButton>
 		</nav>
 	)
 }

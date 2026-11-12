@@ -5,8 +5,8 @@ export { configuredIssuer } from '@/mcp/oauth-config'
 
 /*
  * OAuth discovery documents for MCP clients. The authorization server is
- * Kinde (the issuer in `configuredIssuer`); PreTrips is the protected
- * resource. Same shape as Budget and Clock Out, which use Clerk instead.
+ * Clerk (the issuer in `configuredIssuer`); PreTrips is the protected
+ * resource. Same shape as Budget and Clock Out.
  */
 
 export const METADATA_CORS_HEADERS: Record<string, string> = {
@@ -23,7 +23,7 @@ export function metadataPreflight() {
 
 /**
  * Protected Resource Metadata (RFC 9728) for the MCP endpoint. `resource` is
- * the exact URL clients connect to, `authorization_servers` is Kinde and
+ * the exact URL clients connect to, `authorization_servers` is Clerk and
  * `scopes_supported` is what a client should ask for.
  */
 export function protectedResourceMetadata(req: Request, issuer: string) {
@@ -47,9 +47,9 @@ export function notConfigured() {
 }
 
 /**
- * One of Kinde's discovery documents, served from this origin for clients
+ * One of Clerk's discovery documents, served from this origin for clients
  * that look for the authorization server on the MCP server's own domain
- * (the 2025-03-26 MCP spec did). Its `issuer` stays Kinde's.
+ * (the 2025-03-26 MCP spec did). Its `issuer` stays Clerk's.
  */
 export async function issuerDiscoveryDocument(
 	issuer: string,
@@ -60,7 +60,7 @@ export async function issuerDiscoveryDocument(
 			signal: AbortSignal.timeout(10_000),
 			headers: { accept: 'application/json' },
 		})
-		if (!res.ok) throw new Error(`Kinde answered ${res.status}`)
+		if (!res.ok) throw new Error(`Clerk answered ${res.status}`)
 		return Response.json(await res.json(), {
 			headers: {
 				...METADATA_CORS_HEADERS,
@@ -68,7 +68,7 @@ export async function issuerDiscoveryDocument(
 			},
 		})
 	} catch (error) {
-		console.error(`Couldn't fetch Kinde's ${document} document`, error)
+		console.error(`Couldn't fetch Clerk's ${document} document`, error)
 		return Response.json(
 			{ error: "The sign-in server didn't answer. Try again shortly." },
 			{ status: 502, headers: METADATA_CORS_HEADERS },

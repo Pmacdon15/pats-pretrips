@@ -1,6 +1,6 @@
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
+import { getDriverEmail } from '@/lib/auth'
 import {
 	createTripDb,
 	getTripDefectsDb,
@@ -9,10 +9,7 @@ import {
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
-	const { getUser } = getKindeServerSession()
-	const user = await getUser()
-
-	const driverEmail = user?.email
+	const driverEmail = await getDriverEmail()
 
 	if (!driverEmail) {
 		return errAsync({ reason: 'Must be logged in' })
@@ -43,9 +40,7 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 export async function addOnRouteDefectsDAL(
 	data: z.infer<typeof schemaAddDefects>,
 ) {
-	const { getUser } = getKindeServerSession()
-	const user = await getUser()
-	const driverEmail = user?.email
+	const driverEmail = await getDriverEmail()
 
 	if (!driverEmail) {
 		return errAsync({ reason: 'Not authorized' } as const)

@@ -25,11 +25,9 @@ vi.mock('@/components/connect/connect-ai', () => ({
 		<Show label="keys" value={p.keysPromise} />
 	),
 }))
-vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
-	getKindeServerSession: () => ({
-		getUser: mocks.getUser,
-		isAuthenticated: mocks.isAuthenticated,
-	}),
+vi.mock('@/lib/auth', () => ({
+	getDriver: mocks.getUser,
+	isSignedIn: mocks.isAuthenticated,
 }))
 vi.mock('next/image', () => ({
 	default: ({ alt, src }: { alt: string; src: string }) => (
@@ -43,6 +41,11 @@ vi.mock('next/font/google', () => ({
 }))
 vi.mock('@vercel/analytics/next', () => ({ Analytics: () => null }))
 // The header reads the session itself; it has its own tests.
+vi.mock('@clerk/nextjs', () => ({
+	ClerkProvider: ({ children }: { children: React.ReactNode }) => (
+		<div data-testid="clerk">{children}</div>
+	),
+}))
 vi.mock('@/components/header/header', () => ({
 	default: () => <header>header</header>,
 }))

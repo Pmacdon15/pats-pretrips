@@ -1,7 +1,4 @@
-import {
-	LoginLink,
-	RegisterLink,
-} from '@kinde-oss/kinde-auth-nextjs/components'
+import { SignInButton, SignUpButton } from '@clerk/nextjs'
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
@@ -22,23 +19,24 @@ export default async function HomePageButtons({
 		</Link>
 	) : (
 		<div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-			<RegisterLink
-				className={cn(buttonVariants(), big)}
-				postLoginRedirectURL="/pretrips"
-			>
-				Create free account
-				<ArrowRight />
-			</RegisterLink>
-			<LoginLink
-				className={cn(
-					buttonVariants({ variant: 'outline' }),
-					big,
-					'border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white dark:bg-white/10',
-				)}
-				postLoginRedirectURL="/pretrips"
-			>
-				Sign in
-			</LoginLink>
+			<SignUpButton forceRedirectUrl="/pretrips">
+				<button className={cn(buttonVariants(), big)} type="button">
+					Create free account
+					<ArrowRight />
+				</button>
+			</SignUpButton>
+			<SignInButton forceRedirectUrl="/pretrips">
+				<button
+					className={cn(
+						buttonVariants({ variant: 'outline' }),
+						big,
+						'border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white dark:bg-white/10',
+					)}
+					type="button"
+				>
+					Sign in
+				</button>
+			</SignInButton>
 		</div>
 	)
 }

@@ -25,7 +25,7 @@ const show = async (value: Trip | undefined) => {
 				<DisplayTrip
 					tripPromise={Promise.resolve(value)}
 					userPromise={Promise.resolve({
-						given_name: 'Pat',
+						givenName: 'Pat',
 					} as never)}
 				/>
 			</Suspense>,

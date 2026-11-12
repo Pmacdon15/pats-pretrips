@@ -3,29 +3,40 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
 	touchApiKeyDb: vi.fn(),
-	jwtVerify: vi.fn(),
-	createRemoteJWKSet: vi.fn((url: URL) => ({ url: url.href })),
+	verify: vi.fn(),
+	getUser: vi.fn(),
 }))
 vi.mock('@/lib/db/api-keys', () => ({ touchApiKeyDb: mocks.touchApiKeyDb }))
-vi.mock('jose', () => ({
-	jwtVerify: mocks.jwtVerify,
-	createRemoteJWKSet: mocks.createRemoteJWKSet,
+vi.mock('@clerk/nextjs/server', () => ({
+	clerkClient: async () => ({
+		idPOAuthAccessToken: { verify: mocks.verify },
+		users: { getUser: mocks.getUser },
+	}),
 }))
 
 import { generateApiKey, hashApiKey } from '@/lib/api-keys'
-import { looksLikeJwt, tokenAudiences, verifyMcpToken } from '@/mcp/auth'
+import { looksLikeOAuthToken, tokenAudiences, verifyMcpToken } from '@/mcp/auth'
 
 const req = new Request('https://patspretrips.ca/api/mcp')
-const JWT = 'aaa.bbb.ccc'
-const ISSUER = 'https://pretrips.kinde.com'
+const TOKEN = 'oat_abc123'
+
+const accessToken = (overrides: Record<string, unknown> = {}) => ({
+	clientId: 'claude',
+	subject: 'user_1',
+	scopes: ['openid', 'email'],
+	revoked: false,
+	expired: false,
+	expiration: 99,
+	...overrides,
+})
 
 beforeEach(() => {
-	vi.stubEnv('KINDE_ISSUER_URL', `${ISSUER}/`)
-	vi.stubEnv('MCP_OAUTH_ISSUER', '')
 	vi.stubEnv('MCP_TOKEN_AUDIENCE', '')
 	vi.spyOn(console, 'warn').mockImplementation(() => {})
 	vi.spyOn(console, 'error').mockImplementation(() => {})
-	vi.unstubAllGlobals()
+	mocks.getUser.mockResolvedValue({
+		primaryEmailAddress: { emailAddress: 'pat@x.com' },
+	})
 })
 
 describe('API keys', () => {
@@ -53,117 +64,68 @@ describe('API keys', () => {
 	})
 })
 
-describe('Kinde access tokens', () => {
+describe('Clerk OAuth access tokens', () => {
 	it('refuses a missing or junk token without a network call', async () => {
 		await expect(verifyMcpToken(req, undefined)).resolves.toBeUndefined()
-		await expect(verifyMcpToken(req, 'oat_x')).resolves.toBeUndefined()
-		expect(mocks.jwtVerify).not.toHaveBeenCalled()
+		await expect(verifyMcpToken(req, 'junk token')).resolves.toBeUndefined()
+		expect(mocks.verify).not.toHaveBeenCalled()
 	})
 
-	it("verifies against Kinde's keys and issuer, with the email from the token", async () => {
-		mocks.jwtVerify.mockResolvedValue({
-			payload: {
-				email: 'pat@x.com',
-				azp: 'claude',
-				scp: 'openid email',
-				exp: 99,
-			},
-		})
-		await expect(verifyMcpToken(req, JWT)).resolves.toEqual({
-			token: JWT,
+	it("verifies with Clerk and takes the user's primary email", async () => {
+		mocks.verify.mockResolvedValue(accessToken())
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toEqual({
+			token: TOKEN,
 			clientId: 'claude',
 			scopes: ['openid', 'email'],
 			expiresAt: 99,
 			extra: { email: 'pat@x.com', via: 'oauth' },
 		})
-		expect(mocks.jwtVerify).toHaveBeenCalledWith(
-			JWT,
-			{ url: `${ISSUER}/.well-known/jwks` },
-			{ issuer: ISSUER, audience: undefined },
-		)
+		expect(mocks.verify).toHaveBeenCalledWith(TOKEN, {
+			audience: undefined,
+		})
+		expect(mocks.getUser).toHaveBeenCalledWith('user_1')
 	})
 
-	it('reuses the key set and checks the configured audience', async () => {
+	it('checks the configured audience and accepts JWT tokens', async () => {
 		vi.stubEnv(
 			'MCP_TOKEN_AUDIENCE',
 			'https://patspretrips.ca/api/mcp, other',
 		)
-		mocks.jwtVerify.mockResolvedValue({
-			payload: { email: 'pat@x.com', client_id: 'gemini' },
+		mocks.verify.mockResolvedValue(accessToken({ expiration: null }))
+		const auth = await verifyMcpToken(req, 'aaa.bbb.ccc')
+		expect(auth?.expiresAt).toBeUndefined()
+		expect(mocks.verify).toHaveBeenCalledWith('aaa.bbb.ccc', {
+			audience: ['https://patspretrips.ca/api/mcp', 'other'],
 		})
-		const auth = await verifyMcpToken(req, JWT)
-		expect(auth?.clientId).toBe('gemini')
-		expect(auth?.scopes).toEqual([])
-		expect(mocks.jwtVerify).toHaveBeenLastCalledWith(
-			JWT,
-			expect.anything(),
-			{
-				issuer: ISSUER,
-				audience: ['https://patspretrips.ca/api/mcp', 'other'],
-			},
-		)
-		// Made by the earlier test for the same issuer, then reused.
-		expect(mocks.createRemoteJWKSet).not.toHaveBeenCalled()
 	})
 
-	it("asks Kinde's user profile for the email when the token has none", async () => {
-		vi.stubEnv('MCP_OAUTH_ISSUER', 'https://auth.patspretrips.ca')
-		mocks.jwtVerify.mockResolvedValue({ payload: {} })
-		const fetch = vi.fn(async () =>
-			Response.json({ preferred_email: 'pat@x.com' }),
-		)
-		vi.stubGlobal('fetch', fetch)
-		const auth = await verifyMcpToken(req, JWT)
-		expect(auth).toMatchObject({
-			clientId: 'oauth',
-			extra: { email: 'pat@x.com' },
-		})
-		expect(fetch).toHaveBeenCalledWith(
-			'https://auth.patspretrips.ca/oauth2/v2/user_profile',
-			expect.objectContaining({
-				headers: {
-					authorization: `Bearer ${JWT}`,
-					accept: 'application/json',
-				},
-			}),
-		)
+	it('refuses revoked or expired tokens', async () => {
+		mocks.verify.mockResolvedValue(accessToken({ revoked: true }))
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toBeUndefined()
+		mocks.verify.mockResolvedValue(accessToken({ expired: true }))
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toBeUndefined()
 	})
 
-	it('refuses when the user profile has no email or fails', async () => {
-		mocks.jwtVerify.mockResolvedValue({
-			payload: { email: 'not-an-email' },
-		})
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => Response.json({ email: 5 })),
-		)
-		await expect(verifyMcpToken(req, JWT)).resolves.toBeUndefined()
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => new Response('no', { status: 401 })),
-		)
-		await expect(verifyMcpToken(req, JWT)).resolves.toBeUndefined()
+	it('refuses a user without an email', async () => {
+		mocks.verify.mockResolvedValue(accessToken())
+		mocks.getUser.mockResolvedValue({ primaryEmailAddress: null })
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toBeUndefined()
 	})
 
 	it('refuses a token that fails verification', async () => {
-		mocks.jwtVerify.mockRejectedValueOnce(new Error('expired'))
-		await expect(verifyMcpToken(req, JWT)).resolves.toBeUndefined()
-		mocks.jwtVerify.mockRejectedValueOnce('odd')
-		await expect(verifyMcpToken(req, JWT)).resolves.toBeUndefined()
-	})
-
-	it('refuses everything without an issuer configured', async () => {
-		vi.stubEnv('KINDE_ISSUER_URL', '')
-		await expect(verifyMcpToken(req, JWT)).resolves.toBeUndefined()
-		expect(mocks.jwtVerify).not.toHaveBeenCalled()
+		mocks.verify.mockRejectedValueOnce(new Error('invalid'))
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toBeUndefined()
+		mocks.verify.mockRejectedValueOnce('odd')
+		await expect(verifyMcpToken(req, TOKEN)).resolves.toBeUndefined()
 	})
 })
 
 describe('helpers', () => {
-	it('recognises JWTs', () => {
-		expect(looksLikeJwt('a.b.c')).toBe(true)
-		expect(looksLikeJwt('a.b')).toBe(false)
-		expect(looksLikeJwt(`${'a'.repeat(9000)}.b.c`)).toBe(false)
+	it('recognises OAuth tokens', () => {
+		expect(looksLikeOAuthToken('oat_x')).toBe(true)
+		expect(looksLikeOAuthToken('a.b.c')).toBe(true)
+		expect(looksLikeOAuthToken('a.b')).toBe(false)
+		expect(looksLikeOAuthToken(`oat_${'a'.repeat(9000)}`)).toBe(false)
 	})
 
 	it('reads audiences', () => {

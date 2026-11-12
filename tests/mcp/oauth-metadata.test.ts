@@ -9,14 +9,21 @@ import {
 	OPTIONS as resourcePreflight,
 } from '@/app/.well-known/oauth-protected-resource/[[...resource]]/route'
 import { GET as openId } from '@/app/.well-known/openid-configuration/[[...path]]/route'
-import { configuredIssuer } from '@/mcp/oauth-config'
+import {
+	configuredIssuer,
+	frontendApiFromPublishableKey,
+} from '@/mcp/oauth-config'
+
+const PK = `pk_live_${Buffer.from('clerk.patspretrips.ca$').toString('base64')}`
+const ISSUER = 'https://clerk.patspretrips.ca'
 
 const req = new Request(
 	'https://patspretrips.ca/.well-known/oauth-protected-resource/api/mcp',
 )
 
 beforeEach(() => {
-	vi.stubEnv('KINDE_ISSUER_URL', 'https://pretrips.kinde.com')
+	// pk_live_ + base64('clerk.patspretrips.ca$')
+	vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', PK)
 	vi.stubEnv('MCP_OAUTH_ISSUER', '')
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -25,20 +32,41 @@ describe('configuredIssuer', () => {
 	it('prefers the MCP issuer and trims trailing slashes', () => {
 		expect(
 			configuredIssuer({
-				MCP_OAUTH_ISSUER: ' https://a.kinde.com// ',
-				KINDE_ISSUER_URL: 'https://b',
+				MCP_OAUTH_ISSUER: ' https://a.example.com// ',
+				NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: PK,
 			}),
-		).toBe('https://a.kinde.com')
+		).toBe('https://a.example.com')
 		expect(configuredIssuer({})).toBeNull()
+	})
+
+	it('otherwise uses the Clerk Frontend API from the publishable key', () => {
+		expect(
+			configuredIssuer({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: PK }),
+		).toBe(ISSUER)
+	})
+
+	it('rejects keys that are not Clerk publishable keys', () => {
+		expect(frontendApiFromPublishableKey(undefined)).toBeNull()
+		expect(frontendApiFromPublishableKey('sk_live_abc')).toBeNull()
+		expect(
+			frontendApiFromPublishableKey(
+				`pk_test_${Buffer.from('no-dollar').toString('base64')}`,
+			),
+		).toBeNull()
+		expect(
+			frontendApiFromPublishableKey(
+				`pk_test_${Buffer.from('$').toString('base64')}`,
+			),
+		).toBeNull()
 	})
 })
 
 describe('protected resource metadata', () => {
-	it('names Kinde as the authorization server for /api/mcp', async () => {
+	it('names Clerk as the authorization server for /api/mcp', async () => {
 		const res = resource(req)
 		expect(await res.json()).toEqual({
 			resource: 'https://patspretrips.ca/api/mcp',
-			authorization_servers: ['https://pretrips.kinde.com'],
+			authorization_servers: [ISSUER],
 			scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
 			bearer_methods_supported: ['header'],
 			resource_name: "Pat's PreTrips",
@@ -49,7 +77,7 @@ describe('protected resource metadata', () => {
 	})
 
 	it('answers 503 when sign-in is not configured', async () => {
-		vi.stubEnv('KINDE_ISSUER_URL', '')
+		vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', '')
 		expect(resource(req).status).toBe(503)
 		expect((await authServer()).status).toBe(503)
 		expect((await openId()).status).toBe(503)
@@ -61,25 +89,25 @@ describe('protected resource metadata', () => {
 	})
 })
 
-describe("Kinde's discovery documents", () => {
-	it('mirrors them from Kinde', async () => {
-		const fetch = vi.fn(async () => Response.json({ issuer: 'kinde' }))
+describe("Clerk's discovery documents", () => {
+	it('mirrors them from Clerk', async () => {
+		const fetch = vi.fn(async () => Response.json({ issuer: 'clerk' }))
 		vi.stubGlobal('fetch', fetch)
 		const res = await authServer()
-		expect(await res.json()).toEqual({ issuer: 'kinde' })
+		expect(await res.json()).toEqual({ issuer: 'clerk' })
 		expect(fetch).toHaveBeenCalledWith(
-			'https://pretrips.kinde.com/.well-known/oauth-authorization-server',
+			`${ISSUER}/.well-known/oauth-authorization-server`,
 			expect.anything(),
 		)
 		await openId()
 		expect(fetch).toHaveBeenLastCalledWith(
-			'https://pretrips.kinde.com/.well-known/openid-configuration',
+			`${ISSUER}/.well-known/openid-configuration`,
 			expect.anything(),
 		)
 		vi.unstubAllGlobals()
 	})
 
-	it("answers 502 when Kinde doesn't", async () => {
+	it("answers 502 when Clerk doesn't", async () => {
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response('', { status: 500 })),

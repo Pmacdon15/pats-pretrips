@@ -8,7 +8,7 @@ import {
 
 /*
  * OAuth Protected Resource Metadata (RFC 9728) for the MCP server: tells an
- * MCP client that /api/mcp is protected by Kinde, where the driver signs in.
+ * MCP client that /api/mcp is protected by Clerk, where the driver signs in.
  * Served at /.well-known/oauth-protected-resource/api/mcp (where the 401's
  * WWW-Authenticate header points) and at /.well-known/oauth-protected-resource.
  */
