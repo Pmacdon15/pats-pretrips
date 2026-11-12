@@ -44,7 +44,7 @@ export default function AddTripForm({
 			remarks: '',
 		} as TripForm,
 		validators: {
-			onBlur: schemaAddTripForm,
+			onChange: schemaAddTripForm,
 			onSubmit: schemaAddTripForm,
 		},
 		onSubmit: async ({ value }) => {

@@ -156,6 +156,35 @@ describe('AddTripForm', () => {
 		)
 	})
 
+	it('does not flag a field while it is still being typed in', async () => {
+		const { user } = setup()
+		// Leaving one field validates the whole form…
+		await user.click(screen.getByLabelText('Carrier'))
+		await user.tab()
+		// …but the next field shouldn't light up as soon as typing starts.
+		await user.type(screen.getByLabelText('Carrier address'), '4432')
+		expect(screen.getByLabelText('Carrier address')).toHaveAttribute(
+			'aria-invalid',
+			'false',
+		)
+		expect(screen.queryByText('Carrier address is required')).toBeNull()
+	})
+
+	it('clears an error as soon as the value is fixed', async () => {
+		const { user } = setup()
+		await user.click(screen.getByLabelText('Carrier'))
+		await user.tab()
+		expect(
+			await screen.findByText('Carrier name is required'),
+		).toBeInTheDocument()
+		await user.type(screen.getByLabelText('Carrier'), 'A')
+		expect(screen.queryByText('Carrier name is required')).toBeNull()
+		expect(screen.getByLabelText('Carrier')).toHaveAttribute(
+			'aria-invalid',
+			'false',
+		)
+	})
+
 	it('cancels and resets', async () => {
 		const { user, onDone } = setup()
 		await user.type(screen.getByLabelText('Carrier'), 'Acme')

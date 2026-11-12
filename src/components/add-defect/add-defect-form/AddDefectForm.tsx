@@ -30,6 +30,7 @@ export function AddDefectForm({
 			trip_id: Number(trip.tripid ?? 0),
 		} as z.infer<typeof schemaAddDefects>,
 		validators: {
+			onChange: schemaAddDefects,
 			onSubmit: schemaAddDefects,
 		},
 		onSubmit: async ({ value }) => {
@@ -70,11 +71,12 @@ export function AddDefectForm({
 							onChange={(v) => field.handleChange(v)}
 							value={field.state.value}
 						/>
-						{field.state.meta.errors.length > 0 && (
-							<span className="font-medium text-destructive text-xs">
-								Select at least one defect.
-							</span>
-						)}
+						{form.state.submissionAttempts > 0 &&
+							field.state.meta.errors.length > 0 && (
+								<span className="font-medium text-destructive text-xs">
+									Select at least one defect.
+								</span>
+							)}
 					</div>
 				)}
 			</form.Field>

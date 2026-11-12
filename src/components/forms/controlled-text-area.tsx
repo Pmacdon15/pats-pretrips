@@ -26,8 +26,14 @@ export function ControlledTextArea({
 		<form.Field name={name}>
 			{/* biome-ignore lint/suspicious/noExplicitAny: tanstack field */}
 			{(field: any) => {
-				const { errors, isTouched } = field.state.meta
-				const isInvalid = isTouched && errors.length > 0
+				// Only surface errors once the driver has left the field (or tried
+				// to submit), so a half-typed value isn't flagged mid-keystroke.
+				// The form re-validates on every change, so a fixed value clears
+				// its error immediately instead of waiting for the next blur.
+				const { errors, isBlurred } = field.state.meta
+				const hasSubmitted = form.state.submissionAttempts > 0
+				const isInvalid =
+					(isBlurred || hasSubmitted) && errors.length > 0
 
 				return (
 					<Field data-invalid={isInvalid}>
@@ -37,7 +43,14 @@ export function ControlledTextArea({
 							className="min-h-24"
 							id={id}
 							name={field.name}
-							onBlur={field.handleBlur}
+							onBlur={() => {
+								field.handleBlur()
+								// Validate with the same (change) rules on blur so an
+								// untouched empty field is flagged when the driver
+								// leaves it, without a separate blur error that would
+								// linger until the next blur.
+								field.validate('change')
+							}}
 							onChange={(e) => field.handleChange(e.target.value)}
 							placeholder={placeholder}
 							readOnly={readOnly}
