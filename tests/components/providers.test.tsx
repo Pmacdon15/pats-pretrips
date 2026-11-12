@@ -132,13 +132,16 @@ describe('Header', () => {
 		)
 	})
 
-	it('shows trips and sign out when signed in', async () => {
+	it('shows trips, Connect AI and sign out when signed in', async () => {
 		auth.isAuthenticated.mockResolvedValue(true)
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
 			'href',
 			'/pretrips',
 		)
+		expect(
+			screen.getByRole('link', { name: 'Connect your AI' }),
+		).toHaveAttribute('href', '/connect')
 		expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute(
 			'href',
 			'/logout',

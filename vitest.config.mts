@@ -50,6 +50,7 @@ export default defineConfig({
 						'tests/actions/**/*.test.{ts,tsx}',
 						'tests/dal/**/*.test.{ts,tsx}',
 						'tests/db/**/*.test.{ts,tsx}',
+						'tests/mcp/**/*.test.{ts,tsx}',
 					],
 				},
 			},

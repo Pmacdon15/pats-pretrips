@@ -1,6 +1,13 @@
 import { withAuth } from '@kinde-oss/kinde-auth-nextjs/middleware'
 export default withAuth(async function middleware() {}, {
-	publicPaths: ['/'],
+	publicPaths: [
+		'/',
+		// The MCP server checks its own Kinde token or API key, and answers 401
+		// with a sign-in hint instead of a redirect, which MCP clients need.
+		'/api/mcp',
+		// OAuth discovery documents for MCP clients. Public by definition.
+		'/.well-known/',
+	],
 })
 
 export const config = {
