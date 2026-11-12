@@ -1,12 +1,11 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.5/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true,
 		"defaultBranch": "main"
 	},
-
 	"files": {
 		"ignoreUnknown": true,
 		"includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
@@ -20,7 +19,14 @@
 		"enabled": true,
 		"rules": {
 			"nursery": {
-				"useSortedClasses": "on"
+				"useSortedClasses": {
+					"level": "on",
+					"fix": "safe",
+					"options": {
+						"attributes": ["className", "class"],
+						"functions": ["cn", "clsx", "cva", "twMerge"]
+					}
+				}
 			},
 			"recommended": true,
 			"a11y": {
@@ -51,7 +57,6 @@
 			"semicolons": "asNeeded"
 		}
 	},
-
 	"css": {
 		"parser": {
 			"tailwindDirectives": true
