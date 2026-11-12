@@ -27,6 +27,9 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
   - [Neon Database](https://neon.tech/) (PostgreSQL)
   - [Zod](https://zod.dev/) for validation
  
+- **Tooling**:
+  - [Biome](https://biomejs.dev/) for formatting and linting (including Tailwind class sorting), auto-fixed on every PR
+ 
 ## Getting Started
  
 ### Prerequisites
