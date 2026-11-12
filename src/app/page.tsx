@@ -1,4 +1,3 @@
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
 import {
 	ClipboardList,
 	History,
@@ -11,6 +10,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import HomePageButtons from '@/components/home/home-page-buttons'
+import { isSignedIn } from '@/lib/auth'
 
 const features = [
 	{
@@ -46,7 +46,6 @@ const features = [
 ]
 
 export default function Home() {
-	const { isAuthenticated } = getKindeServerSession()
 	return (
 		<div className="flex flex-col pb-16">
 			<section className="relative isolate overflow-hidden">
@@ -76,11 +75,7 @@ export default function Home() {
 							<div className="h-12 w-56 animate-pulse rounded-md bg-white/10" />
 						}
 					>
-						<HomePageButtons
-							isLoggedInPromise={isAuthenticated()?.then(
-								(result: boolean) => result,
-							)}
-						/>
+						<HomePageButtons isLoggedInPromise={isSignedIn()} />
 					</Suspense>
 					<p className="text-slate-400 text-xs">
 						By signing up you agree to our{' '}

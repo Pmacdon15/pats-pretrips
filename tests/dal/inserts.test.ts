@@ -7,8 +7,10 @@ const mocks = vi.hoisted(() => ({
 	updateTripDefectsDb: vi.fn(),
 }))
 
-vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
-	getKindeServerSession: () => ({ getUser: mocks.getUser }),
+// Stands in for Clerk's current user: `getUser` gives the user or null.
+vi.mock('@/lib/auth', () => ({
+	getDriverEmail: async () =>
+		((await mocks.getUser()) as { email?: string } | null)?.email ?? null,
 }))
 vi.mock('@/lib/db/trips', () => ({
 	createTripDb: mocks.createTripDb,

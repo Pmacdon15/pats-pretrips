@@ -24,7 +24,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
  
 - **Backend**:
   - [Next.js API Routes](https://nextjs.org/docs/api-routes/introduction)
-  - [Kinde](https://kinde.com/) for authentication
+  - [Clerk](https://clerk.com/) for authentication
   - [Neon Database](https://neon.tech/) (PostgreSQL)
   - [Zod](https://zod.dev/) for validation
  

@@ -5,7 +5,7 @@ import { registerPreTripTools, SERVER_OPTIONS } from '@/mcp/server'
 
 /*
  * The PreTrips MCP server (Streamable HTTP, stateless). AI apps connect to
- * https://patspretrips.ca/api/mcp. Every request must carry a Kinde access
+ * https://patspretrips.ca/api/mcp. Every request must carry a Clerk access
  * token or a personal API key; without one the answer is a 401 whose
  * WWW-Authenticate header points to
  * /.well-known/oauth-protected-resource/api/mcp, which is how an MCP client

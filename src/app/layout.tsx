@@ -1,3 +1,4 @@
+import { ClerkProvider } from '@clerk/nextjs'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
@@ -63,12 +64,14 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans antialiased`}
 			>
-				<Providers>
-					<Header />
-					<main className="flex-grow">{children}</main>
-					<Footer />
-					<Toaster position="top-center" richColors />
-				</Providers>
+				<ClerkProvider>
+					<Providers>
+						<Header />
+						<main className="flex-grow">{children}</main>
+						<Footer />
+						<Toaster position="top-center" richColors />
+					</Providers>
+				</ClerkProvider>
 				<Analytics />
 				<ServiceWorkerRegister />
 			</body>

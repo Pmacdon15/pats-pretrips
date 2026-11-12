@@ -6,9 +6,9 @@ import {
 } from '@/mcp/oauth-metadata'
 
 /*
- * Kinde's openid-configuration document, mirrored on this domain for older MCP
+ * Clerk's openid-configuration document, mirrored on this domain for older MCP
  * clients that look for the authorization server next to the MCP server
- * (at the root or with /api/mcp appended). Current clients find Kinde
+ * (at the root or with /api/mcp appended). Current clients find Clerk
  * through the protected resource metadata instead.
  */
 export async function GET() {

@@ -1,5 +1,4 @@
 'use client'
-import type { KindeUser } from '@kinde-oss/kinde-auth-nextjs'
 import { Lock } from 'lucide-react'
 import { use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
@@ -10,6 +9,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card'
+import type { Driver } from '@/lib/auth'
 import type { Trip } from '@/lib/types/types'
 import { BackLink } from '../../links/back-home-button'
 import { TripDate } from '../trip-date'
@@ -23,7 +23,7 @@ export default function DisplayTrip({
 	userPromise,
 }: {
 	tripPromise: Promise<Trip | undefined>
-	userPromise: Promise<KindeUser<Record<string, string>> | null>
+	userPromise: Promise<Driver | null>
 }) {
 	const trip = use(tripPromise)
 	const [optimisticTrip, updateOptimisticTrip] = useOptimistic(trip)

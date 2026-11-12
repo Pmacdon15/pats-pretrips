@@ -1,32 +1,48 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-	withAuthArgs: [] as unknown[],
-	withAuth: (...args: unknown[]) => {
-		mocks.withAuthArgs = args
-		return args[0]
+	handler: undefined as
+		| undefined
+		| ((auth: unknown, req: unknown) => Promise<void>),
+	protect: vi.fn(),
+}))
+vi.mock('@clerk/nextjs/server', async (orig) => ({
+	...(await orig<typeof import('@clerk/nextjs/server')>()),
+	clerkMiddleware: (handler: typeof mocks.handler) => {
+		mocks.handler = handler
+		return handler
 	},
-	handleAuth: vi.fn(() => 'auth-handler'),
-}))
-vi.mock('@kinde-oss/kinde-auth-nextjs/middleware', () => ({
-	withAuth: mocks.withAuth,
-}))
-vi.mock('@kinde-oss/kinde-auth-nextjs/server', () => ({
-	handleAuth: mocks.handleAuth,
 }))
 
-import { GET } from '@/app/api/auth/[kindeAuth]/route'
-import proxy, { config } from '@/proxy'
+import { NextRequest } from 'next/server'
+import { config } from '@/proxy'
+
+const visit = async (path: string) => {
+	mocks.protect.mockClear()
+	await mocks.handler?.(
+		{ protect: mocks.protect },
+		new NextRequest(`https://patspretrips.ca${path}`),
+	)
+	return mocks.protect.mock.calls.length > 0
+}
 
 describe('proxy', () => {
-	it('protects every page except the home page and the AI connector', async () => {
-		expect(mocks.withAuthArgs).toEqual([
-			expect.any(Function),
-			{ publicPaths: ['/', '/api/mcp', '/.well-known/'] },
-		])
-		await expect(
-			(proxy as unknown as () => Promise<void>)(),
-		).resolves.toBeUndefined()
+	it.each([
+		'/',
+		'/privacy',
+		'/termsOfService',
+		'/api/mcp',
+		'/.well-known/oauth-protected-resource/api/mcp',
+	])('leaves %s public', async (path) => {
+		expect(await visit(path)).toBe(false)
+	})
+
+	it.each([
+		'/pretrips',
+		'/pretrip/4',
+		'/connect',
+	])('requires sign-in for %s', async (path) => {
+		expect(await visit(path)).toBe(true)
 	})
 
 	const matcher = new RegExp(`^${config.matcher[0]}$`)
@@ -35,7 +51,6 @@ describe('proxy', () => {
 		'/',
 		'/pretrips',
 		'/pretrip/4',
-		'/api/auth/login',
 		'/api/mcp',
 		'/connect',
 		'/.well-known/oauth-protected-resource/api/mcp',
@@ -49,11 +64,5 @@ describe('proxy', () => {
 		'/favicon.ico',
 	])('skips %s', (path) => {
 		expect(matcher.test(path)).toBe(false)
-	})
-})
-
-describe('auth route', () => {
-	it("serves Kinde's auth handler", () => {
-		expect(GET).toBe('auth-handler')
 	})
 })

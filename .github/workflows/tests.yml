@@ -88,12 +88,9 @@ jobs:
     env:
       # Placeholders: the build prerenders pages but never connects to these.
       DATABASE_URL: postgres://build:build@localhost:5432/build
-      KINDE_CLIENT_ID: placeholder
-      KINDE_CLIENT_SECRET: placeholder
-      KINDE_ISSUER_URL: https://placeholder.kinde.com
-      KINDE_SITE_URL: http://localhost:3000
-      KINDE_POST_LOGOUT_REDIRECT_URL: http://localhost:3000
-      KINDE_POST_LOGIN_REDIRECT_URL: http://localhost:3000
+      # A well-formed test key for a fake instance; nothing is contacted at build.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_placeholder
       NEXT_TELEMETRY_DISABLED: 1
       REQUIRE_BUILD: 1
     steps:
