@@ -22,6 +22,17 @@ PreTrips signs in with Clerk, like Budget and Clock Out. Clerk registers AI apps
 
 The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `openid profile email offline_access`; `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
 
+### Production instance
+
+Clerk's production instance runs on `patspretrips.ca`. The DNS is on Vercel, which already has:
+
+| Name | Type | Value |
+| --- | --- | --- |
+| `clerk` | CNAME | `frontend-api.clerk.services` |
+| `accounts` | CNAME | `accounts.clerk.services` |
+
+Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domainkey`) whose values are specific to the instance. Add them in Vercel from the Clerk dashboard's **Domains** page, then deploy the certificates there. Use the production keys (`pk_live_…`, `sk_live_…`) in Vercel's Production environment; the Connect AI issuer is then `https://clerk.patspretrips.ca`.
+
 ### Database
 
 Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. (Don't run `makeDb.sql`: it drops the trips table.)
