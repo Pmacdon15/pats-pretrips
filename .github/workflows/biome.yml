@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   biome:
-    name: Format and lint
+    # Must match the required status check name in the branch ruleset.
+    name: Biome
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -23,6 +24,10 @@ jobs:
           # Check out the PR branch itself (not the merge commit) so fixes can be pushed back.
           ref: ${{ github.head_ref || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          # Pushes made with the default token don't trigger other workflows, so required
+          # checks would never run on the fix commit. Set an AUTOFIX_TOKEN secret (a PAT with
+          # contents: write) to have them run; without it this falls back to the default token.
+          token: ${{ secrets.AUTOFIX_TOKEN || github.token }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
