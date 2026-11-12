@@ -1,29 +1,31 @@
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { BackLink } from '../links/back-home-button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 
 export default function DisplayTripFallback() {
 	return (
-		<div className="flex flex-col gap-6">
+		<>
+		<div className="gap-6 flex-col flex">
 			<BackLink />
-			<div className="flex flex-col gap-2">
-				<div className="h-4 w-32 animate-pulse rounded bg-muted" />
-				<div className="h-8 w-64 animate-pulse rounded bg-muted" />
+			<div className="gap-2 flex flex-col">
+				<div className="bg-muted rounded animate-pulse w-32 h-4" />
+				<div className="w-64 h-8 bg-muted animate-pulse rounded" />
 			</div>
 			{[0, 1].map((i) => (
 				<Card key={i}>
 					<CardHeader>
-						<div className="h-5 w-40 animate-pulse rounded bg-muted" />
+						<div className="animate-pulse h-5 bg-muted w-40 rounded" />
 					</CardHeader>
-					<CardContent className="grid gap-5 sm:grid-cols-2">
+					<CardContent className="sm:grid-cols-2 grid gap-5">
 						{[0, 1, 2, 3].map((j) => (
-							<div className="flex flex-col gap-2" key={j}>
-								<div className="h-3 w-20 animate-pulse rounded bg-muted" />
-								<div className="h-4 w-40 animate-pulse rounded bg-muted" />
+							<div key={j} className="flex-col gap-2 flex">
+								<div className="rounded h-3 w-20 bg-muted animate-pulse" />
+								<div className="bg-muted h-4 animate-pulse rounded w-40" />
 							</div>
 						))}
 					</CardContent>
 				</Card>
 			))}
 		</div>
+		</>
 	)
 }
