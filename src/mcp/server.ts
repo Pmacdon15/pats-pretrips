@@ -4,6 +4,14 @@ import { expireDriverTrips } from '@/lib/cache/revalidate'
 import { MCP_INSTRUCTIONS } from '@/mcp/instructions'
 import { portable } from '@/mcp/portable-schema'
 import {
+	listDefects,
+	listDefectsInputSchema,
+	markDefectRepaired,
+	markDefectRepairedInputSchema,
+	undoDefectRepair,
+	undoDefectRepairInputSchema,
+} from '@/mcp/repair-tools'
+import {
 	getTrip,
 	getTripDefaults,
 	getTripDefaultsInputSchema,
@@ -248,7 +256,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Get a trip',
 			description:
-				"One of the driver's trips by trip_id, with its defects, remarks and whether it can still be updated.",
+				"One of the driver's trips by trip_id, with its defects (each open or repaired), remarks and whether it can still be updated.",
 			inputSchema: portable(getTripInputSchema),
 			annotations: READ_ONLY,
 			_meta: TRIPS_CARD_TOOL_META,
@@ -257,5 +265,63 @@ export function registerPreTripTools(server: McpServer) {
 			run(server, ctx.http?.authInfo, (caller) => getTrip(caller, args), {
 				readOnly: true,
 			}),
+	)
+
+	server.registerTool(
+		'list_defects',
+		{
+			title: 'List defects and repairs',
+			description:
+				"The driver's defect record: every defect reported on a pre-trip that is still open, and every repaired one with who fixed it, when, the invoice number and links to the invoice and signature. Filter by status or truck_plate.",
+			inputSchema: portable(listDefectsInputSchema),
+			annotations: READ_ONLY,
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => listDefects(caller, args),
+				{ readOnly: true },
+			),
+	)
+
+	server.registerTool(
+		'mark_defect_repaired',
+		{
+			title: 'Mark a defect repaired',
+			description:
+				"Records that a defect on one of the driver's trips was fixed, e.g. by a mechanic: who repaired it, the invoice number, the repair date and notes, plus the invoice (PDF or photo, base64, compressed before saving, up to about 3 MB) and an image of the mechanic's signature. Works on trips of any age. The trip keeps its defects; this adds the repair beside them. Confirm the details with the driver first.",
+			inputSchema: portable(markDefectRepairedInputSchema),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+		},
+		(args, ctx) =>
+			run(server, ctx.http?.authInfo, (caller) =>
+				markDefectRepaired(caller, args),
+			),
+	)
+
+	server.registerTool(
+		'undo_defect_repair',
+		{
+			title: 'Undo a defect repair',
+			description:
+				'Removes a repair recorded by mistake, with its invoice and signature, so the defect shows as open again. Only when the driver asks.',
+			inputSchema: portable(undoDefectRepairInputSchema),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+		},
+		(args, ctx) =>
+			run(server, ctx.http?.authInfo, (caller) =>
+				undoDefectRepair(caller, args),
+			),
 	)
 }

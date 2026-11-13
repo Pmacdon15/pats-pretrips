@@ -28,6 +28,13 @@ vi.mock('@/lib/db/trips', () => ({
 	listTripsDb: mocks.listTripsDb,
 	updateTripDb: mocks.updateTripDb,
 }))
+vi.mock('@/lib/db/repairs', () => ({
+	listTripRepairsDb: vi.fn(async () => []),
+	listDriverRepairsDb: vi.fn(async () => []),
+	listTripsWithDefectsDb: vi.fn(async () => []),
+	createRepairDb: vi.fn(),
+	deleteRepairDb: vi.fn(async () => undefined),
+}))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
 import { DELETE, GET, OPTIONS, POST } from '@/app/api/mcp/route'
@@ -207,6 +214,9 @@ describe('MCP endpoint auth', () => {
 			'update_trip',
 			'list_trips',
 			'get_trip',
+			'list_defects',
+			'mark_defect_repaired',
+			'undo_defect_repair',
 		])
 	})
 
@@ -327,6 +337,12 @@ describe('tools over HTTP', () => {
 		['get_trip_defaults', {}],
 		['get_trip', { trip_id: 1 }],
 		['update_trip', { trip_id: 1, odometer: 5 }],
+		['list_defects', {}],
+		[
+			'mark_defect_repaired',
+			{ trip_id: 1, defect: 'Cab', mechanic_name: 'Sam' },
+		],
+		['undo_defect_repair', { repair_id: 1 }],
 	])('serves %s', async (name, args) => {
 		mocks.getLatestTripDb.mockResolvedValue(undefined)
 		mocks.getTripDb.mockResolvedValue(undefined)

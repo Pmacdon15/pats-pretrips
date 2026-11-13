@@ -1,6 +1,6 @@
 'use client'
 import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
-import { Bot, ClipboardCheck, LogOut, Mail } from 'lucide-react'
+import { Bot, ClipboardCheck, LogOut, Mail, Wrench } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
@@ -32,6 +32,14 @@ export function HeaderNav() {
 			>
 				<ClipboardCheck />
 				<span className="hidden sm:inline">My Trips</span>
+			</Link>
+			<Link
+				aria-label="Defects and repairs"
+				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				href="/defects"
+			>
+				<Wrench />
+				<span className="hidden sm:inline">Defects</span>
 			</Link>
 			<Link
 				aria-label="Email pre-trips"

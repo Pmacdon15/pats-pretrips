@@ -3,6 +3,7 @@ import { Lock } from 'lucide-react'
 import { Suspense, use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
 import { EmailTrip } from '@/components/email/email-trip'
+import { DefectStatusList } from '@/components/repairs/defect-status-list'
 import {
 	Card,
 	CardContent,
@@ -12,24 +13,31 @@ import {
 } from '@/components/ui/card'
 import type { Driver } from '@/lib/auth'
 import type { EmailAccess } from '@/lib/DAL/email'
+import type { Repair } from '@/lib/db/repairs'
 import type { Trip } from '@/lib/types/types'
+import { parseDefects } from '@/lib/utils-defects'
 import { BackLink } from '../../links/back-home-button'
 import { TripDate } from '../trip-date'
 import { TripDefects, TripDetails } from './displayTripTable'
 import PageHead from './page-head'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const NO_REPAIRS: Promise<Repair[]> = Promise.resolve([])
 
 export default function DisplayTrip({
 	tripPromise,
 	userPromise,
 	emailAccessPromise,
+	repairsPromise,
 }: {
 	tripPromise: Promise<Trip | undefined>
+	/** The trip's defect repairs; none when left out. */
+	repairsPromise?: Promise<Repair[]>
 	userPromise: Promise<Driver | null>
 	emailAccessPromise: Promise<EmailAccess>
 }) {
 	const trip = use(tripPromise)
+	const repairs = use(repairsPromise ?? NO_REPAIRS)
 	const [optimisticTrip, updateOptimisticTrip] = useOptimistic(trip)
 
 	if (!optimisticTrip) {
@@ -81,9 +89,29 @@ export default function DisplayTrip({
 					<CardTitle>Defects &amp; remarks</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<TripDefects trip={optimisticTrip} />
+					<TripDefects repairs={repairs} trip={optimisticTrip} />
 				</CardContent>
 			</Card>
+
+			{parseDefects(optimisticTrip.defects).length > 0 ? (
+				<Card id="repairs">
+					<CardHeader>
+						<CardTitle>Defect repairs</CardTitle>
+						<CardDescription>
+							Had a defect fixed? Mark it repaired with the
+							mechanic&apos;s signature, the invoice number and a
+							copy of the invoice.
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						<DefectStatusList
+							defects={optimisticTrip.defects}
+							repairs={repairs}
+							tripId={Number(optimisticTrip.tripid)}
+						/>
+					</CardContent>
+				</Card>
+			) : null}
 
 			<Card>
 				<CardHeader>

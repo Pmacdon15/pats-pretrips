@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({ save: vi.fn() }))
 vi.mock('@/lib/mutations/mutations', () => ({
 	useAddDefectOnRoute: () => ({ mutateAsync: mocks.save }),
 }))
+// The repairs list has its own tests; here it shows which trip it's for.
+vi.mock('@/components/repairs/defect-status-list', () => ({
+	DefectStatusList: (p: { tripId: number }) => <p>Repairs for {p.tripId}</p>,
+}))
 // The email form has its own tests; here it shows what it was given.
 vi.mock('@/components/email/email-trip', () => ({
 	EmailTrip: (p: { tripId: number }) => <p>Email trip {p.tripId}</p>,
@@ -94,6 +98,30 @@ describe('DisplayTrip', () => {
 		await waitFor(() =>
 			expect(screen.getAllByRole('listitem')).toHaveLength(1),
 		)
+	})
+
+	it('shows the repairs card for a trip with defects', async () => {
+		await act(async () => {
+			render(
+				<Suspense>
+					<DisplayTrip
+						emailAccessPromise={Promise.resolve({} as never)}
+						repairsPromise={Promise.resolve([])}
+						tripPromise={Promise.resolve(trip())}
+						userPromise={Promise.resolve(null)}
+					/>
+				</Suspense>,
+			)
+		})
+		expect(
+			screen.getByRole('heading', { name: 'Defect repairs' }),
+		).toBeInTheDocument()
+		expect(screen.getByText('Repairs for 1')).toBeInTheDocument()
+	})
+
+	it('has no repairs card without defects', async () => {
+		await show(trip({ defects: '' }))
+		expect(screen.queryByText('Repairs for 1')).toBeNull()
 	})
 
 	it('locks a trip older than 24 hours', async () => {
