@@ -90,6 +90,22 @@ describe('EmailTrip', () => {
 		)
 	})
 
+	it('checks the addresses before sending', async () => {
+		mocks.emailTrip.mockClear()
+		await show()
+		fireEvent.change(screen.getByLabelText('Send to'), {
+			target: { value: 'not-an-email' },
+		})
+		await act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Email PDF' }))
+		})
+		expect(mocks.emailTrip).not.toHaveBeenCalled()
+		expect(mocks.toast.error).toHaveBeenCalledWith(
+			'Could not email this pre-trip',
+			{ description: '"not-an-email" is not an email address' },
+		)
+	})
+
 	it('needs someone to send to', async () => {
 		await show(
 			access({ settings: { ...access().settings, recipients: [] } }),
@@ -146,6 +162,54 @@ describe('EmailSettingsForm', () => {
 		})
 		expect(mocks.toast.error).toHaveBeenCalledWith('Could not save', {
 			description: 'Bad email',
+		})
+	})
+
+	const submit = () =>
+		act(async () => {
+			fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+		})
+
+	it('checks the addresses before saving', async () => {
+		mocks.saveEmailSettings.mockClear()
+		await show()
+		fireEvent.change(screen.getByLabelText('Send pre-trips to'), {
+			target: { value: 'nope' },
+		})
+		await submit()
+		expect(mocks.saveEmailSettings).not.toHaveBeenCalled()
+		expect(mocks.toast.error).toHaveBeenCalledWith('Could not save', {
+			description: '"nope" is not an email address',
+		})
+	})
+
+	it('needs an address when auto-send is on', async () => {
+		mocks.saveEmailSettings.mockClear()
+		await show()
+		fireEvent.change(screen.getByLabelText('Send pre-trips to'), {
+			target: { value: '  ' },
+		})
+		fireEvent.click(screen.getByRole('checkbox'))
+		await submit()
+		expect(mocks.saveEmailSettings).not.toHaveBeenCalled()
+		expect(mocks.toast.error).toHaveBeenCalledWith('Could not save', {
+			description: 'Add an email address to send new pre-trips to',
+		})
+	})
+
+	it('saves an empty list when auto-send is off', async () => {
+		mocks.saveEmailSettings.mockResolvedValue({
+			value: { recipients: [], autoSend: false },
+		})
+		await show()
+		fireEvent.change(screen.getByLabelText('Send pre-trips to'), {
+			target: { value: '' },
+		})
+		await submit()
+		expect(mocks.saveEmailSettings).toHaveBeenCalledWith({
+			recipients: '',
+			autoSend: false,
+			timeZone: 'America/Edmonton',
 		})
 	})
 

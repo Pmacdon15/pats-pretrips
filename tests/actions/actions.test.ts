@@ -141,6 +141,16 @@ describe('getAddress', () => {
 		)
 	})
 
+	it.each([
+		[91, 0],
+		[0, -181],
+		[Number.NaN, 0],
+		['51&foo=bar' as unknown as number, 0],
+	])('does not look up invalid coordinates (%s, %s)', async (lat, lng) => {
+		await expect(getAddress(lat, lng)).resolves.toEqual({ data: undefined })
+		expect(fetchMock).not.toHaveBeenCalled()
+	})
+
 	it('returns an OK response with no results as is', async () => {
 		ok({ status: 'OK', results: [] })
 		await expect(getAddress(1, 2)).resolves.toEqual({
