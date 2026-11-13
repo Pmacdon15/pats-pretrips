@@ -10,7 +10,7 @@ The rules below are sent to every assistant automatically when it connects (the 
 2. When it asks, sign in with your PreTrips account (Clerk, the same sign-in as the website). The assistant only ever sees your own trips.
 3. Send it your photos, e.g. *"Start my pre-trip"* with a picture of the dash and one of the plate.
 
-If your app can't sign in with OAuth, open **Connect AI** in PreTrips (`/connect`), choose **Create API key**, and give the app the URL plus the key (as `Authorization: Bearer ppt_…`). The key is shown once; you can revoke it there at any time.
+The **Connect AI** page (`/connect`) is static: just the URL and these steps. The server still accepts existing personal API keys (`Authorization: Bearer ppt_…`), but there is no page to create or revoke them.
 
 ### Setting up sign-in (once, in Clerk)
 
