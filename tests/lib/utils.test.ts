@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { cn, formatTripDate } from '@/lib/utils'
+import {
+	cn,
+	formatTripCreated,
+	formatTripDate,
+	tripDayAndTime,
+} from '@/lib/utils'
 import { defects, joinDefects, parseDefects } from '@/lib/utils-defects'
 
 describe('cn', () => {
@@ -41,5 +46,19 @@ describe('formatTripDate', () => {
 		const iso = '2026-01-02T03:04:00Z'
 		expect(formatTripDate(iso)).toBe('Jan 2, 2026, 3:04 a.m.')
 		expect(formatTripDate(new Date(iso))).toBe(formatTripDate(iso))
+	})
+})
+
+describe('formatTripCreated', () => {
+	it('shows the date, time and time zone', () => {
+		const iso = '2026-01-02T03:04:00Z'
+		expect(formatTripCreated(iso)).toBe('Jan 2, 2026, 3:04 a.m. UTC')
+		expect(formatTripCreated(iso, 'America/Edmonton')).toBe(
+			'Jan 1, 2026, 8:04 p.m. MST',
+		)
+		expect(tripDayAndTime(iso, 'America/Edmonton')).toEqual({
+			day: '2026-01-01',
+			time: '8:04 p.m.',
+		})
 	})
 })

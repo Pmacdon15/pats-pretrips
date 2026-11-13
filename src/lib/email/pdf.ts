@@ -7,7 +7,7 @@ import {
 	StandardFonts,
 } from 'pdf-lib'
 import type { Trip } from '@/lib/types/types'
-import { formatTripDate } from '@/lib/utils'
+import { formatTripCreated } from '@/lib/utils'
 import { parseDefects } from '@/lib/utils-defects'
 import { tripUrl } from './config'
 
@@ -29,12 +29,16 @@ export type PdfDriver = { name: string; email: string }
 
 /** The standard PDF fonts only know Latin-1: anything else becomes "?". */
 export function pdfSafe(value: string) {
-	return value
-		.replace(/[‘’]/g, "'")
-		.replace(/[“”]/g, '"')
-		.replace(/[–—]/g, '-')
-		.replace(/\r\n?/g, '\n')
-		.replace(/[^\n\x20-\x7E\xA0-\xFF]/g, '?')
+	return (
+		value
+			.replace(/[‘’]/g, "'")
+			.replace(/[“”]/g, '"')
+			.replace(/[–—]/g, '-')
+			// Some ICU versions put thin spaces in formatted times ("3:04 a.m.").
+			.replace(/[\u2009\u202F]/g, ' ')
+			.replace(/\r\n?/g, '\n')
+			.replace(/[^\n\x20-\x7E\xA0-\xFF]/g, '?')
+	)
 }
 
 /** Splits text into lines no wider than `width`, keeping its own line breaks. */
@@ -152,7 +156,10 @@ export async function buildTripPdf(
 	write("PAT'S PRETRIPS", { size: 9, font: bold, color: GREEN })
 	y -= 2
 	write('Pre-trip inspection report', { size: 22, font: bold })
-	write(formatTripDate(trip.date, timeZone), { size: 12, color: MUTED })
+	write(`Created: ${formatTripCreated(trip.date, timeZone)}`, {
+		size: 12,
+		color: MUTED,
+	})
 	write(
 		`Driver: ${[driver.name, driver.email].filter(Boolean).join(' · ')}`,
 		{

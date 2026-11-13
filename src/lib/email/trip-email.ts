@@ -1,5 +1,5 @@
 import type { Trip } from '@/lib/types/types'
-import { formatTripDate } from '@/lib/utils'
+import { formatTripCreated, tripDayAndTime } from '@/lib/utils'
 import { parseDefects } from '@/lib/utils-defects'
 import { fromAddress, tripUrl } from './config'
 import { buildMimeMessage } from './mime'
@@ -27,7 +27,8 @@ export function tripEmailContent(
 	driver: PdfDriver,
 	timeZone?: string,
 ): TripEmail {
-	const when = formatTripDate(trip.date, timeZone)
+	const when = formatTripCreated(trip.date, timeZone)
+	const { day, time } = tripDayAndTime(trip.date, timeZone)
 	const unit = [trip.make, trip.model].filter(Boolean).join(' ')
 	const plate = trip.truckplate ? ` (${trip.truckplate})` : ''
 	const defects = parseDefects(trip.defects)
@@ -40,7 +41,8 @@ export function tripEmailContent(
 
 	const text = [
 		`Pre-trip inspection by ${who}`,
-		`${when} - ${unit}${plate}, ${trip.odometer.toLocaleString('en-CA')} km`,
+		`Created: ${when}`,
+		`${unit}${plate}, ${trip.odometer.toLocaleString('en-CA')} km`,
 		`Carrier: ${trip.carrier}`,
 		`Carrier address: ${trip.carrieraddress || '-'}`,
 		`Inspected at: ${trip.inspectionaddress}`,
@@ -59,8 +61,9 @@ export function tripEmailContent(
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
 <p style="margin:0;color:#059669;font-size:12px;font-weight:700;letter-spacing:1px">PAT'S PRETRIPS</p>
 <h1 style="margin:4px 0 4px;font-size:22px">Pre-trip inspection</h1>
-<p style="margin:0 0 16px;color:#64748b">${e(when)} &middot; ${e(who)}</p>
+<p style="margin:0 0 16px;color:#64748b">${e(who)}</p>
 <table style="width:100%;border-collapse:collapse;font-size:14px">
+<tr><td style="padding:4px 0;color:#64748b">Created</td><td style="padding:4px 0">${e(when)}</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Unit</td><td style="padding:4px 0">${e(unit + plate)}</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Odometer</td><td style="padding:4px 0">${e(trip.odometer.toLocaleString('en-CA'))} km</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Carrier</td><td style="padding:4px 0">${e(trip.carrier)}</td></tr>
@@ -73,9 +76,8 @@ ${button(url, 'Open / edit this pre-trip')}${button(defectUrl, 'Add an on-route 
 <p style="margin:12px 0 0;color:#64748b;font-size:12px">The full report is attached as a PDF. On-route defects can be added for 24 hours after the inspection.</p>
 </div></body></html>`
 
-	const day = new Date(trip.date).toISOString().slice(0, 10)
 	return {
-		subject: `Pre-trip ${day} - ${unit}${plate}${defects.length ? ' - defects reported' : ''}`,
+		subject: `Pre-trip ${day} ${time} - ${unit}${plate}${defects.length ? ' - defects reported' : ''}`,
 		text,
 		html,
 		filename: `pretrip-${trip.tripid}-${day}.pdf`,
