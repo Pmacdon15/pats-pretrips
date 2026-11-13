@@ -42,6 +42,7 @@ export function tripEmailContent(
 		`Pre-trip inspection by ${who}`,
 		`${when} - ${unit}${plate}, ${trip.odometer.toLocaleString('en-CA')} km`,
 		`Carrier: ${trip.carrier}`,
+		`Carrier address: ${trip.carrieraddress || '-'}`,
 		`Inspected at: ${trip.inspectionaddress}`,
 		status,
 		`Remarks: ${trip.remarks || '-'}`,
@@ -63,6 +64,7 @@ export function tripEmailContent(
 <tr><td style="padding:4px 0;color:#64748b">Unit</td><td style="padding:4px 0">${e(unit + plate)}</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Odometer</td><td style="padding:4px 0">${e(trip.odometer.toLocaleString('en-CA'))} km</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Carrier</td><td style="padding:4px 0">${e(trip.carrier)}</td></tr>
+<tr><td style="padding:4px 0;color:#64748b">Carrier address</td><td style="padding:4px 0">${e(trip.carrieraddress || '-')}</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Inspected at</td><td style="padding:4px 0">${e(trip.inspectionaddress)}</td></tr>
 </table>
 <p style="margin:16px 0 4px;font-weight:700;color:${defects.length ? '#d97706' : '#059669'}">${e(status)}</p>
