@@ -49,6 +49,7 @@ const form = {
 	odometer: 1000,
 	defects: '',
 	remarks: 'All good',
+	signature: 'saved',
 }
 
 describe('addOnRouteDefects', () => {

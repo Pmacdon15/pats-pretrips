@@ -17,7 +17,8 @@ CREATE TABLE PTTrips (
     trailerPlateB VARCHAR(20),
     date TIMESTAMP NOT NULL,
     defects text,
-    remarks text
+    remarks text,
+    signed_at TIMESTAMPTZ
 );
 
 

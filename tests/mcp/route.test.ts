@@ -35,6 +35,14 @@ vi.mock('@/lib/db/repairs', () => ({
 	createRepairDb: vi.fn(),
 	deleteRepairDb: vi.fn(async () => undefined),
 }))
+vi.mock('@/lib/db/signatures', () => ({
+	getSavedSignatureDb: vi.fn(async () => ({
+		bytes: Buffer.from('png'),
+		type: 'image/png',
+		updatedAt: '2026-11-01T00:00:00.000Z',
+	})),
+	signTripDb: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
 import { DELETE, GET, OPTIONS, POST } from '@/app/api/mcp/route'
@@ -311,12 +319,16 @@ describe('tools over HTTP', () => {
 		})
 		expect(res.body.result.isError).toBeUndefined()
 		expect(res.body.result.content[0].text).toContain('Started trip 9')
+		expect(res.body.result.content[0].text).toContain(
+			"Signed with the driver's saved signature.",
+		)
 		expect(mocks.createTripDb).toHaveBeenCalledWith(
 			expect.objectContaining({
 				odometer: 482317,
 				truckPlate: 'ABC 1234',
 			}),
 			'pat@x.com',
+			expect.objectContaining({ type: 'image/png' }),
 		)
 		expect(mocks.revalidateTag.mock.calls).toEqual([
 			['trips:pat@x.com', { expire: 0 }],

@@ -4,6 +4,7 @@ import { Suspense, use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
 import { EmailTrip } from '@/components/email/email-trip'
 import { DefectStatusList } from '@/components/repairs/defect-status-list'
+import { TripSignature } from '@/components/signature/trip-signature'
 import {
 	Card,
 	CardContent,
@@ -90,6 +91,18 @@ export default function DisplayTrip({
 				</CardHeader>
 				<CardContent>
 					<TripDefects repairs={repairs} trip={optimisticTrip} />
+				</CardContent>
+			</Card>
+
+			<Card id="signature">
+				<CardHeader>
+					<CardTitle>Driver signature</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<TripSignature
+						editable={isEditable}
+						trip={optimisticTrip}
+					/>
 				</CardContent>
 			</Card>
 

@@ -105,6 +105,8 @@ export async function buildTripPdf(
 	driver: PdfDriver,
 	timeZone?: string,
 	repairs: PdfRepair[] = [],
+	/** The driver's signature on the trip (a PNG), when it was signed. */
+	driverSignature: Uint8Array | null = null,
 ): Promise<Uint8Array> {
 	const doc = await PDFDocument.create()
 	doc.setTitle(`Pre-trip inspection ${trip.tripid}`)
@@ -157,25 +159,37 @@ export async function buildTripPdf(
 		y -= 4
 	}
 
-	/** A repair's signature, about 40pt tall, or nothing if it can't be read. */
-	const drawSignature = async (bytes: Uint8Array) => {
+	/**
+	 * A signature image with a caption under it, or false (and nothing drawn)
+	 * if the image can't be read.
+	 */
+	const drawSignature = async (
+		bytes: Uint8Array,
+		{
+			caption = 'Signature',
+			x = MARGIN + 12,
+			width = 160,
+			height = 40,
+		} = {},
+	) => {
 		let image: Awaited<ReturnType<typeof doc.embedPng>>
 		try {
 			image = await doc.embedPng(bytes)
 		} catch {
-			return
+			return false
 		}
-		const scaled = image.scaleToFit(160, 40)
+		const scaled = image.scaleToFit(width, height)
 		room(scaled.height + 16)
 		y -= scaled.height + 2
 		page.drawImage(image, {
-			x: MARGIN + 12,
+			x,
 			y,
 			width: scaled.width,
 			height: scaled.height,
 		})
 		y -= 4
-		write('Signature', { size: 8, color: MUTED, x: MARGIN + 12 })
+		write(caption, { size: 8, color: MUTED, x })
+		return true
 	}
 
 	// Title
@@ -288,6 +302,19 @@ export async function buildTripPdf(
 	y -= 8
 	heading('Remarks')
 	write(trip.remarks || '-')
+	rule()
+
+	heading('Driver signature')
+	const signed =
+		trip.signed_at && driverSignature
+			? await drawSignature(driverSignature, {
+					caption: `Signed by ${driver.name || driver.email}, ${formatTripCreated(trip.signed_at, timeZone)}`,
+					x: MARGIN,
+					width: 200,
+					height: 60,
+				})
+			: false
+	if (!signed) write('Not signed', { color: MUTED })
 	rule()
 
 	// Links back to the app

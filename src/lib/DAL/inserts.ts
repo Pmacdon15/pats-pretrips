@@ -6,6 +6,7 @@ import {
 	getTripDefectsDb,
 	updateTripDefectsDb,
 } from '../db/trips'
+import { resolveSignature } from '../signatures/signatures'
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
@@ -27,7 +28,17 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 		} as const)
 	}
 	try {
-		const trip = await createTripDb(validatedFields.data, driverEmail)
+		const { signature, saveSignature, ...fields } = validatedFields.data
+		const signed = await resolveSignature(
+			driverEmail,
+			signature,
+			saveSignature,
+		)
+		if (!signed.ok) return errAsync({ reason: signed.message })
+		const trip = await createTripDb(fields, driverEmail, {
+			...signed.file,
+			source: 'web',
+		})
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Db error adding trip: ', e)

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
 	createTripDb,
 	getLatestTripDb,
@@ -7,6 +8,7 @@ import {
 	listTripsDb,
 	updateTripDb,
 } from '@/lib/db/trips'
+import { appUrl } from '@/lib/email/config'
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
@@ -65,6 +67,10 @@ export function tripView(trip: Trip) {
 		trailer_plate_b: trip.trailerplateb || null,
 		defects: parseDefects(trip.defects),
 		remarks: trip.remarks,
+		signed: Boolean(trip.signed_at),
+		signed_at: trip.signed_at
+			? new Date(trip.signed_at).toISOString()
+			: null,
 		/** Trips can only be changed for 24 hours, like in the web app. */
 		can_update:
 			Date.now() - new Date(trip.date).getTime() < 24 * 60 * 60 * 1000,
@@ -118,16 +124,26 @@ export async function getTripDefaults(
 	args: z.infer<typeof getTripDefaultsInputSchema>,
 ): Promise<ToolResult> {
 	const input = getTripDefaultsInputSchema.parse(args)
-	const latest = await getLatestTripDb(caller.email)
-	const truck = input.truck_plate
-		? await getLatestTripForPlateDb(caller.email, input.truck_plate)
-		: undefined
+	const [latest, truck, signature] = await Promise.all([
+		getLatestTripDb(caller.email),
+		input.truck_plate
+			? getLatestTripForPlateDb(caller.email, input.truck_plate)
+			: undefined,
+		getSavedSignatureDb(caller.email),
+	])
+	const savedSignature = Boolean(signature)
+	const signatureNote = savedSignature
+		? "The trip will be signed with the driver's saved signature."
+		: `The driver has no saved signature, so the trip will be unsigned until they save one at ${signaturePage()} and sign it.`
 
 	if (!latest) {
 		return {
-			summary:
-				'This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting.',
-			data: { last_trip: null, truck: null },
+			summary: `This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting. ${signatureNote}`,
+			data: {
+				last_trip: null,
+				truck: null,
+				saved_signature: savedSignature,
+			},
 		}
 	}
 
@@ -151,6 +167,7 @@ export async function getTripDefaults(
 				: `No earlier trip in plate ${input.truck_plate}: ask the driver for its make and model.`
 			: '',
 		'Suggest these to the driver; confirm before starting the trip.',
+		signatureNote,
 	]
 		.filter(Boolean)
 		.join(' ')
@@ -171,9 +188,17 @@ export async function getTripDefaults(
 				date: new Date(latest.date).toISOString(),
 			},
 			truck: truckInfo,
+			saved_signature: savedSignature,
 		},
 	}
 }
+
+/** Where the driver saves their signature in the web app. */
+const signaturePage = () => `${appUrl()}/signature`
+
+/** Who signed, for the stored signature: the AI app's name when it sent one. */
+const signatureSource = (caller: McpCaller) =>
+	(caller.client || 'ai').slice(0, 60)
 
 export const startTripInputSchema = z.object({
 	odometer,
@@ -199,6 +224,12 @@ export const startTripInputSchema = z.object({
 		.describe(
 			'The driver’s remarks, e.g. "No defects found" or what is wrong',
 		),
+	sign: z
+		.boolean()
+		.default(true)
+		.describe(
+			"Sign the trip with the driver's saved signature (the default). The driver confirming the trip is their sign-off; pass false only if they ask not to sign it.",
+		),
 })
 
 /** Odometer readings lower than the truck's last one are worth a second look. */
@@ -219,7 +250,7 @@ async function odometerWarning(
 /** Starts a pre-trip inspection with what the driver confirmed. */
 export async function startTrip(
 	caller: McpCaller,
-	args: z.infer<typeof startTripInputSchema>,
+	args: z.input<typeof startTripInputSchema>,
 ): Promise<ToolResult> {
 	const input = startTripInputSchema.parse(args)
 	const warning = await odometerWarning(
@@ -228,6 +259,9 @@ export async function startTrip(
 		input.odometer,
 	)
 	const defects = normalizeDefects(input.defects ?? [])
+	const signature = input.sign
+		? await getSavedSignatureDb(caller.email)
+		: undefined
 	const trip = await createTripDb(
 		{
 			carrier: input.carrier,
@@ -243,9 +277,21 @@ export async function startTrip(
 			remarks: input.remarks,
 		},
 		caller.email,
+		signature
+			? {
+					bytes: signature.bytes,
+					type: signature.type,
+					source: signatureSource(caller),
+				}
+			: null,
 	)
+	const signed = signature
+		? "Signed with the driver's saved signature."
+		: input.sign
+			? `Not signed: the driver has no saved signature. They can save one at ${signaturePage()}, then sign this trip in the app or ask you to (update_trip with sign: true).`
+			: 'Not signed, as the driver asked.'
 	return {
-		summary: `Started trip ${trip.tripid}: ${input.make} ${input.model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}.${warning ? ` ${warning}` : ''}`,
+		summary: `Started trip ${trip.tripid}: ${input.make} ${input.model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${warning ? ` ${warning}` : ''}`,
 		data: { trip: tripView(trip), ...(warning ? { warning } : {}) },
 	}
 }
@@ -273,6 +319,12 @@ export const updateTripInputSchema = z.object({
 		.max(2000)
 		.optional()
 		.describe('Added after the trip’s remarks'),
+	sign: z
+		.boolean()
+		.optional()
+		.describe(
+			"true signs an unsigned trip with the driver's saved signature, e.g. one started before they saved it. Only when the driver asks or agrees.",
+		),
 })
 
 /**
@@ -317,10 +369,23 @@ export async function updateTrip(
 		defects: added.length ? [...existing, ...added].join(', ') : undefined,
 		addRemarks: input.add_remarks,
 	}
-	if (Object.values(changes).every((value) => value === undefined)) {
+	const hasChanges = Object.values(changes).some((v) => v !== undefined)
+	const sign = Boolean(input.sign) && !current.signed_at
+	if (!hasChanges && !sign) {
 		return {
-			summary: 'Nothing to change: pass at least one field.',
+			summary: input.sign
+				? `Trip ${input.trip_id} is already signed. Nothing else to change.`
+				: 'Nothing to change: pass at least one field.',
 			data: { status: 'no_changes', trip: tripView(current) },
+			isError: true,
+		}
+	}
+	// Checked before anything changes, so a failed signing changes nothing.
+	const signature = sign ? await getSavedSignatureDb(caller.email) : undefined
+	if (sign && !signature) {
+		return {
+			summary: `The driver has no saved signature. They can save one at ${signaturePage()}; then sign the trip again.`,
+			data: { status: 'no_saved_signature', trip: tripView(current) },
 			isError: true,
 		}
 	}
@@ -334,7 +399,17 @@ export async function updateTrip(
 					input.odometer,
 					current.tripid,
 				)
-	const trip = await updateTripDb(input.trip_id, caller.email, changes)
+	let trip = hasChanges
+		? await updateTripDb(input.trip_id, caller.email, changes)
+		: current
+	if (trip && signature) {
+		trip = await signTripDb(
+			input.trip_id,
+			caller.email,
+			signature,
+			signatureSource(caller),
+		)
+	}
 	if (!trip) {
 		return {
 			summary: `Trip ${input.trip_id} can no longer be changed (it just passed 24 hours).`,
@@ -343,7 +418,7 @@ export async function updateTrip(
 		}
 	}
 	return {
-		summary: `Updated trip ${input.trip_id}.${warning ? ` ${warning}` : ''}`,
+		summary: `${hasChanges ? `Updated trip ${input.trip_id}.` : ''}${signature ? `${hasChanges ? ' ' : ''}Signed trip ${input.trip_id} with the driver's saved signature.` : ''}${warning ? ` ${warning}` : ''}`,
 		data: { trip: tripView(trip), ...(warning ? { warning } : {}) },
 	}
 }

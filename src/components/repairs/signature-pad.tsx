@@ -11,9 +11,12 @@ import { Button } from '@/components/ui/button'
 export function SignaturePad({
 	onChange,
 	label = 'Signature',
+	hint = 'The mechanic or shop signs here to confirm the repair.',
 }: {
 	onChange: (dataUrl: string | null) => void
 	label?: string
+	/** The line under the box. */
+	hint?: string
 }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 	const drawing = useRef(false)
@@ -95,9 +98,7 @@ export function SignaturePad({
 				ref={canvasRef}
 				role="img"
 			/>
-			<p className="text-muted-foreground text-xs">
-				The mechanic or shop signs here to confirm the repair.
-			</p>
+			<p className="text-muted-foreground text-xs">{hint}</p>
 		</div>
 	)
 }

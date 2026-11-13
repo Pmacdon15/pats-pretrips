@@ -11,6 +11,7 @@ import {
 	saveEmailSettingsDb,
 } from '@/lib/db/email-settings'
 import { getRepairFileDb, listTripRepairsDb } from '@/lib/db/repairs'
+import { getTripSignatureDb } from '@/lib/db/signatures'
 import { getTripDb } from '@/lib/db/trips'
 import { fromAddress } from '@/lib/email/config'
 import type { PdfRepair } from '@/lib/email/pdf'
@@ -114,6 +115,13 @@ async function tripRepairs(
 	)
 }
 
+/** The driver's signature on the trip, for the PDF; null when unsigned. */
+async function tripSignature(trip: Trip, driverEmail: string) {
+	if (!trip.signed_at) return null
+	const file = await getTripSignatureDb(Number(trip.tripid), driverEmail)
+	return file?.bytes ?? null
+}
+
 /** Emails one of the driver's pre-trips, of any age, now. */
 export async function emailTripDAL(data: {
 	tripId: number
@@ -135,13 +143,17 @@ export async function emailTripDAL(data: {
 	try {
 		const trip = await getTripDb(parsed.data.tripId, driver.email)
 		if (!trip) return errAsync({ reason: 'Trip not found' } as const)
-		const repairs = await tripRepairs(parsed.data.tripId, driver.email)
+		const [repairs, signature] = await Promise.all([
+			tripRepairs(parsed.data.tripId, driver.email),
+			tripSignature(trip, driver.email),
+		])
 		await sendTripEmail(
 			trip,
 			pdfDriver(driver),
 			parsed.data.recipients,
 			parsed.data.timeZone,
 			repairs,
+			signature,
 		)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
@@ -172,6 +184,8 @@ export async function prepareAutoEmailDAL() {
 				pdfDriver(driver),
 				settings.recipients,
 				settings.timeZone ?? undefined,
+				[],
+				await tripSignature(trip, driver.email),
 			)
 		} catch (e) {
 			console.error('Error auto-emailing trip: ', e)

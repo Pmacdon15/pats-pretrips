@@ -94,3 +94,47 @@ describe.each([
 		})
 	})
 })
+
+describe('useAddTrip and the saved signature', () => {
+	it('refetches the signature status after saving a drawn one', async () => {
+		const { QueryClient, QueryClientProvider } = await import(
+			'@tanstack/react-query'
+		)
+		const client = new QueryClient()
+		const invalidate = vi.spyOn(client, 'invalidateQueries')
+		const wrapper = ({ children }: { children: React.ReactNode }) => (
+			<QueryClientProvider client={client}>
+				{children}
+			</QueryClientProvider>
+		)
+		mocks.addTrip.mockResolvedValue({ value: { tripid: 1 } })
+		const { result } = renderHook(() => useAddTrip(), { wrapper })
+
+		await act(async () => {
+			await result.current.mutateAsync({
+				data: { ...form, signature: 'saved', saveSignature: true },
+			})
+		})
+		expect(invalidate).not.toHaveBeenCalled()
+
+		await act(async () => {
+			await result.current.mutateAsync({
+				data: { ...form, signature: 'data:image/png;base64,aGk=' },
+			})
+		})
+		expect(invalidate).not.toHaveBeenCalled()
+
+		await act(async () => {
+			await result.current.mutateAsync({
+				data: {
+					...form,
+					signature: 'data:image/png;base64,aGk=',
+					saveSignature: true,
+				},
+			})
+		})
+		expect(invalidate).toHaveBeenCalledWith({
+			queryKey: ['signatureStatus'],
+		})
+	})
+})

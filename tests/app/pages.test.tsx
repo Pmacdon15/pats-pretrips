@@ -36,6 +36,9 @@ vi.mock('@/components/email/email-settings', () => ({
 		</>
 	),
 }))
+vi.mock('@/components/signature/signature-settings', () => ({
+	SignatureSettings: () => <p data-testid="signature-settings" />,
+}))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getUser,
 }))
@@ -104,6 +107,7 @@ import TripPage from '@/app/pretrip/[tripId]/page'
 import TripsPage from '@/app/pretrips/page'
 import Privacy from '@/app/privacy/page'
 import ShellCheck, { metadata as shellMeta } from '@/app/shell-check/page'
+import SignaturePage, { metadata as signatureMeta } from '@/app/signature/page'
 import Terms from '@/app/termsOfService/page'
 
 beforeEach(() => {
@@ -181,6 +185,15 @@ describe('/email', () => {
 		await renderAsync(<EmailPage />)
 		expect(screen.getByTestId('access')).toHaveTextContent('"allowed":true')
 		expect(screen.getByTestId('pricing')).toHaveTextContent('/email')
+	})
+})
+
+describe('/signature', () => {
+	it("is a static page around the driver's signature settings", async () => {
+		await renderAsync(<SignaturePage />)
+		expect(screen.getByText('Your signature')).toBeInTheDocument()
+		expect(screen.getByTestId('signature-settings')).toBeInTheDocument()
+		expect(signatureMeta.title).toMatch('Signature')
 	})
 })
 
