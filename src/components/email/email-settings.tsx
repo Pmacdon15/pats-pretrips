@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { saveEmailSettings } from '@/lib/actions/email'
 import type { EmailAccess } from '@/lib/DAL/email'
+import { recipientsSchema } from '@/lib/email/recipients'
 import { browserTimeZone } from './time-zone'
 
 /** Who pre-trips go to, and whether each new one is sent automatically. */
@@ -29,7 +30,21 @@ export function EmailSettingsForm({
 
 	if (!access.allowed) return pricing
 
-	const save = () =>
+	const save = () => {
+		// Same rules as the server: an empty list is fine unless auto-send is on.
+		const list = recipients.trim()
+			? recipientsSchema.safeParse(recipients)
+			: null
+		const problem =
+			list && !list.success
+				? list.error.issues.map((i) => i.message).join(', ')
+				: autoSend && !list
+					? 'Add an email address to send new pre-trips to'
+					: null
+		if (problem) {
+			toast.error('Could not save', { description: problem })
+			return
+		}
 		startTransition(async () => {
 			const res = await saveEmailSettings({
 				recipients,
@@ -43,6 +58,7 @@ export function EmailSettingsForm({
 			setRecipients(res.value.recipients.join(', '))
 			toast.success('Email settings saved')
 		})
+	}
 
 	return (
 		<form

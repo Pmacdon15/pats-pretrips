@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { emailTrip } from '@/lib/actions/email'
 import type { EmailAccess } from '@/lib/DAL/email'
+import { recipientsSchema } from '@/lib/email/recipients'
 import { EmailLocked } from './email-locked'
 import { browserTimeZone } from './time-zone'
 
@@ -25,7 +26,16 @@ export function EmailTrip({
 
 	if (!access.allowed) return <EmailLocked />
 
-	const send = () =>
+	const send = () => {
+		const parsed = recipientsSchema.safeParse(recipients)
+		if (!parsed.success) {
+			toast.error('Could not email this pre-trip', {
+				description: parsed.error.issues
+					.map((i) => i.message)
+					.join(', '),
+			})
+			return
+		}
 		startTransition(async () => {
 			const res = await emailTrip({
 				tripId,
@@ -40,6 +50,7 @@ export function EmailTrip({
 			}
 			toast.success(`Pre-trip emailed to ${res.value.sentTo.join(', ')}`)
 		})
+	}
 
 	return (
 		<form

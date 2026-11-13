@@ -7,7 +7,11 @@ import { getDriverEmail } from '@/lib/auth'
 import type { GeocodingResponse } from '@/lib/types/types'
 import { prepareAutoEmailDAL } from '../DAL/email'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
-import type { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
+import {
+	type schemaAddDefects,
+	type schemaAddTripForm,
+	schemaCoordinates,
+} from '../ZOD/schemas'
 
 export async function addOnRouteDefects(
 	data: z.infer<typeof schemaAddDefects>,
@@ -65,6 +69,16 @@ export async function getAddress(
 	if (!driverEmail) {
 		throw new Error('Must be logged in')
 	}
+
+	// Server actions can be called with anything, so check the coordinates
+	// before they go into the Google Maps URL.
+	const coords = schemaCoordinates.safeParse({ lat, lng })
+	if (!coords.success) {
+		console.error('getAddress called with invalid coordinates')
+		return { data: undefined }
+	}
+	lat = coords.data.lat
+	lng = coords.data.lng
 	console.log(`getAddress called with lat: ${lat}, lng: ${lng}`)
 
 	const apiKey = process.env.REVERSE_GEOCODING_API_KEY
