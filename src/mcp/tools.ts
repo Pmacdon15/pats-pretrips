@@ -371,13 +371,23 @@ export async function listTrips(
 		input.page,
 		PAGE_SIZE,
 	)
+	// Each trip with its defects open or repaired, so the card can show the
+	// repairs. Trips without defects need no lookup.
+	const views = await Promise.all(
+		trips.map(async (trip) => ({
+			...tripView(trip),
+			defect_status: parseDefects(trip.defects).length
+				? await tripDefectStatus(caller, trip)
+				: [],
+		})),
+	)
 	const label = input.when === 'current' ? 'in the last 24 hours' : 'older'
 	return {
 		summary: trips.length
 			? `${trips.length} trip${trips.length === 1 ? '' : 's'} ${label}${hasMore ? `; more on page ${input.page + 1}` : ''}.`
 			: `No trips ${label}${input.page > 1 ? ` on page ${input.page}` : ''}.`,
 		data: {
-			trips: trips.map(tripView),
+			trips: views,
 			has_more: hasMore,
 			page: input.page,
 			when: input.when,

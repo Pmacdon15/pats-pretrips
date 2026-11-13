@@ -339,6 +339,21 @@ describe('listTrips', () => {
 		expect(result.data).toMatchObject({ has_more: true, page: 1 })
 	})
 
+	it('gives each listed trip its defects open or repaired', async () => {
+		mocks.listTripsDb.mockResolvedValue({
+			trips: [recent(), recent({ tripid: 2, defects: '' })],
+			hasMore: false,
+		})
+		repairMocks.listTripRepairsDb.mockClear()
+		const result = await listTrips(caller, {})
+		const trips = result.data.trips as Array<Record<string, unknown>>
+		expect(trips[0].defect_status).toEqual([
+			{ defect: 'Cab', status: 'open', repair: null },
+		])
+		expect(trips[1].defect_status).toEqual([])
+		expect(repairMocks.listTripRepairsDb).toHaveBeenCalledTimes(1)
+	})
+
 	it('lists past trips by page', async () => {
 		mocks.listTripsDb.mockResolvedValue({
 			trips: [old(), old()],
