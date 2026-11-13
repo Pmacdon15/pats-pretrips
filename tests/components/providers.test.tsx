@@ -3,8 +3,8 @@ import { act, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-const auth = vi.hoisted(() => ({ isSignedIn: vi.fn() }))
-vi.mock('@/lib/auth', () => auth)
+// Clerk's client session, as the header nav reads it.
+const clerk = vi.hoisted(() => ({ useAuth: vi.fn() }))
 vi.mock('@clerk/nextjs', () => {
 	// Clerk's buttons wrap the child button; the stand-in records where
 	// they'd send the driver.
@@ -31,6 +31,7 @@ vi.mock('@clerk/nextjs', () => {
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
 		UserButton: () => <span data-testid="user-button" />,
+		useAuth: clerk.useAuth,
 	}
 })
 
@@ -98,17 +99,24 @@ describe('Providers', () => {
 })
 
 describe('HomePageButtons', () => {
-	it('links a signed-in driver to their trips', async () => {
-		render(
-			await HomePageButtons({ isLoggedInPromise: Promise.resolve(true) }),
-		)
+	it('holds their space while the session loads', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: false })
+		render(<HomePageButtons />)
+		expect(screen.queryByRole('button')).toBeNull()
+		expect(screen.queryByRole('link')).toBeNull()
+	})
+
+	it('links a signed-in driver to their trips', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
+		render(<HomePageButtons />)
 		expect(
 			screen.getByRole('link', { name: 'Go to my trips' }),
 		).toHaveAttribute('href', '/pretrips')
 	})
 
-	it('offers sign up and sign in otherwise, landing on the trips page', async () => {
-		render(await HomePageButtons({}))
+	it('offers sign up and sign in otherwise, landing on the trips page', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
+		render(<HomePageButtons />)
 		for (const [name, action] of [
 			['Create free account', 'sign-up'],
 			['Sign in', 'sign-in'],
@@ -127,8 +135,18 @@ describe('Header', () => {
 		})
 	}
 
+	it('holds the nav space while the session loads', async () => {
+		clerk.useAuth.mockReturnValue({
+			isLoaded: false,
+			isSignedIn: undefined,
+		})
+		await renderHeader()
+		expect(screen.queryByRole('button')).toBeNull()
+		expect(screen.queryByRole('navigation')).toBeNull()
+	})
+
 	it('links home and offers sign in when signed out', async () => {
-		auth.isSignedIn.mockResolvedValue(false)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
 		await renderHeader()
 		expect(
 			screen.getByRole('link', { name: "Pat's PreTrips" }),
@@ -142,7 +160,7 @@ describe('Header', () => {
 	})
 
 	it('shows trips, Connect AI, sign out and the user button when signed in', async () => {
-		auth.isSignedIn.mockResolvedValue(true)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
 			'href',
