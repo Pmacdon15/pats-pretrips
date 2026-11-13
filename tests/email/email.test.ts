@@ -1,6 +1,8 @@
+// @vitest-environment node
+// (pdf-lib can't read jsdom's typed arrays, and signatures need it to.)
 import { PDFDocument, PDFName, StandardFonts } from 'pdf-lib'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { trip } from '../helpers/fixtures'
+import { repair, trip } from '../helpers/fixtures'
 
 const mocks = vi.hoisted(() => ({ send: vi.fn(), ctor: vi.fn() }))
 vi.mock('@aws-sdk/client-sesv2', () => ({
@@ -229,6 +231,40 @@ describe('pdf', () => {
 		expect(await links(long)).toHaveLength(2)
 	})
 
+	it('shows repaired and open defects, with the signature', async () => {
+		// A 1x1 PNG.
+		const png = Buffer.from(
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+			'base64',
+		)
+		const bytes = await buildTripPdf(
+			trip({ defects: 'Cab,Tires,Lights,Horn' }),
+			driver,
+			'UTC',
+			[
+				{ ...repair(), notes: 'New mirror', signature: png },
+				{
+					...repair({ id: 8, defect: 'Tires' }),
+					signature: Buffer.from('bad'),
+				},
+				repair({ id: 9, defect: 'Lights', has_signature: false }),
+			],
+		)
+		const doc = await PDFDocument.load(bytes)
+		expect(doc.getPageCount()).toBe(1)
+		const images = (pdf: Uint8Array) =>
+			Buffer.from(pdf)
+				.toString('latin1')
+				.match(/\/Subtype\s*\/Image/g)?.length ?? 0
+		expect(images(bytes)).toBeGreaterThan(0)
+		expect(await links(bytes)).toHaveLength(2)
+		// A signature that isn't a readable PNG is left out.
+		const unreadable = await buildTripPdf(trip(), driver, 'UTC', [
+			{ ...repair(), signature: Buffer.from('bad') },
+		])
+		expect(images(unreadable)).toBe(0)
+	})
+
 	it('starts a new page for a field row or links near the bottom', async () => {
 		for (const lines of [24, 31, 36]) {
 			const bytes = await buildTripPdf(
@@ -309,6 +345,38 @@ describe('trip email', () => {
 		expect(
 			tripEmailContent(trip({ carrieraddress: '' }), driver).text,
 		).toContain('Carrier address: -')
+	})
+
+	it('shows each defect as repaired or still open', () => {
+		const content = tripEmailContent(
+			trip({ defects: 'Cab,Tires' }),
+			driver,
+			'UTC',
+			[repair({ notes: 'New mirror' })],
+		)
+		expect(content.subject).toBe(
+			'Pre-trip 2026-01-02 3:04 a.m. - Volvo VNL (TRK1) - defects reported',
+		)
+		expect(content.text).toContain(
+			'- Cab: Repaired Jan 5, 2026 by Sam Wrench, Highway Truck, invoice INV-1',
+		)
+		expect(content.text).toContain('  Notes: New mirror')
+		expect(content.text).toContain('- Tires: not repaired yet')
+		expect(content.html).toContain(
+			'Repaired Jan 5, 2026 by Sam Wrench, Highway Truck, invoice INV-1',
+		)
+		expect(content.html).toContain('Not repaired yet')
+
+		const fixed = tripEmailContent(trip(), driver, 'UTC', [
+			repair({ invoice_number: null, shop_name: null }),
+		])
+		expect(fixed.subject).toBe(
+			'Pre-trip 2026-01-02 3:04 a.m. - Volvo VNL (TRK1) - defects repaired',
+		)
+		expect(fixed.text).toContain(
+			'- Cab: Repaired Jan 5, 2026 by Sam Wrench\n',
+		)
+		expect(fixed.html).toContain('#059669">Defects: Cab')
 	})
 
 	it('needs SES_FROM_EMAIL', async () => {

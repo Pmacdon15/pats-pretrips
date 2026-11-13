@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { trip } from '../helpers/fixtures'
+import { repair, trip } from '../helpers/fixtures'
 
 const mocks = vi.hoisted(() => ({
 	getDriver: vi.fn(),
@@ -8,6 +8,12 @@ const mocks = vi.hoisted(() => ({
 	saveEmailSettingsDb: vi.fn(),
 	getTripDb: vi.fn(),
 	sendTripEmail: vi.fn(),
+	listTripRepairsDb: vi.fn(),
+	getRepairFileDb: vi.fn(),
+}))
+vi.mock('@/lib/db/repairs', () => ({
+	listTripRepairsDb: mocks.listTripRepairsDb,
+	getRepairFileDb: mocks.getRepairFileDb,
 }))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getDriver,
@@ -45,6 +51,8 @@ beforeEach(() => {
 	mocks.saveEmailSettingsDb.mockImplementation(async (_e, s) => s)
 	mocks.getTripDb.mockResolvedValue(trip())
 	mocks.sendTripEmail.mockResolvedValue('msg-1')
+	mocks.listTripRepairsDb.mockResolvedValue([])
+	mocks.getRepairFileDb.mockResolvedValue(undefined)
 	vi.stubEnv('SES_FROM_EMAIL', 'trips@x.com')
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -144,7 +152,40 @@ describe('emailTripDAL', () => {
 			{ name: 'Pat', email: 'pat@x.com' },
 			['a@x.com'],
 			'UTC',
+			[],
 		)
+	})
+
+	it("includes the trip's repairs and their signatures", async () => {
+		const signed = repair()
+		const unsigned = repair({
+			id: 8,
+			defect: 'Tires',
+			has_signature: false,
+		})
+		mocks.listTripRepairsDb.mockResolvedValue([signed, unsigned])
+		mocks.getRepairFileDb.mockResolvedValue({
+			bytes: Buffer.from('png'),
+			type: 'image/png',
+			name: null,
+		})
+		await emailTripDAL(data)
+		expect(mocks.listTripRepairsDb).toHaveBeenCalledWith(1, 'pat@x.com')
+		expect(mocks.getRepairFileDb).toHaveBeenCalledTimes(1)
+		expect(mocks.getRepairFileDb).toHaveBeenCalledWith(
+			7,
+			'pat@x.com',
+			'signature',
+		)
+		expect(mocks.sendTripEmail.mock.calls[0][4]).toEqual([
+			{ ...signed, signature: Buffer.from('png') },
+			unsigned,
+		])
+
+		// The signature was deleted in the meantime.
+		mocks.getRepairFileDb.mockResolvedValue(undefined)
+		await emailTripDAL(data)
+		expect(mocks.sendTripEmail.mock.calls[1][4][0].signature).toBeNull()
 	})
 
 	it('needs a signed-in driver on a plan with email', async () => {

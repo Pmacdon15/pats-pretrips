@@ -1,9 +1,9 @@
+import { defectStatuses, repairLine } from '@/lib/repairs/status'
 import type { Trip } from '@/lib/types/types'
 import { formatTripCreated, tripDayAndTime } from '@/lib/utils'
-import { parseDefects } from '@/lib/utils-defects'
 import { fromAddress, tripUrl } from './config'
 import { buildMimeMessage } from './mime'
-import { buildTripPdf, type PdfDriver } from './pdf'
+import { buildTripPdf, type PdfDriver, type PdfRepair } from './pdf'
 import { sendRawEmail } from './ses'
 
 const escapeHtml = (value: string) =>
@@ -26,15 +26,25 @@ export function tripEmailContent(
 	trip: Trip,
 	driver: PdfDriver,
 	timeZone?: string,
+	repairs: PdfRepair[] = [],
 ): TripEmail {
 	const when = formatTripCreated(trip.date, timeZone)
 	const { day, time } = tripDayAndTime(trip.date, timeZone)
 	const unit = [trip.make, trip.model].filter(Boolean).join(' ')
 	const plate = trip.truckplate ? ` (${trip.truckplate})` : ''
-	const defects = parseDefects(trip.defects)
+	const defects = defectStatuses(trip.defects, repairs)
+	const open = defects.filter((d) => !d.repair)
 	const status = defects.length
-		? `Defects: ${defects.join(', ')}`
+		? `Defects: ${defects.map((d) => d.defect).join(', ')}`
 		: 'No defects reported'
+	const repairText = defects.flatMap(({ defect, repair }) =>
+		repair
+			? [
+					`- ${defect}: ${repairLine(repair)}`,
+					...(repair.notes ? [`  Notes: ${repair.notes}`] : []),
+				]
+			: [`- ${defect}: not repaired yet`],
+	)
 	const who = driver.name || driver.email
 	const url = tripUrl(trip.tripid)
 	const defectUrl = `${url}#add-defect`
@@ -47,6 +57,7 @@ export function tripEmailContent(
 		`Carrier address: ${trip.carrieraddress || '-'}`,
 		`Inspected at: ${trip.inspectionaddress}`,
 		status,
+		...(defects.length ? ['Repairs:', ...repairText] : []),
 		`Remarks: ${trip.remarks || '-'}`,
 		'',
 		'The full report is attached as a PDF.',
@@ -57,6 +68,18 @@ export function tripEmailContent(
 	const e = escapeHtml
 	const button = (href: string, label: string) =>
 		`<a href="${e(href)}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 16px;border-radius:6px;background:#059669;color:#ffffff;font-weight:600;text-decoration:none">${e(label)}</a>`
+	const repairHtml = defects.length
+		? `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 12px">${defects
+				.map(
+					({ defect, repair }) =>
+						`<tr><td style="padding:4px 8px 4px 0;vertical-align:top;font-weight:600">${e(defect)}</td><td style="padding:4px 0;color:${repair ? '#059669' : '#d97706'}">${
+							repair
+								? `${e(repairLine(repair))}${repair.notes ? `<br><span style="color:#64748b;white-space:pre-line">${e(repair.notes)}</span>` : ''}`
+								: 'Not repaired yet'
+						}</td></tr>`,
+				)
+				.join('')}</table>\n`
+		: ''
 	const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
 <p style="margin:0;color:#059669;font-size:12px;font-weight:700;letter-spacing:1px">PAT'S PRETRIPS</p>
@@ -70,14 +93,14 @@ export function tripEmailContent(
 <tr><td style="padding:4px 0;color:#64748b">Carrier address</td><td style="padding:4px 0">${e(trip.carrieraddress || '-')}</td></tr>
 <tr><td style="padding:4px 0;color:#64748b">Inspected at</td><td style="padding:4px 0">${e(trip.inspectionaddress)}</td></tr>
 </table>
-<p style="margin:16px 0 4px;font-weight:700;color:${defects.length ? '#d97706' : '#059669'}">${e(status)}</p>
-<p style="margin:0 0 20px;white-space:pre-line">${e(trip.remarks || '-')}</p>
+<p style="margin:16px 0 4px;font-weight:700;color:${open.length ? '#d97706' : '#059669'}">${e(status)}</p>
+${repairHtml}<p style="margin:0 0 20px;white-space:pre-line">${e(trip.remarks || '-')}</p>
 ${button(url, 'Open / edit this pre-trip')}${button(defectUrl, 'Add an on-route defect')}
 <p style="margin:12px 0 0;color:#64748b;font-size:12px">The full report is attached as a PDF. On-route defects can be added for 24 hours after the inspection.</p>
 </div></body></html>`
 
 	return {
-		subject: `Pre-trip ${day} ${time} - ${unit}${plate}${defects.length ? ' - defects reported' : ''}`,
+		subject: `Pre-trip ${day} ${time} - ${unit}${plate}${open.length ? ' - defects reported' : defects.length ? ' - defects repaired' : ''}`,
 		text,
 		html,
 		filename: `pretrip-${trip.tripid}-${day}.pdf`,
@@ -93,11 +116,12 @@ export async function sendTripEmail(
 	driver: PdfDriver,
 	to: string[],
 	timeZone?: string,
+	repairs: PdfRepair[] = [],
 ) {
 	const from = fromAddress()
 	if (!from) throw new Error('SES_FROM_EMAIL is not set')
-	const content = tripEmailContent(trip, driver, timeZone)
-	const pdf = await buildTripPdf(trip, driver, timeZone)
+	const content = tripEmailContent(trip, driver, timeZone, repairs)
+	const pdf = await buildTripPdf(trip, driver, timeZone, repairs)
 	const raw = buildMimeMessage({
 		from,
 		to,

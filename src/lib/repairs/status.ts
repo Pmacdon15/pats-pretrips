@@ -71,3 +71,19 @@ export function repairedBy(repair: {
 		'Unknown'
 	)
 }
+
+/** YYYY-MM-DD as "Jan 5, 2026", without shifting it to another day. */
+export function formatRepairDate(value: string) {
+	return new Date(`${value}T12:00:00Z`).toLocaleDateString('en-CA', {
+		dateStyle: 'medium',
+		timeZone: 'UTC',
+	})
+}
+
+/** One line on a repair for emails and PDFs: when, who and the invoice. */
+export function repairLine(repair: Repair) {
+	const invoice = repair.invoice_number
+		? `, invoice ${repair.invoice_number}`
+		: ''
+	return `Repaired ${formatRepairDate(repair.repaired_on)} by ${repairedBy(repair)}${invoice}`
+}
