@@ -8,6 +8,7 @@ import Footer from '@/components/footer/footer'
 import Header from '@/components/header/header'
 import Providers from '@/components/providers/Providers'
 import ServiceWorkerRegister from '@/components/pwa/service-worker-register'
+import { clerkAppearance } from '@/lib/clerk-appearance'
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -64,7 +65,13 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans antialiased`}
 			>
-				<ClerkProvider>
+				<ClerkProvider
+					appearance={clerkAppearance}
+					signInFallbackRedirectUrl="/pretrips"
+					signInUrl="/sign-in"
+					signUpFallbackRedirectUrl="/pretrips"
+					signUpUrl="/sign-up"
+				>
 					<Providers>
 						<Header />
 						<main className="flex-grow">{children}</main>

@@ -31,6 +31,10 @@ describe('proxy', () => {
 		'/',
 		'/privacy',
 		'/termsOfService',
+		'/sign-in',
+		'/sign-in/factor-one',
+		'/sign-up',
+		'/sign-up/verify-email-address',
 		'/api/mcp',
 		'/.well-known/oauth-protected-resource/api/mcp',
 	])('leaves %s public', async (path) => {
