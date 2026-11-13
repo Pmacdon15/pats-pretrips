@@ -1,10 +1,10 @@
 'use client'
-import { KeyRound, Trash2 } from 'lucide-react'
-import { use, useState, useTransition } from 'react'
+import { KeyRound, List, Trash2 } from 'lucide-react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createApiKey, revokeApiKey } from '@/lib/actions/api-keys'
+import { createApiKey, listApiKeys, revokeApiKey } from '@/lib/actions/api-keys'
 import type { ApiKey } from '@/lib/api-keys'
 import { CopyButton } from './copy-button'
 
@@ -15,12 +15,26 @@ const dateLabel = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'UTC',
 })
 
-/** Create, show once and revoke the driver's personal API keys. */
-export function ApiKeys({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
-	const [keys, setKeys] = useState(use(keysPromise))
+/**
+ * Create, show once and revoke the driver's personal API keys. The list of
+ * existing keys loads only when the driver asks for it.
+ */
+export function ApiKeys() {
+	/** null until the driver asks to see their keys. */
+	const [keys, setKeys] = useState<ApiKey[] | null>(null)
 	const [name, setName] = useState('')
 	const [newKey, setNewKey] = useState<string | null>(null)
 	const [pending, startTransition] = useTransition()
+
+	const load = () =>
+		startTransition(async () => {
+			const res = await listApiKeys()
+			if ('errorMessage' in res) {
+				toast.error(res.errorMessage)
+				return
+			}
+			setKeys(res.value)
+		})
 
 	const create = () =>
 		startTransition(async () => {
@@ -29,7 +43,7 @@ export function ApiKeys({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
 				toast.error(res.errorMessage)
 				return
 			}
-			setKeys((list) => [res.value.apiKey, ...list])
+			setKeys((list) => list && [res.value.apiKey, ...list])
 			setNewKey(res.value.key)
 			setName('')
 		})
@@ -41,7 +55,7 @@ export function ApiKeys({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
 				toast.error(res.errorMessage)
 				return
 			}
-			setKeys((list) => list.filter((k) => k.id !== key.id))
+			setKeys((list) => list?.filter((k) => k.id !== key.id) ?? null)
 			toast.success(`Revoked ${key.name}`)
 		})
 
@@ -78,7 +92,22 @@ export function ApiKeys({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
 					</div>
 				</div>
 			)}
-			{keys.length > 0 && (
+			{keys === null ? (
+				<Button
+					className="justify-self-start"
+					disabled={pending}
+					onClick={load}
+					size="sm"
+					type="button"
+					variant="ghost"
+				>
+					<List /> Show my API keys
+				</Button>
+			) : keys.length === 0 ? (
+				<p className="text-muted-foreground text-xs">
+					You have no API keys.
+				</p>
+			) : (
 				<ul className="grid gap-1">
 					{keys.map((key) => (
 						<li

@@ -1,15 +1,16 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { Suspense } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
 	createApiKey: vi.fn(),
+	listApiKeys: vi.fn(),
 	revokeApiKey: vi.fn(),
 	toast: { error: vi.fn(), success: vi.fn() },
 	writeText: vi.fn(),
 }))
 vi.mock('@/lib/actions/api-keys', () => ({
 	createApiKey: mocks.createApiKey,
+	listApiKeys: mocks.listApiKeys,
 	revokeApiKey: mocks.revokeApiKey,
 }))
 vi.mock('sonner', () => ({ toast: mocks.toast }))
@@ -31,17 +32,35 @@ beforeEach(() => {
 	mocks.writeText.mockResolvedValue(undefined)
 })
 
+/** Renders the card, then asks for the keys, as a driver would. */
 async function renderConnect(keys: ApiKey[]) {
+	mocks.listApiKeys.mockResolvedValue({ value: keys })
+	render(<ConnectAi />)
 	await act(async () => {
-		render(
-			<Suspense>
-				<ConnectAi keysPromise={Promise.resolve(keys)} />
-			</Suspense>,
+		fireEvent.click(
+			screen.getByRole('button', { name: /Show my API keys/ }),
 		)
 	})
 }
 
 describe('Connect your AI', () => {
+	it('loads no keys until the driver asks', async () => {
+		render(<ConnectAi />)
+		expect(mocks.listApiKeys).not.toHaveBeenCalled()
+		mocks.listApiKeys.mockResolvedValue({ errorMessage: 'Down' })
+		await act(async () => {
+			fireEvent.click(
+				screen.getByRole('button', { name: /Show my API keys/ }),
+			)
+		})
+		expect(mocks.toast.error).toHaveBeenCalledWith('Down')
+	})
+
+	it('says when there are no keys', async () => {
+		await renderConnect([])
+		expect(screen.getByText('You have no API keys.')).toBeInTheDocument()
+	})
+
 	it('shows the connector URL and copies it', async () => {
 		await renderConnect([])
 		expect(screen.getByText(MCP_URL)).toBeInTheDocument()

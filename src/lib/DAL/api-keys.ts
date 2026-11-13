@@ -14,10 +14,17 @@ import { createApiKeyDb, listApiKeysDb, revokeApiKeyDb } from '../db/api-keys'
 
 const signedInEmail = getDriverEmail
 
-export async function getApiKeysDAL() {
+export async function listApiKeysDAL() {
 	const email = await signedInEmail()
-	if (!email) throw new Error('Must be logged in')
-	return listApiKeysDb(email)
+	if (!email) return errAsync({ reason: 'Must be logged in' } as const)
+	try {
+		return okAsync(await listApiKeysDb(email))
+	} catch (e) {
+		console.error('Db error listing API keys: ', e)
+		return errAsync({
+			reason: 'Could not load your keys. Please try again.',
+		} as const)
+	}
 }
 
 /** Creates a key and returns it once, in full. Only its hash is stored. */

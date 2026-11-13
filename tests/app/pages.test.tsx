@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
 	fetchCurrentTrips: vi.fn(),
 	fetchPastTrips: vi.fn(),
 	fetchTrip: vi.fn(),
-	getApiKeysDAL: vi.fn(),
 	getEmailAccessDAL: vi.fn(),
 	getUser: vi.fn(),
 	isAuthenticated: vi.fn(),
@@ -17,9 +16,6 @@ vi.mock('@/lib/DAL/trips', () => ({
 	fetchCurrentTrips: mocks.fetchCurrentTrips,
 	fetchPastTrips: mocks.fetchPastTrips,
 	fetchTrip: mocks.fetchTrip,
-}))
-vi.mock('@/lib/DAL/api-keys', () => ({
-	getApiKeysDAL: mocks.getApiKeysDAL,
 }))
 vi.mock('@/lib/DAL/email', () => ({
 	getEmailAccessDAL: mocks.getEmailAccessDAL,
@@ -36,9 +32,7 @@ vi.mock('@/components/email/email-settings', () => ({
 	),
 }))
 vi.mock('@/components/connect/connect-ai', () => ({
-	ConnectAi: (p: { keysPromise: Promise<unknown> }) => (
-		<Show label="keys" value={p.keysPromise} />
-	),
+	ConnectAi: () => <div data-testid="connect-ai" />,
 }))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getUser,
@@ -173,10 +167,9 @@ describe('/email', () => {
 })
 
 describe('/connect', () => {
-	it("loads the driver's API keys", async () => {
-		mocks.getApiKeysDAL.mockResolvedValue([{ id: 1 }])
+	it('is static: it loads nothing from the database', async () => {
 		await renderAsync(<ConnectPage />)
-		expect(screen.getByTestId('keys')).toHaveTextContent('"id":1')
+		expect(screen.getByTestId('connect-ai')).toBeInTheDocument()
 	})
 })
 

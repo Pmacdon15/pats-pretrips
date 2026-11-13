@@ -20,7 +20,7 @@ vi.mock('@/lib/db/api-keys', () => ({
 import { hashApiKey } from '@/lib/api-keys'
 import {
 	createApiKeyDAL,
-	getApiKeysDAL,
+	listApiKeysDAL,
 	revokeApiKeyDAL,
 } from '@/lib/DAL/api-keys'
 
@@ -29,16 +29,25 @@ beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
-describe('getApiKeysDAL', () => {
+describe('listApiKeysDAL', () => {
 	it("lists the signed-in driver's keys", async () => {
 		mocks.listApiKeysDb.mockResolvedValue([])
-		await expect(getApiKeysDAL()).resolves.toEqual([])
+		expect((await listApiKeysDAL())._unsafeUnwrap()).toEqual([])
 		expect(mocks.listApiKeysDb).toHaveBeenCalledWith('pat@x.com')
 	})
 
 	it('needs a signed-in driver', async () => {
 		mocks.getUser.mockResolvedValue(null)
-		await expect(getApiKeysDAL()).rejects.toThrow('Must be logged in')
+		expect((await listApiKeysDAL())._unsafeUnwrapErr().reason).toBe(
+			'Must be logged in',
+		)
+	})
+
+	it('explains a database error', async () => {
+		mocks.listApiKeysDb.mockRejectedValue(new Error('no table'))
+		expect((await listApiKeysDAL())._unsafeUnwrapErr().reason).toBe(
+			'Could not load your keys. Please try again.',
+		)
 	})
 })
 

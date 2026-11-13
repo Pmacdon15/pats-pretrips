@@ -1,6 +1,18 @@
 'use server'
 
-import { createApiKeyDAL, revokeApiKeyDAL } from '../DAL/api-keys'
+import {
+	createApiKeyDAL,
+	listApiKeysDAL,
+	revokeApiKeyDAL,
+} from '../DAL/api-keys'
+
+export async function listApiKeys() {
+	const result = await listApiKeysDAL()
+	return result.match(
+		(value) => ({ value }),
+		(err) => ({ errorMessage: err.reason }),
+	)
+}
 
 export async function createApiKey(data: { name: string }) {
 	const result = await createApiKeyDAL(data)

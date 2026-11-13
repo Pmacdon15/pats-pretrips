@@ -3,11 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
 	createApiKeyDAL: vi.fn(),
+	listApiKeysDAL: vi.fn(),
 	revokeApiKeyDAL: vi.fn(),
 }))
 vi.mock('@/lib/DAL/api-keys', () => mocks)
 
-import { createApiKey, revokeApiKey } from '@/lib/actions/api-keys'
+import { createApiKey, listApiKeys, revokeApiKey } from '@/lib/actions/api-keys'
 
 describe('API key actions', () => {
 	it('return the value or the reason', async () => {
@@ -19,6 +20,10 @@ describe('API key actions', () => {
 		await expect(createApiKey({ name: 'x' })).resolves.toEqual({
 			errorMessage: 'no',
 		})
+		mocks.listApiKeysDAL.mockReturnValue(okAsync([]))
+		await expect(listApiKeys()).resolves.toEqual({ value: [] })
+		mocks.listApiKeysDAL.mockReturnValue(errAsync({ reason: 'down' }))
+		await expect(listApiKeys()).resolves.toEqual({ errorMessage: 'down' })
 		mocks.revokeApiKeyDAL.mockReturnValue(okAsync({ id: 1 }))
 		await expect(revokeApiKey(1)).resolves.toEqual({ value: { id: 1 } })
 		mocks.revokeApiKeyDAL.mockReturnValue(errAsync({ reason: 'gone' }))
