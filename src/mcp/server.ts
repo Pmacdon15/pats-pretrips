@@ -135,13 +135,15 @@ export async function run(
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false }
 
 export function registerPreTripTools(server: McpServer) {
-	// The card AI apps with MCP Apps show for list_trips and get_trip.
+	// The card AI apps with MCP Apps show for list_trips, get_trip and
+	// list_defects.
 	server.registerResource(
 		'trips_card',
 		TRIPS_CARD_URI,
 		{
 			title: 'Trips card',
-			description: "Shows the driver's trips as cards in the chat.",
+			description:
+				"Shows the driver's trips, defects and repairs as cards in the chat.",
 			mimeType: MCP_APP_MIME_TYPE,
 			_meta: { ui: { prefersBorder: true } },
 		},
@@ -275,6 +277,7 @@ export function registerPreTripTools(server: McpServer) {
 				"The driver's defect record: every defect reported on a pre-trip that is still open, and every repaired one with who fixed it, when, the invoice number and links to the invoice and signature. Filter by status or truck_plate.",
 			inputSchema: portable(listDefectsInputSchema),
 			annotations: READ_ONLY,
+			_meta: TRIPS_CARD_TOOL_META,
 		},
 		(args, ctx) =>
 			run(

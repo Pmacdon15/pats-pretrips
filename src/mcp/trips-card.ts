@@ -1,7 +1,9 @@
 /*
  * The trips card: a small HTML page AI apps show in the chat when the
  * assistant calls list_trips or get_trip, so the driver sees their trips as
- * cards instead of JSON. It follows the MCP Apps extension
+ * cards instead of JSON, with each defect open or repaired (who fixed it,
+ * when, the invoice). list_defects shows its open and repaired defects in it
+ * too. It follows the MCP Apps extension
  * (io.modelcontextprotocol/ui): the tools name this resource in
  * `_meta.ui.resourceUri`, the host loads it in a sandboxed iframe and posts
  * the tool result to it. Clients without MCP Apps ignore it and read the
@@ -96,6 +98,11 @@ h1 { font-size: 15px; margin: 0; }
 .chip { border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; background: var(--chip-bg); }
 .chip.ok { background: var(--ok-bg); color: var(--ok-text); }
 .chip.bad { background: var(--bad-bg); color: var(--bad-text); }
+.repairs { display: grid; gap: 6px; margin-top: 8px; }
+.repair { border-left: 3px solid var(--ok-text); padding: 2px 0 2px 8px; font-size: 12px; }
+.repair.open { border-left-color: var(--bad-text); }
+.repair .what { font-weight: 600; }
+.repair .links { display: flex; gap: 12px; margin-top: 2px; }
 .remarks { margin-top: 8px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 a { color: var(--accent); font-size: 12px; text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -141,13 +148,22 @@ a:hover { text-decoration: underline; }
 	function tripUrl(id) {
 		return SITE + '/pretrip/' + encodeURIComponent(id);
 	}
+	// repaired_on is a plain date (YYYY-MM-DD): read it as that day where
+	// the driver is, not as midnight UTC.
+	function day(ymd) {
+		var parts = String(ymd || '').slice(0, 10).split('-').map(Number);
+		if (parts.length !== 3 || parts.some(isNaN)) return '';
+		return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+	}
+	function isHttp(url) {
+		return typeof url === 'string' && url.indexOf('https://') === 0;
+	}
 
 	// Runs inside the click, so the browser still counts it as the driver's
 	// own click: a window opened after waiting on the host would be blocked
 	// as a popup. Order: ChatGPT's own API, then a plain new window (works
 	// where the frame may open popups), then asking the host to open it.
-	function openTrip(id) {
-		var url = tripUrl(id);
+	function openUrl(url) {
 		if (window.openai && typeof window.openai.openExternal === 'function') {
 			try { window.openai.openExternal({ href: url }); return; } catch (e) {}
 		}
@@ -160,7 +176,36 @@ a:hover { text-decoration: underline; }
 		request('ui/open-link', { url: url });
 	}
 
-	function tripCard(t) {
+	function linkTo(label, url) {
+		var link = el('a', null, label);
+		link.href = url;
+		link.target = '_blank';
+		link.rel = 'noopener noreferrer';
+		link.addEventListener('click', function (e) { e.preventDefault(); openUrl(url); });
+		return link;
+	}
+
+	function repairedBy(r) {
+		return [r.mechanic_name, r.shop_name].filter(Boolean).join(', ') || 'Unknown';
+	}
+
+	// One repaired defect: who fixed it and when, the invoice and signature.
+	function repairRow(defect, r) {
+		var row = el('div', 'repair');
+		row.appendChild(el('div', 'what', defect + ' · Repaired'));
+		var bits = [day(r.repaired_on), 'by ' + repairedBy(r)].filter(Boolean).join(' ');
+		if (r.invoice_number) bits += ' · Invoice ' + r.invoice_number;
+		bits += r.signed ? ' · Signed' : ' · Not signed';
+		row.appendChild(el('div', 'muted', bits));
+		if (r.notes) row.appendChild(el('div', 'remarks', r.notes));
+		var links = el('div', 'links');
+		if (isHttp(r.invoice_url)) links.appendChild(linkTo('Invoice →', r.invoice_url));
+		if (isHttp(r.signature_url)) links.appendChild(linkTo('Signature →', r.signature_url));
+		if (links.childNodes.length) row.appendChild(links);
+		return row;
+	}
+
+	function tripCard(t, status) {
 		var card = el('article', 'trip');
 		var top = el('div', 'row');
 		top.appendChild(el('span', 'title', [t.make, t.model].filter(Boolean).join(' ') || 'Trip ' + t.trip_id));
@@ -178,24 +223,74 @@ a:hover { text-decoration: underline; }
 
 		var chips = el('div', 'chips');
 		var defects = Array.isArray(t.defects) ? t.defects : [];
-		if (defects.length) defects.forEach(function (d) { chips.appendChild(el('span', 'chip bad', d)); });
+		var statuses = Array.isArray(status) ? status : Array.isArray(t.defect_status) ? t.defect_status : [];
+		var repaired = [];
+		if (defects.length) defects.forEach(function (d) {
+			var s = statuses.filter(function (x) { return x && String(x.defect).toLowerCase() === String(d).toLowerCase(); })[0];
+			var fixed = s && s.status === 'repaired' && s.repair;
+			if (fixed) repaired.push({ defect: d, repair: s.repair });
+			chips.appendChild(el('span', fixed ? 'chip ok' : 'chip bad', d + (s ? (fixed ? ' · Repaired' : ' · Open') : '')));
+		});
 		else chips.appendChild(el('span', 'chip ok', 'No defects'));
 		if (t.can_update) chips.appendChild(el('span', 'chip', 'Editable'));
 		card.appendChild(chips);
+
+		if (repaired.length) {
+			var list = el('div', 'repairs');
+			repaired.forEach(function (x) { list.appendChild(repairRow(x.defect, x.repair)); });
+			card.appendChild(list);
+		}
 
 		if (t.remarks) card.appendChild(el('div', 'remarks', t.remarks));
 
 		var foot = el('div', 'row');
 		foot.style.marginTop = '8px';
 		foot.appendChild(el('span', 'muted', 'Trip #' + t.trip_id));
-		var link = el('a', null, 'Open in PreTrips →');
-		link.href = tripUrl(t.trip_id);
-		link.target = '_blank';
-		link.rel = 'noopener noreferrer';
-		link.addEventListener('click', function (e) { e.preventDefault(); openTrip(t.trip_id); });
-		foot.appendChild(link);
+		foot.appendChild(linkTo('Open in PreTrips →', tripUrl(t.trip_id)));
 		card.appendChild(foot);
 		return card;
+	}
+
+	// A defect from list_defects: still open, or repaired with its repair.
+	function defectCard(d, repairedOne) {
+		var card = el('article', 'trip');
+		var top = el('div', 'row');
+		top.appendChild(el('span', 'title', d.defect));
+		top.appendChild(el('span', repairedOne ? 'chip ok' : 'chip bad', repairedOne ? 'Repaired' : 'Open'));
+		card.appendChild(top);
+		var facts = el('div', 'facts');
+		var truck = [d.make, d.model].filter(Boolean).join(' ');
+		if (truck) facts.appendChild(fact('Truck', truck));
+		if (d.truck_plate) facts.appendChild(fact('Plate', d.truck_plate));
+		if (d.trip_date) facts.appendChild(fact('Reported', when(d.trip_date)));
+		card.appendChild(facts);
+		if (repairedOne) {
+			var list = el('div', 'repairs');
+			list.appendChild(repairRow(d.defect, d));
+			card.appendChild(list);
+		}
+		var foot = el('div', 'row');
+		foot.style.marginTop = '8px';
+		foot.appendChild(el('span', 'muted', 'Trip #' + d.trip_id));
+		foot.appendChild(linkTo('Open in PreTrips →', tripUrl(d.trip_id)));
+		card.appendChild(foot);
+		return card;
+	}
+
+	function renderDefects(data, list, heading, count) {
+		var open = Array.isArray(data.open) ? data.open : null;
+		var repaired = Array.isArray(data.repaired) ? data.repaired : null;
+		heading.textContent = 'Defects & repairs';
+		count.textContent = [
+			open ? (data.open_count != null ? data.open_count : open.length) + ' open' : '',
+			repaired ? (data.repaired_count != null ? data.repaired_count : repaired.length) + ' repaired' : '',
+		].filter(Boolean).join(' · ');
+		if (!(open && open.length) && !(repaired && repaired.length)) {
+			list.appendChild(el('div', 'empty', open ? 'No open defects.' : 'No repairs yet.'));
+			return;
+		}
+		(open || []).forEach(function (d) { list.appendChild(defectCard(d, false)); });
+		(repaired || []).forEach(function (r) { list.appendChild(defectCard(r, true)); });
 	}
 
 	function render(data) {
@@ -203,6 +298,12 @@ a:hover { text-decoration: underline; }
 		var list = document.getElementById('list');
 		var heading = document.getElementById('heading');
 		var count = document.getElementById('count');
+		if (Array.isArray(data.open) || Array.isArray(data.repaired)) {
+			list.replaceChildren();
+			renderDefects(data, list, heading, count);
+			reportSize();
+			return;
+		}
 		var trips = Array.isArray(data.trips) ? data.trips : data.trip ? [data.trip] : null;
 		if (!trips) return;
 		list.replaceChildren();
@@ -217,7 +318,7 @@ a:hover { text-decoration: underline; }
 		if (!trips.length) {
 			list.appendChild(el('div', 'empty', data.when === 'past' ? 'No older trips.' : 'No trips in the last 24 hours.'));
 		} else {
-			trips.forEach(function (t) { list.appendChild(tripCard(t)); });
+			trips.forEach(function (t) { list.appendChild(tripCard(t, data.trip ? data.defect_status : null)); });
 		}
 		reportSize();
 	}

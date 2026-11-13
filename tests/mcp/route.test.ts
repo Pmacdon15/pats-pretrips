@@ -258,14 +258,14 @@ describe('MCP endpoint auth', () => {
 })
 
 describe('trips card', () => {
-	it('links list_trips and get_trip to the card and serves it', async () => {
+	it('links list_trips, get_trip and list_defects to the card and serves it', async () => {
 		const tools = (await rpc(KEY, 'tools/list')).body.result
 			.tools as Array<{
 			name: string
 			_meta?: { ui?: { resourceUri?: string } }
 		}>
 		const uri = 'ui://pats-pretrips/trips-card.html'
-		for (const name of ['list_trips', 'get_trip']) {
+		for (const name of ['list_trips', 'get_trip', 'list_defects']) {
 			expect(
 				tools.find((t) => t.name === name)?._meta?.ui?.resourceUri,
 			).toBe(uri)
