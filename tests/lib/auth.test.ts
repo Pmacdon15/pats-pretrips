@@ -8,7 +8,6 @@ import {
 	driverName,
 	getDriver,
 	getDriverEmail,
-	isSignedIn,
 } from '@/lib/auth'
 
 beforeEach(() => {
@@ -35,13 +34,6 @@ describe('the signed-in driver', () => {
 		await expect(getDriverEmail()).resolves.toBeNull()
 		mocks.currentUser.mockResolvedValue({ primaryEmailAddress: null })
 		await expect(getDriver()).resolves.toBeNull()
-	})
-
-	it('knows whether someone is signed in', async () => {
-		mocks.auth.mockResolvedValue({ userId: 'user_1' })
-		await expect(isSignedIn()).resolves.toBe(true)
-		mocks.auth.mockResolvedValue({ userId: null })
-		await expect(isSignedIn()).resolves.toBe(false)
 	})
 })
 

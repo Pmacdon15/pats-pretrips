@@ -1,18 +1,22 @@
-import { SignInButton, SignUpButton } from '@clerk/nextjs'
+'use client'
+import { SignInButton, SignUpButton, useAuth } from '@clerk/nextjs'
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export default async function HomePageButtons({
-	isLoggedInPromise,
-}: {
-	isLoggedInPromise?: Promise<boolean> | null
-}) {
-	const isLoggedIn = await isLoggedInPromise
-	const big = 'h-12 w-full px-6 text-base sm:w-auto'
+const big = 'h-12 w-full px-6 text-base sm:w-auto'
 
-	return isLoggedIn ? (
+/** Sign up or sign in, or a link to the trips, from Clerk's client session. */
+export default function HomePageButtons() {
+	const { isLoaded, isSignedIn } = useAuth()
+
+	if (!isLoaded)
+		return (
+			<div className="h-12 w-56 animate-pulse rounded-md bg-white/10" />
+		)
+
+	return isSignedIn ? (
 		<Link className={cn(buttonVariants(), big)} href="/pretrips">
 			Go to my trips
 			<ArrowRight />

@@ -98,17 +98,24 @@ describe('Providers', () => {
 })
 
 describe('HomePageButtons', () => {
-	it('links a signed-in driver to their trips', async () => {
-		render(
-			await HomePageButtons({ isLoggedInPromise: Promise.resolve(true) }),
-		)
+	it('holds their space while the session loads', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: false })
+		render(<HomePageButtons />)
+		expect(screen.queryByRole('button')).toBeNull()
+		expect(screen.queryByRole('link')).toBeNull()
+	})
+
+	it('links a signed-in driver to their trips', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
+		render(<HomePageButtons />)
 		expect(
 			screen.getByRole('link', { name: 'Go to my trips' }),
 		).toHaveAttribute('href', '/pretrips')
 	})
 
-	it('offers sign up and sign in otherwise, landing on the trips page', async () => {
-		render(await HomePageButtons({}))
+	it('offers sign up and sign in otherwise, landing on the trips page', () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
+		render(<HomePageButtons />)
 		for (const [name, action] of [
 			['Create free account', 'sign-up'],
 			['Sign in', 'sign-in'],
