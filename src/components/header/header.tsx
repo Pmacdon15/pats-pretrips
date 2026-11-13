@@ -8,15 +8,16 @@ import { isSignedIn } from '@/lib/auth'
 export default function Header() {
 	return (
 		<header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-			<div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
+			<div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
 				<Link
-					className="flex items-center gap-2 font-semibold text-lg tracking-tight"
+					aria-label="Pat's PreTrips"
+					className="flex min-w-0 items-center gap-2 font-semibold text-base tracking-tight sm:text-lg"
 					href="/"
 				>
-					<span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+					<span className="flex size-9 items-center justify-center shrink-0 rounded-lg bg-primary text-primary-foreground">
 						<Truck className="size-5" />
 					</span>
-					<span>
+					<span className="hidden truncate min-[380px]:inline">
 						Pat&apos;s{' '}
 						<span className="text-primary">PreTrips</span>
 					</span>
@@ -46,13 +47,14 @@ async function HeaderNav() {
 	}
 
 	return (
-		<nav className="flex items-center gap-1">
+		<nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
 			<Link
+				aria-label="My Trips"
 				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
 				href="/pretrips"
 			>
 				<ClipboardCheck />
-				My Trips
+				<span className="hidden sm:inline">My Trips</span>
 			</Link>
 			<Link
 				aria-label="Email pre-trips"
@@ -80,7 +82,7 @@ async function HeaderNav() {
 					<span className="hidden sm:inline">Sign out</span>
 				</button>
 			</SignOutButton>
-			<div className="ml-1 flex size-9 items-center justify-center">
+			<div className="flex size-9 sm:ml-1 items-center justify-center">
 				<UserButton
 					appearance={{ elements: { avatarBox: 'size-8' } }}
 				/>
