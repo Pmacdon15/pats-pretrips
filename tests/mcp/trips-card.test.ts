@@ -133,21 +133,64 @@ describe('trips card', () => {
 		)
 	})
 
-	it('asks the host to open the trip page', () => {
-		const { window, sent, deliver } = load()
-		deliver({
-			jsonrpc: '2.0',
-			method: 'ui/notifications/tool-result',
-			params: { structuredContent: { trip: trip() } },
-		})
+	const clickLink = (window: JSDOM['window']) =>
 		window.document.querySelector('a')?.dispatchEvent(
 			new window.MouseEvent('click', {
 				bubbles: true,
 				cancelable: true,
 			}),
 		)
+
+	it('opens the trip page in a new window right in the click', () => {
+		const { window, sent, deliver } = load()
+		const opened: unknown[][] = []
+		window.open = ((...args: unknown[]) => {
+			opened.push(args)
+			return {} as Window
+		}) as typeof window.open
+		deliver({
+			jsonrpc: '2.0',
+			method: 'ui/notifications/tool-result',
+			params: { structuredContent: { trip: trip() } },
+		})
+		const link = window.document.querySelector('a')
+		expect(link?.getAttribute('target')).toBe('_blank')
+		clickLink(window)
+		expect(opened).toEqual([
+			['https://patspretrips.ca/pretrip/7', '_blank'],
+		])
+		expect(sent.some((m) => m.method === 'ui/open-link')).toBe(false)
+	})
+
+	it('asks the host to open the trip page when the frame cannot', () => {
+		const { window, sent, deliver } = load()
+		window.open = (() => null) as typeof window.open
+		deliver({
+			jsonrpc: '2.0',
+			method: 'ui/notifications/tool-result',
+			params: { structuredContent: { trip: trip() } },
+		})
+		clickLink(window)
 		expect(sent.find((m) => m.method === 'ui/open-link')).toMatchObject({
 			params: { url: 'https://patspretrips.ca/pretrip/7' },
 		})
+	})
+
+	it("uses ChatGPT's openExternal when it is there", () => {
+		const { window, sent, deliver } = load()
+		const hrefs: string[] = []
+		Object.assign(window, {
+			openai: {
+				openExternal: (o: { href: string }) => hrefs.push(o.href),
+			},
+		})
+		deliver({
+			jsonrpc: '2.0',
+			method: 'ui/notifications/tool-result',
+			params: { structuredContent: { trip: trip() } },
+		})
+		clickLink(window)
+		expect(hrefs).toEqual(['https://patspretrips.ca/pretrip/7'])
+		expect(sent.some((m) => m.method === 'ui/open-link')).toBe(false)
 	})
 })
