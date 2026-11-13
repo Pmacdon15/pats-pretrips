@@ -151,6 +151,7 @@ describe('mime', () => {
 describe('pdf', () => {
 	it('keeps only what the standard fonts can draw', () => {
 		expect(pdfSafe('‘a’ “b” c–d—e\r\nf ✅ é')).toBe(`'a' "b" c-d-e\nf ? é`)
+		expect(pdfSafe('3:04\u202Fa.m.\u2009MST')).toBe('3:04 a.m. MST')
 	})
 
 	it('wraps words, keeps line breaks and cuts very long words', async () => {
@@ -262,11 +263,20 @@ describe('trip email', () => {
 			driver,
 			'UTC',
 		)
+		expect(
+			tripEmailContent(trip(), driver, 'America/Edmonton').subject,
+		).toBe(
+			'Pre-trip 2026-01-01 8:04 p.m. - Volvo VNL (TRK1) - defects reported',
+		)
 		expect(content.subject).toBe(
-			'Pre-trip 2026-01-02 - Volvo VNL (TRK1) - defects reported',
+			'Pre-trip 2026-01-02 3:04 a.m. - Volvo VNL (TRK1) - defects reported',
 		)
 		expect(content.filename).toBe('pretrip-1-2026-01-02.pdf')
 		expect(content.text).toContain('Pre-trip inspection by Pat Mac')
+		expect(content.text).toContain('Created: Jan 2, 2026, 3:04 a.m. UTC')
+		expect(content.html).toContain(
+			'Created</td><td style="padding:4px 0">Jan 2, 2026, 3:04 a.m. UTC',
+		)
 		expect(content.text).toContain('Defects: Cab')
 		expect(content.text).toContain('Carrier address: 1 Main St')
 		expect(content.html).toContain(
@@ -286,7 +296,9 @@ describe('trip email', () => {
 			trip({ defects: '', truckplate: '', remarks: "it's" }),
 			{ name: '', email: 'pat@x.com' },
 		)
-		expect(content.subject).toBe('Pre-trip 2026-01-02 - Volvo VNL')
+		expect(content.subject).toBe(
+			'Pre-trip 2026-01-02 3:04 a.m. - Volvo VNL',
+		)
 		expect(content.text).toContain('by pat@x.com')
 		expect(content.text).toContain('No defects reported')
 		expect(content.html).toContain('#059669">No defects')
