@@ -1,5 +1,4 @@
 import { Bot } from 'lucide-react'
-import { Suspense } from 'react'
 import {
 	Card,
 	CardContent,
@@ -7,17 +6,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card'
-import type { ApiKey } from '@/lib/api-keys'
-import { ApiKeys } from './api-keys'
 import { CopyButton } from './copy-button'
 
 export const MCP_URL = 'https://patspretrips.ca/api/mcp'
 
-/**
- * How to connect an AI assistant. The URL and steps render straight away;
- * the driver's API keys stream in.
- */
-export function ConnectAi({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
+/** How to connect an AI assistant. Static: nothing here loads data. */
+export function ConnectAi() {
 	return (
 		<Card>
 			<CardHeader>
@@ -48,19 +42,6 @@ export function ConnectAi({ keysPromise }: { keysPromise: Promise<ApiKey[]> }) {
 						saves it once you say OK.
 					</li>
 				</ol>
-				<div className="grid gap-2 border-t pt-4">
-					<p className="text-muted-foreground">
-						App can&apos;t sign in? Give it the URL and an API key
-						instead.
-					</p>
-					<Suspense
-						fallback={
-							<div className="h-10 animate-pulse rounded-md bg-muted" />
-						}
-					>
-						<ApiKeys keysPromise={keysPromise} />
-					</Suspense>
-				</div>
 			</CardContent>
 		</Card>
 	)
