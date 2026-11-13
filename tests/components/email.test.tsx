@@ -78,7 +78,11 @@ describe('EmailTrip', () => {
 		mocks.emailTrip.mockResolvedValue({ errorMessage: 'SES down' })
 		await show()
 		await act(async () => {
-			fireEvent.submit(screen.getByRole('button', { name: 'Email PDF' }))
+			fireEvent.submit(
+				screen
+					.getByLabelText('Send to')
+					.closest('form') as HTMLFormElement,
+			)
 		})
 		expect(mocks.toast.error).toHaveBeenCalledWith(
 			'Could not email this pre-trip',
@@ -136,7 +140,9 @@ describe('EmailSettingsForm', () => {
 		mocks.saveEmailSettings.mockResolvedValue({ errorMessage: 'Bad email' })
 		await show()
 		await act(async () => {
-			fireEvent.submit(screen.getByRole('button', { name: 'Save' }))
+			fireEvent.submit(
+				screen.getByRole('checkbox').closest('form') as HTMLFormElement,
+			)
 		})
 		expect(mocks.toast.error).toHaveBeenCalledWith('Could not save', {
 			description: 'Bad email',
