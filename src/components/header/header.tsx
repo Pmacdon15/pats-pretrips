@@ -14,7 +14,7 @@ export default function Header() {
 					className="flex min-w-0 items-center gap-2 font-semibold text-base tracking-tight sm:text-lg"
 					href="/"
 				>
-					<span className="flex size-9 items-center justify-center shrink-0 rounded-lg bg-primary text-primary-foreground">
+					<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
 						<Truck className="size-5" />
 					</span>
 					<span className="hidden truncate min-[380px]:inline">
@@ -82,7 +82,7 @@ async function HeaderNav() {
 					<span className="hidden sm:inline">Sign out</span>
 				</button>
 			</SignOutButton>
-			<div className="flex size-9 sm:ml-1 items-center justify-center">
+			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton
 					appearance={{ elements: { avatarBox: 'size-8' } }}
 				/>
