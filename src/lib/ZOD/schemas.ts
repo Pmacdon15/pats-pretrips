@@ -19,3 +19,8 @@ export const schemaAddDefects = z.object({
 	remarks: z.string().min(3, 'Must Add Remark'),
 	trip_id: z.number().min(1, 'Must have trip id'),
 })
+
+export const schemaCoordinates = z.object({
+	lat: z.number().min(-90).max(90),
+	lng: z.number().min(-180).max(180),
+})
