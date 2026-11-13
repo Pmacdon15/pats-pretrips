@@ -181,6 +181,10 @@ describe('/', () => {
 		)
 		expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(6)
 		expect(
+			screen.getByRole('heading', { level: 2, name: 'Pricing' }),
+		).toBeInTheDocument()
+		expect(screen.getByTestId('pricing')).toHaveTextContent('/email')
+		expect(
 			screen.getByRole('link', { name: 'Terms of Service' }),
 		).toHaveAttribute('href', '/termsOfService')
 		expect(
