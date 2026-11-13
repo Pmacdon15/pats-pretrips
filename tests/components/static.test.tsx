@@ -8,10 +8,11 @@ import { BackLink } from '@/components/links/back-home-button'
 import { Badge } from '@/components/ui/badge'
 
 describe('Footer', () => {
-	it('links to the legal pages, email and GitHub', () => {
+	it('links to plans, the legal pages, email and GitHub', () => {
 		render(<Footer />)
 		const href = (name: string) =>
 			screen.getByRole('link', { name }).getAttribute('href')
+		expect(href('Plans')).toBe('/#pricing')
 		expect(href('Privacy')).toBe('/privacy')
 		expect(href('Terms')).toBe('/termsOfService')
 		expect(href('Contact')).toBe('mailto:patrick@patmac.ca')
