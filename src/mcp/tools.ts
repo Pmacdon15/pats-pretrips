@@ -9,6 +9,7 @@ import {
 } from '@/lib/db/trips'
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
+import { tripDefectStatus } from './repair-tools'
 
 /*
  * What each MCP tool does, apart from MCP itself (src/mcp/server.ts). Every
@@ -401,8 +402,10 @@ export async function getTrip(
 			isError: true,
 		}
 	}
+	const defectStatus = await tripDefectStatus(caller, trip)
+	const open = defectStatus.filter((d) => d.status === 'open').length
 	return {
-		summary: `Trip ${trip.tripid}: ${trip.make} ${trip.model} at ${trip.odometer} km on ${new Date(trip.date).toISOString().slice(0, 10)}.`,
-		data: { trip: tripView(trip) },
+		summary: `Trip ${trip.tripid}: ${trip.make} ${trip.model} at ${trip.odometer} km on ${new Date(trip.date).toISOString().slice(0, 10)}.${defectStatus.length ? ` ${open} of ${defectStatus.length} defects open.` : ''}`,
+		data: { trip: tripView(trip), defect_status: defectStatus },
 	}
 }

@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import type { Repair } from '@/lib/db/repairs'
 import type { Trip } from '@/lib/types/types'
 import { parseDefects } from '@/lib/utils-defects'
 
@@ -46,8 +47,17 @@ export function TripDetails({ trip }: { trip: Trip }) {
 	)
 }
 
-export function TripDefects({ trip }: { trip: Trip }) {
+export function TripDefects({
+	trip,
+	repairs = [],
+}: {
+	trip: Trip
+	/** Repaired defects show as repaired. */
+	repairs?: Repair[]
+}) {
 	const defects = parseDefects(trip.defects)
+	const repaired = (d: string) =>
+		repairs.some((r) => r.defect.toLowerCase() === d.toLowerCase())
 	return (
 		<div className="flex flex-col gap-4">
 			{defects.length === 0 ? (
@@ -59,10 +69,18 @@ export function TripDefects({ trip }: { trip: Trip }) {
 				<ul className="flex flex-wrap gap-2">
 					{defects.map((d) => (
 						<li key={d}>
-							<Badge className="text-sm" variant="warning">
-								<AlertTriangle />
-								{d}
-							</Badge>
+							{repaired(d) ? (
+								<Badge className="text-sm" variant="success">
+									<CheckCircle2 />
+									{d}
+									<span className="sr-only">(repaired)</span>
+								</Badge>
+							) : (
+								<Badge className="text-sm" variant="warning">
+									<AlertTriangle />
+									{d}
+								</Badge>
+							)}
 						</li>
 					))}
 				</ul>

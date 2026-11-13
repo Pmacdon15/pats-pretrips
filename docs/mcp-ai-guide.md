@@ -35,7 +35,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table). (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 
@@ -45,6 +45,7 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 4. **`start_trip` saves it.** Defects use the app's names (`list_defect_categories`). Remarks are required: your words, or "No defects found".
 5. **Odometer going backwards?** If the reading is lower than the truck's last one, the assistant gets a warning and checks the photo with you.
 6. **Updates for 24 hours.** `update_trip` changes only the fields you pass. Defects and remarks are only added to, never removed. Trips older than 24 hours can't be changed, same as on the website.
+7. **Repairs, any time.** When a defect is fixed (say a mechanic replaced a tire), `mark_defect_repaired` records who fixed it, the invoice number and date, a compressed copy of the invoice and the mechanic's signature. The trip still shows the defect as found; the repair sits beside it, so `list_defects` (and the website's **Defects** page) shows a clear record of what's open and what was fixed. `undo_defect_repair` reopens one recorded by mistake.
 
 ## Tools
 
@@ -55,7 +56,10 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 | `start_trip` | Saves a new pre-trip: `odometer`, `make`, `model`, `carrier`, `carrier_address`, `inspection_address`, `remarks`, optional `truck_plate`, `trailer_plate_a`, `trailer_plate_b`, `defects` | Yes |
 | `update_trip` | Changes a trip from the last 24 hours: `trip_id` plus only what changes; `add_defects` and `add_remarks` add on-route defects | Yes |
 | `list_trips` | Your trips, 10 per page: `when` is `current` (last 24 hours) or `past` | No |
-| `get_trip` | One trip by `trip_id` | No |
+| `get_trip` | One trip by `trip_id`, with each defect open or repaired | No |
+| `list_defects` | Your defect record: `status` is `open`, `repaired` or `all`; optional `truck_plate` | No |
+| `mark_defect_repaired` | Marks a trip's defect fixed: `trip_id`, `defect`, `mechanic_name`, optional `shop_name`, `invoice_number`, `repaired_on`, `notes`, `invoice_base64` (PDF or photo, compressed before saving), `signature_base64` | Yes |
+| `undo_defect_repair` | Removes a repair by `repair_id`, so the defect is open again | Yes |
 
 In AI apps that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps) (Claude, ChatGPT and others), `list_trips` and `get_trip` also show their result as a trips card in the chat: each trip's truck, plates, odometer, defects and remarks, with a link to open it in PreTrips. The card is the `ui://pats-pretrips/trips-card.html` resource (`src/mcp/trips-card.ts`); apps without MCP Apps just read the text answer.
 

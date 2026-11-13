@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
 	typedRoutes: true,
 	cacheComponents: true,
 	reactCompiler: true,
+	experimental: {
+		// Repair invoices are uploaded through a server action. Photos are
+		// shrunk in the browser first; this leaves room for a PDF.
+		serverActions: { bodySizeLimit: '5mb' },
+	},
 	async headers() {
 		return [
 			{

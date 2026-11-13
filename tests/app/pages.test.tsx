@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
 	fetchCurrentTrips: vi.fn(),
 	fetchPastTrips: vi.fn(),
 	fetchTrip: vi.fn(),
+	fetchTripRepairs: vi.fn(),
+	fetchDefectRecord: vi.fn(),
 	getEmailAccessDAL: vi.fn(),
 	getUser: vi.fn(),
 }))
@@ -15,6 +17,10 @@ vi.mock('@/lib/DAL/trips', () => ({
 	fetchCurrentTrips: mocks.fetchCurrentTrips,
 	fetchPastTrips: mocks.fetchPastTrips,
 	fetchTrip: mocks.fetchTrip,
+}))
+vi.mock('@/lib/DAL/repairs', () => ({
+	fetchTripRepairs: mocks.fetchTripRepairs,
+	fetchDefectRecord: mocks.fetchDefectRecord,
 }))
 vi.mock('@/lib/DAL/email', () => ({
 	getEmailAccessDAL: mocks.getEmailAccessDAL,
@@ -76,7 +82,13 @@ vi.mock('@/components/trips/display-trip/DisplayTrip', () => ({
 			<Show label="trip" value={p.tripPromise} />
 			<Show label="user" value={p.userPromise} />
 			<Show label="email" value={p.emailAccessPromise} />
+			<Show label="repairs" value={p.repairsPromise} />
 		</>
+	),
+}))
+vi.mock('@/components/repairs/defect-record', () => ({
+	DefectRecordView: (p: Record<string, Promise<unknown>>) => (
+		<Show label="record" value={p.recordPromise} />
 	),
 }))
 vi.mock('@/components/home/home-page-buttons', () => ({
@@ -84,6 +96,7 @@ vi.mock('@/components/home/home-page-buttons', () => ({
 }))
 
 import ConnectPage from '@/app/connect/page'
+import DefectsPage, { metadata as defectsMeta } from '@/app/defects/page'
 import EmailPage from '@/app/email/page'
 import RootLayout, { metadata, viewport } from '@/app/layout'
 import Home from '@/app/page'
@@ -100,6 +113,8 @@ beforeEach(() => {
 	})
 	mocks.fetchPastTrips.mockResolvedValue({ trips: ['old'], hasMore: true })
 	mocks.fetchTrip.mockResolvedValue({ tripid: 4 })
+	mocks.fetchTripRepairs.mockResolvedValue([{ id: 9 }])
+	mocks.fetchDefectRecord.mockResolvedValue({ open: ['Horn'], repaired: [] })
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
 	mocks.getEmailAccessDAL.mockResolvedValue({ allowed: true })
 })
@@ -148,6 +163,16 @@ describe('/pretrip/[tripId]', () => {
 		expect(screen.getByTestId('trip')).toHaveTextContent('"tripid":4')
 		expect(screen.getByTestId('user')).toHaveTextContent('pat@x.com')
 		expect(screen.getByTestId('email')).toHaveTextContent('"allowed":true')
+		expect(mocks.fetchTripRepairs).toHaveBeenCalledWith(4)
+		expect(screen.getByTestId('repairs')).toHaveTextContent('"id":9')
+	})
+})
+
+describe('/defects', () => {
+	it('loads the driver’s defect record', async () => {
+		await renderAsync(<DefectsPage />)
+		expect(screen.getByTestId('record')).toHaveTextContent('Horn')
+		expect(defectsMeta.title).toMatch('Defects')
 	})
 })
 

@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
 	updateTripDb: vi.fn(),
 }))
 vi.mock('@/lib/db/trips', () => mocks)
+const repairMocks = vi.hoisted(() => ({
+	listTripRepairsDb: vi.fn(async () => [] as unknown[]),
+}))
+vi.mock('@/lib/db/repairs', () => repairMocks)
 
 import {
 	getTrip,
@@ -356,9 +360,24 @@ describe('getTrip', () => {
 		mocks.getTripDb.mockResolvedValue(recent())
 		const result = await getTrip(caller, { trip_id: 1 })
 		expect(result.summary).toBe(
+			'Trip 1: Volvo VNL at 1000 km on 2026-11-12. 1 of 1 defects open.',
+		)
+		expect(result.data.defect_status).toEqual([
+			{ defect: 'Cab', status: 'open', repair: null },
+		])
+		expect(mocks.getTripDb).toHaveBeenCalledWith(1, 'pat@x.com')
+		expect(repairMocks.listTripRepairsDb).toHaveBeenCalledWith(
+			1,
+			'pat@x.com',
+		)
+	})
+
+	it('leaves out defect counts for a trip without defects', async () => {
+		mocks.getTripDb.mockResolvedValue(recent({ defects: '' }))
+		const result = await getTrip(caller, { trip_id: 1 })
+		expect(result.summary).toBe(
 			'Trip 1: Volvo VNL at 1000 km on 2026-11-12.',
 		)
-		expect(mocks.getTripDb).toHaveBeenCalledWith(1, 'pat@x.com')
 	})
 
 	it('says when it is not found', async () => {

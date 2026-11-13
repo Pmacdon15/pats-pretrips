@@ -1,3 +1,4 @@
+import type { Repair } from '@/lib/db/repairs'
 import type { Trip } from '@/lib/types/types'
 
 /** A complete trip; override only what a test cares about. */
@@ -16,5 +17,26 @@ export const trip = (over: Partial<Trip> = {}): Trip => ({
 	date: new Date('2026-01-02T03:04:00Z'),
 	defects: 'Cab',
 	remarks: 'Cracked',
+	...over,
+})
+
+/** A repair as listed (no files); override only what a test cares about. */
+export const repair = (over: Partial<Repair> = {}): Repair => ({
+	id: 7,
+	trip_id: 1,
+	defect: 'Cab',
+	repaired_on: '2026-01-05',
+	mechanic_name: 'Sam Wrench',
+	shop_name: 'Highway Truck',
+	invoice_number: 'INV-1',
+	notes: null,
+	has_signature: true,
+	has_invoice: true,
+	invoice_type: 'image/jpeg',
+	invoice_name: 'invoice.jpg',
+	invoice_size: 2048,
+	invoice_original_size: 8192,
+	source: 'web',
+	created_at: '2026-01-05T10:00:00.000Z',
 	...over,
 })
