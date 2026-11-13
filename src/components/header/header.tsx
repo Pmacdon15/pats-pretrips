@@ -6,15 +6,16 @@ import { HeaderNav } from './header-nav'
 export default function Header() {
 	return (
 		<header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-			<div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
+			<div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
 				<Link
-					className="flex items-center gap-2 font-semibold text-lg tracking-tight"
+					aria-label="Pat's PreTrips"
+					className="flex min-w-0 items-center gap-2 font-semibold text-base tracking-tight sm:text-lg"
 					href="/"
 				>
-					<span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+					<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
 						<Truck className="size-5" />
 					</span>
-					<span>
+					<span className="hidden truncate min-[380px]:inline">
 						Pat&apos;s{' '}
 						<span className="text-primary">PreTrips</span>
 					</span>

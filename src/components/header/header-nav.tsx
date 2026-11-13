@@ -24,13 +24,14 @@ export function HeaderNav() {
 	}
 
 	return (
-		<nav className="flex items-center gap-1">
+		<nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
 			<Link
+				aria-label="My Trips"
 				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
 				href="/pretrips"
 			>
 				<ClipboardCheck />
-				My Trips
+				<span className="hidden sm:inline">My Trips</span>
 			</Link>
 			<Link
 				aria-label="Email pre-trips"
@@ -58,7 +59,7 @@ export function HeaderNav() {
 					<span className="hidden sm:inline">Sign out</span>
 				</button>
 			</SignOutButton>
-			<div className="ml-1 flex size-9 items-center justify-center">
+			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton
 					appearance={{ elements: { avatarBox: 'size-8' } }}
 				/>
