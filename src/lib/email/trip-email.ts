@@ -14,6 +14,9 @@ const escapeHtml = (value: string) =>
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;')
 
+/** The Content-ID the HTML uses to show the driver's signature inline. */
+export const SIGNATURE_CID = 'driver-signature@pats-pretrips'
+
 export type TripEmail = {
 	subject: string
 	text: string
@@ -27,6 +30,8 @@ export function tripEmailContent(
 	driver: PdfDriver,
 	timeZone?: string,
 	repairs: PdfRepair[] = [],
+	/** Show the driver's signature, sent as an inline image with SIGNATURE_CID. */
+	withSignature = false,
 ): TripEmail {
 	const when = formatTripCreated(trip.date, timeZone)
 	const { day, time } = tripDayAndTime(trip.date, timeZone)
@@ -99,7 +104,11 @@ export function tripEmailContent(
 </table>
 <p style="margin:16px 0 4px;font-weight:700;color:${open.length ? '#d97706' : '#059669'}">${e(status)}</p>
 ${repairHtml}<p style="margin:0 0 12px;white-space:pre-line">${e(trip.remarks || '-')}</p>
-<p style="margin:0 0 20px;color:#64748b;font-size:13px">${e(signed)}</p>
+${
+	trip.signed_at && withSignature
+		? `<img src="cid:${SIGNATURE_CID}" alt="Signature of ${e(who)}" width="200" style="display:block;max-width:200px;height:auto;margin:0 0 4px">\n`
+		: ''
+}<p style="margin:0 0 20px;color:#64748b;font-size:13px">${e(signed)}</p>
 ${button(url, 'Open / edit this pre-trip')}${button(defectUrl, 'Add an on-route defect')}
 <p style="margin:12px 0 0;color:#64748b;font-size:12px">The full report is attached as a PDF. On-route defects can be added for 24 hours after the inspection.</p>
 </div></body></html>`
@@ -126,7 +135,15 @@ export async function sendTripEmail(
 ) {
 	const from = fromAddress()
 	if (!from) throw new Error('SES_FROM_EMAIL is not set')
-	const content = tripEmailContent(trip, driver, timeZone, repairs)
+	// The signature shows in the email itself as well as in the PDF.
+	const signature = trip.signed_at && driverSignature ? driverSignature : null
+	const content = tripEmailContent(
+		trip,
+		driver,
+		timeZone,
+		repairs,
+		Boolean(signature),
+	)
 	const pdf = await buildTripPdf(
 		trip,
 		driver,
@@ -146,6 +163,16 @@ export async function sendTripEmail(
 			contentType: 'application/pdf',
 			content: pdf,
 		},
+		inline: signature
+			? [
+					{
+						cid: SIGNATURE_CID,
+						filename: 'signature.png',
+						contentType: 'image/png',
+						content: signature,
+					},
+				]
+			: [],
 	})
 	return sendRawEmail(raw)
 }
