@@ -30,6 +30,7 @@ vi.mock('@clerk/nextjs', () => {
 		SignInButton: wrap('sign-in'),
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
+		UserButton: () => <span data-testid="user-button" />,
 		useAuth: clerk.useAuth,
 	}
 })
@@ -158,7 +159,7 @@ describe('Header', () => {
 		)
 	})
 
-	it('shows trips, Connect AI and sign out when signed in', async () => {
+	it('shows trips, Connect AI, sign out and the user button when signed in', async () => {
 		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
@@ -174,5 +175,6 @@ describe('Header', () => {
 		const signOut = screen.getByRole('button', { name: 'Sign out' })
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')
+		expect(screen.getByTestId('user-button')).toBeInTheDocument()
 	})
 })

@@ -1,5 +1,5 @@
 'use client'
-import { SignInButton, SignOutButton, useAuth } from '@clerk/nextjs'
+import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
 import { Bot, ClipboardCheck, LogOut, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
@@ -58,6 +58,11 @@ export function HeaderNav() {
 					<span className="hidden sm:inline">Sign out</span>
 				</button>
 			</SignOutButton>
+			<div className="ml-1 flex size-9 items-center justify-center">
+				<UserButton
+					appearance={{ elements: { avatarBox: 'size-8' } }}
+				/>
+			</div>
 		</nav>
 	)
 }

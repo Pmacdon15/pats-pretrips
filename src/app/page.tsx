@@ -1,3 +1,4 @@
+import { PricingTable } from '@clerk/nextjs'
 import {
 	ClipboardList,
 	History,
@@ -115,6 +116,22 @@ export default function Home() {
 						</li>
 					))}
 				</ul>
+			</section>
+
+			<section
+				className="mx-auto w-full max-w-5xl scroll-mt-20 px-4 pt-20"
+				id="pricing"
+			>
+				<div className="mb-10 max-w-2xl">
+					<h2 className="font-bold text-3xl tracking-tight">
+						Pricing
+					</h2>
+					<p className="mt-3 text-lg text-muted-foreground">
+						Pre-trips are free. Upgrade to email each inspection as
+						a PDF to yourself, dispatch or your safety manager.
+					</p>
+				</div>
+				<PricingTable newSubscriptionRedirectUrl="/email" />
 			</section>
 
 			<section className="mx-auto w-full max-w-5xl px-4 pt-20">
