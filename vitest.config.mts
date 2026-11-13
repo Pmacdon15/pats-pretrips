@@ -47,6 +47,7 @@ export default defineConfig({
 					include: [
 						'tests/*.test.{ts,tsx}',
 						'tests/lib/**/*.test.{ts,tsx}',
+						'tests/email/**/*.test.{ts,tsx}',
 						'tests/actions/**/*.test.{ts,tsx}',
 						'tests/dal/**/*.test.{ts,tsx}',
 						'tests/db/**/*.test.{ts,tsx}',

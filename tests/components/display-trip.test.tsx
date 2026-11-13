@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({ save: vi.fn() }))
 vi.mock('@/lib/mutations/mutations', () => ({
 	useAddDefectOnRoute: () => ({ mutateAsync: mocks.save }),
 }))
+// The email form has its own tests; here it shows what it was given.
+vi.mock('@/components/email/email-trip', () => ({
+	EmailTrip: (p: { tripId: number }) => <p>Email trip {p.tripId}</p>,
+}))
 
 beforeEach(() => {
 	vi.useFakeTimers({
@@ -23,6 +27,7 @@ const show = async (value: Trip | undefined) => {
 		render(
 			<Suspense>
 				<DisplayTrip
+					emailAccessPromise={Promise.resolve({} as never)}
 					tripPromise={Promise.resolve(value)}
 					userPromise={Promise.resolve({
 						givenName: 'Pat',
@@ -49,6 +54,7 @@ describe('DisplayTrip', () => {
 			'Jan 2, 2026, 3:04 a.m.',
 		)
 		expect(screen.getByText('Pat')).toBeInTheDocument()
+		expect(screen.getByText('Email trip 1')).toBeInTheDocument()
 		expect(
 			screen.getByRole('link', { name: 'Back to trips' }),
 		).toBeInTheDocument()

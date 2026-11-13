@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	fetchPastTrips: vi.fn(),
 	fetchTrip: vi.fn(),
 	getApiKeysDAL: vi.fn(),
+	getEmailAccessDAL: vi.fn(),
 	getUser: vi.fn(),
 	isAuthenticated: vi.fn(),
 }))
@@ -19,6 +20,20 @@ vi.mock('@/lib/DAL/trips', () => ({
 }))
 vi.mock('@/lib/DAL/api-keys', () => ({
 	getApiKeysDAL: mocks.getApiKeysDAL,
+}))
+vi.mock('@/lib/DAL/email', () => ({
+	getEmailAccessDAL: mocks.getEmailAccessDAL,
+}))
+vi.mock('@/components/email/email-settings', () => ({
+	EmailSettingsForm: (p: {
+		accessPromise: Promise<unknown>
+		pricing: React.ReactNode
+	}) => (
+		<>
+			<Show label="access" value={p.accessPromise} />
+			{p.pricing}
+		</>
+	),
 }))
 vi.mock('@/components/connect/connect-ai', () => ({
 	ConnectAi: (p: { keysPromise: Promise<unknown> }) => (
@@ -45,6 +60,9 @@ vi.mock('@clerk/nextjs', () => ({
 	ClerkProvider: ({ children }: { children: React.ReactNode }) => (
 		<div data-testid="clerk">{children}</div>
 	),
+	PricingTable: (p: { newSubscriptionRedirectUrl: string }) => (
+		<p data-testid="pricing">{p.newSubscriptionRedirectUrl}</p>
+	),
 }))
 vi.mock('@/components/header/header', () => ({
 	default: () => <header>header</header>,
@@ -68,6 +86,7 @@ vi.mock('@/components/trips/display-trip/DisplayTrip', () => ({
 		<>
 			<Show label="trip" value={p.tripPromise} />
 			<Show label="user" value={p.userPromise} />
+			<Show label="email" value={p.emailAccessPromise} />
 		</>
 	),
 }))
@@ -78,6 +97,7 @@ vi.mock('@/components/home/home-page-buttons', () => ({
 }))
 
 import ConnectPage from '@/app/connect/page'
+import EmailPage from '@/app/email/page'
 import RootLayout, { metadata, viewport } from '@/app/layout'
 import Home from '@/app/page'
 import TripPage from '@/app/pretrip/[tripId]/page'
@@ -94,6 +114,7 @@ beforeEach(() => {
 	mocks.fetchTrip.mockResolvedValue({ tripid: 4 })
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
 	mocks.isAuthenticated.mockResolvedValue(true)
+	mocks.getEmailAccessDAL.mockResolvedValue({ allowed: true })
 })
 
 const renderAsync = async (ui: React.ReactNode) => {
@@ -139,6 +160,15 @@ describe('/pretrip/[tripId]', () => {
 		expect(mocks.fetchTrip).toHaveBeenCalledWith(4)
 		expect(screen.getByTestId('trip')).toHaveTextContent('"tripid":4')
 		expect(screen.getByTestId('user')).toHaveTextContent('pat@x.com')
+		expect(screen.getByTestId('email')).toHaveTextContent('"allowed":true')
+	})
+})
+
+describe('/email', () => {
+	it('loads the email settings, with the plans for drivers without them', async () => {
+		await renderAsync(<EmailPage />)
+		expect(screen.getByTestId('access')).toHaveTextContent('"allowed":true')
+		expect(screen.getByTestId('pricing')).toHaveTextContent('/email')
 	})
 })
 
