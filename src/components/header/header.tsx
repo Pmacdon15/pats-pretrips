@@ -1,4 +1,4 @@
-import { SignInButton, SignOutButton } from '@clerk/nextjs'
+import { SignInButton, SignOutButton, UserButton } from '@clerk/nextjs'
 import { Bot, ClipboardCheck, LogOut, Mail, Truck } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
@@ -80,6 +80,11 @@ async function HeaderNav() {
 					<span className="hidden sm:inline">Sign out</span>
 				</button>
 			</SignOutButton>
+			<div className="ml-1 flex size-9 items-center justify-center">
+				<UserButton
+					appearance={{ elements: { avatarBox: 'size-8' } }}
+				/>
+			</div>
 		</nav>
 	)
 }
