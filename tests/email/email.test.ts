@@ -268,6 +268,10 @@ describe('trip email', () => {
 		expect(content.filename).toBe('pretrip-1-2026-01-02.pdf')
 		expect(content.text).toContain('Pre-trip inspection by Pat Mac')
 		expect(content.text).toContain('Defects: Cab')
+		expect(content.text).toContain('Carrier address: 1 Main St')
+		expect(content.html).toContain(
+			'Carrier address</td><td style="padding:4px 0">1 Main St',
+		)
 		expect(content.text).toContain(
 			'Add an on-route defect: https://patspretrips.ca/pretrip/1#add-defect',
 		)
@@ -290,6 +294,9 @@ describe('trip email', () => {
 		expect(tripEmailContent(trip({ remarks: '' }), driver).text).toContain(
 			'Remarks: -',
 		)
+		expect(
+			tripEmailContent(trip({ carrieraddress: '' }), driver).text,
+		).toContain('Carrier address: -')
 	})
 
 	it('needs SES_FROM_EMAIL', async () => {
