@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSqlMock } from './sql-mock'
 
-const mocks = vi.hoisted(() => ({ neon: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+	neon: vi.fn(),
+	cacheTag: vi.fn(),
+	cacheLife: vi.fn(),
+}))
 vi.mock('@neondatabase/serverless', () => ({ neon: mocks.neon }))
+vi.mock('next/cache', () => ({
+	cacheTag: mocks.cacheTag,
+	cacheLife: mocks.cacheLife,
+}))
 
 import {
 	createTripDb,
@@ -147,12 +155,15 @@ describe('connector queries', () => {
 		const [query] = sql.queries()
 		expect(query.text).toContain(`date ${op} NOW() - INTERVAL '24 hours'`)
 		expect(query.values).toEqual(['pat@x.com', 3, 2])
+		expect(mocks.cacheTag).toHaveBeenCalledWith('trips:pat@x.com')
+		expect(mocks.cacheLife).toHaveBeenCalledWith('hours')
 	})
 
 	it("reads one of the driver's trips", async () => {
 		const { getTripDb } = await import('@/lib/db/trips')
 		await expect(getTripDb(4, 'pat@x.com')).resolves.toBeUndefined()
 		expect(sql.queries()[0].values).toEqual([4, 'pat@x.com'])
+		expect(mocks.cacheTag).toHaveBeenCalledWith('trips:pat@x.com')
 	})
 
 	it('updates only the fields passed, for trips in the last 24 hours', async () => {

@@ -57,9 +57,8 @@ describe('run', () => {
 			summary: 'ok',
 			data: {},
 		}))
-		expect(mocks.revalidateTag.mock.calls.map(([tag]) => tag)).toEqual([
-			'current-trips',
-			'past-trips',
+		expect(mocks.revalidateTag.mock.calls).toEqual([
+			['trips:pat@x.com', { expire: 0 }],
 		])
 		mocks.revalidateTag.mockClear()
 		const failed = await run(server(), signedIn, () => ({

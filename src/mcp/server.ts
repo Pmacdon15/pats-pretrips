@@ -1,6 +1,6 @@
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
-import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
+import { expireDriverTrips } from '@/lib/cache/revalidate'
 import { MCP_INSTRUCTIONS } from '@/mcp/instructions'
 import { portable } from '@/mcp/portable-schema'
 import {
@@ -77,16 +77,6 @@ function respond(result: ToolResult) {
 	}
 }
 
-/** The cache tags the web app's trip lists and trip pages read under. */
-function tagsFor(result: ToolResult) {
-	const trip = result.data.trip as { trip_id?: number } | undefined
-	return [
-		'current-trips',
-		'past-trips',
-		...(trip?.trip_id ? [`trip-${trip.trip_id}`] : []),
-	]
-}
-
 /**
  * Runs a tool for the verified caller; bad input becomes a readable tool
  * error. A tool that writes also clears the cached trip lists, so a trip an
@@ -113,7 +103,7 @@ export async function run(
 	try {
 		const result = await tool(caller)
 		if (!readOnly && !result.isError) {
-			for (const tag of tagsFor(result)) revalidateTag(tag, { expire: 0 })
+			expireDriverTrips(caller.email)
 		}
 		return respond(result)
 	} catch (error) {
