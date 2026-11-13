@@ -5,6 +5,8 @@ const isPublicRoute = createRouteMatcher([
 	'/privacy',
 	'/termsOfService',
 	'/manifest.webmanifest',
+	'/sign-in(.*)',
+	'/sign-up(.*)',
 	// The MCP server checks its own Clerk OAuth token or API key, and answers
 	// 401 with a sign-in hint instead of a redirect, which MCP clients need.
 	'/api/mcp(.*)',
