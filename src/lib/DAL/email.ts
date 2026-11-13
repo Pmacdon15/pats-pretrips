@@ -1,0 +1,157 @@
+import { errAsync, okAsync } from 'neverthrow'
+import {
+	canEmailPretrips,
+	type Driver,
+	driverName,
+	getDriver,
+} from '@/lib/auth'
+import {
+	type EmailSettings,
+	getEmailSettingsDb,
+	saveEmailSettingsDb,
+} from '@/lib/db/email-settings'
+import { getTripDb } from '@/lib/db/trips'
+import { fromAddress } from '@/lib/email/config'
+import {
+	emailSettingsSchema,
+	emailTripSchema,
+	recipientsSchema,
+} from '@/lib/email/recipients'
+import { sendTripEmail } from '@/lib/email/trip-email'
+import type { Trip } from '@/lib/types/types'
+
+/*
+ * Emailing pre-trips, for drivers whose Clerk plan has the email_pretrips
+ * feature. Everything here is for the signed-in driver only.
+ */
+
+const issues = (error: { issues: { message: string }[] }) =>
+	error.issues.map((issue) => issue.message).join(', ')
+
+const LOCKED = {
+	reason: 'Emailing pre-trips is part of a paid plan. Upgrade to turn it on.',
+} as const
+
+export type EmailAccess = {
+	/** The driver's plan includes emailing pre-trips. */
+	allowed: boolean
+	settings: EmailSettings
+}
+
+/** Whether the driver can email pre-trips, and their saved settings. */
+export async function getEmailAccessDAL(): Promise<EmailAccess> {
+	const driver = await getDriver()
+	if (!driver) throw new Error('Must be logged in')
+	const [allowed, settings] = await Promise.all([
+		canEmailPretrips(),
+		getEmailSettingsDb(driver.email),
+	])
+	return { allowed, settings }
+}
+
+export async function saveEmailSettingsDAL(data: {
+	recipients: string
+	autoSend: boolean
+	timeZone?: string
+}) {
+	const driver = await getDriver()
+	if (!driver) return errAsync({ reason: 'Must be logged in' } as const)
+	if (!(await canEmailPretrips())) return errAsync(LOCKED)
+
+	const parsed = emailSettingsSchema.safeParse(data)
+	if (!parsed.success) return errAsync({ reason: issues(parsed.error) })
+
+	// Auto-send needs someone to send to; with it off, the list may be empty.
+	const list = parsed.data.recipients.trim()
+		? recipientsSchema.safeParse(parsed.data.recipients)
+		: null
+	if (list && !list.success) return errAsync({ reason: issues(list.error) })
+	const recipients = list?.data ?? []
+	if (parsed.data.autoSend && recipients.length === 0) {
+		return errAsync({
+			reason: 'Add an email address to send new pre-trips to',
+		} as const)
+	}
+
+	try {
+		const settings = await saveEmailSettingsDb(driver.email, {
+			recipients,
+			autoSend: parsed.data.autoSend,
+			timeZone: parsed.data.timeZone ?? null,
+		})
+		return okAsync(settings)
+	} catch (e) {
+		console.error('Db error saving email settings: ', e)
+		return errAsync({
+			reason: 'Could not save your email settings. Please try again.',
+		} as const)
+	}
+}
+
+const pdfDriver = (driver: Driver) => ({
+	name: driverName(driver),
+	email: driver.email,
+})
+
+/** Emails one of the driver's pre-trips, of any age, now. */
+export async function emailTripDAL(data: {
+	tripId: number
+	recipients: string
+	timeZone?: string
+}) {
+	const driver = await getDriver()
+	if (!driver) return errAsync({ reason: 'Must be logged in' } as const)
+	if (!(await canEmailPretrips())) return errAsync(LOCKED)
+
+	const parsed = emailTripSchema.safeParse(data)
+	if (!parsed.success) return errAsync({ reason: issues(parsed.error) })
+	if (!fromAddress()) {
+		return errAsync({
+			reason: 'Email isn’t set up on the server yet.',
+		} as const)
+	}
+
+	try {
+		const trip = await getTripDb(parsed.data.tripId, driver.email)
+		if (!trip) return errAsync({ reason: 'Trip not found' } as const)
+		await sendTripEmail(
+			trip,
+			pdfDriver(driver),
+			parsed.data.recipients,
+			parsed.data.timeZone,
+		)
+		return okAsync({ sentTo: parsed.data.recipients })
+	} catch (e) {
+		console.error('Error emailing trip: ', e)
+		return errAsync({
+			reason: 'Could not send the email. Please try again.',
+		} as const)
+	}
+}
+
+/**
+ * What to do once a new pre-trip is saved: a function that emails it to the
+ * driver's recipients, or null when auto-send is off or not in their plan.
+ * Everything that reads the request runs now, so the sending itself can
+ * happen after the response.
+ */
+export async function prepareAutoEmailDAL() {
+	const driver = await getDriver()
+	if (!driver || !fromAddress()) return null
+	if (!(await canEmailPretrips())) return null
+	const settings = await getEmailSettingsDb(driver.email)
+	if (!settings.autoSend || settings.recipients.length === 0) return null
+
+	return async (trip: Trip) => {
+		try {
+			await sendTripEmail(
+				trip,
+				pdfDriver(driver),
+				settings.recipients,
+				settings.timeZone ?? undefined,
+			)
+		} catch (e) {
+			console.error('Error auto-emailing trip: ', e)
+		}
+	}
+}

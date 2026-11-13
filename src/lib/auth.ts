@@ -1,4 +1,5 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
+import { EMAIL_FEATURE } from '@/lib/email/config'
 
 /*
  * The signed-in driver, from Clerk. Trips belong to the driver's email, so
@@ -25,4 +26,18 @@ export async function getDriverEmail() {
 export async function isSignedIn() {
 	const { userId } = await auth()
 	return Boolean(userId)
+}
+
+/** The driver's full name, or their email when Clerk has no name. */
+export function driverName(driver: Driver) {
+	return (
+		[driver.givenName, driver.familyName].filter(Boolean).join(' ') ||
+		driver.email
+	)
+}
+
+/** Whether the driver's Clerk plan includes emailing pre-trips. */
+export async function canEmailPretrips() {
+	const { has, userId } = await auth()
+	return Boolean(userId) && has({ feature: EMAIL_FEATURE })
 }

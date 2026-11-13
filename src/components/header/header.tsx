@@ -1,5 +1,5 @@
 import { SignInButton, SignOutButton } from '@clerk/nextjs'
-import { Bot, ClipboardCheck, LogOut, Truck } from 'lucide-react'
+import { Bot, ClipboardCheck, LogOut, Mail, Truck } from 'lucide-react'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { buttonVariants } from '@/components/ui/button'
@@ -53,6 +53,14 @@ async function HeaderNav() {
 			>
 				<ClipboardCheck />
 				My Trips
+			</Link>
+			<Link
+				aria-label="Email pre-trips"
+				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				href="/email"
+			>
+				<Mail />
+				<span className="hidden sm:inline">Email</span>
 			</Link>
 			<Link
 				aria-label="Connect your AI"

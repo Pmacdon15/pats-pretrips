@@ -1,7 +1,8 @@
 'use client'
 import { Lock } from 'lucide-react'
-import { use, useOptimistic } from 'react'
+import { Suspense, use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
+import { EmailTrip } from '@/components/email/email-trip'
 import {
 	Card,
 	CardContent,
@@ -10,6 +11,7 @@ import {
 	CardTitle,
 } from '@/components/ui/card'
 import type { Driver } from '@/lib/auth'
+import type { EmailAccess } from '@/lib/DAL/email'
 import type { Trip } from '@/lib/types/types'
 import { BackLink } from '../../links/back-home-button'
 import { TripDate } from '../trip-date'
@@ -21,9 +23,11 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export default function DisplayTrip({
 	tripPromise,
 	userPromise,
+	emailAccessPromise,
 }: {
 	tripPromise: Promise<Trip | undefined>
 	userPromise: Promise<Driver | null>
+	emailAccessPromise: Promise<EmailAccess>
 }) {
 	const trip = use(tripPromise)
 	const [optimisticTrip, updateOptimisticTrip] = useOptimistic(trip)
@@ -81,8 +85,30 @@ export default function DisplayTrip({
 				</CardContent>
 			</Card>
 
+			<Card>
+				<CardHeader>
+					<CardTitle>Email this pre-trip</CardTitle>
+					<CardDescription>
+						Sends the inspection as a PDF, with links back here to
+						edit it or add an on-route defect.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<Suspense
+						fallback={
+							<div className="h-9 animate-pulse rounded-md bg-muted" />
+						}
+					>
+						<EmailTrip
+							accessPromise={emailAccessPromise}
+							tripId={Number(optimisticTrip.tripid)}
+						/>
+					</Suspense>
+				</CardContent>
+			</Card>
+
 			{isEditable ? (
-				<Card>
+				<Card id="add-defect">
 					<CardHeader>
 						<CardTitle>Add on-route defects</CardTitle>
 						<CardDescription>

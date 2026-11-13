@@ -150,6 +150,9 @@ describe('Header', () => {
 		expect(
 			screen.getByRole('link', { name: 'Connect your AI' }),
 		).toHaveAttribute('href', '/connect')
+		expect(
+			screen.getByRole('link', { name: 'Email pre-trips' }),
+		).toHaveAttribute('href', '/email')
 		const signOut = screen.getByRole('button', { name: 'Sign out' })
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')

@@ -1,9 +1,11 @@
 'use server'
 
 import { updateTag } from 'next/cache'
+import { after } from 'next/server'
 import type { z } from 'zod'
 import { getDriverEmail } from '@/lib/auth'
 import type { GeocodingResponse } from '@/lib/types/types'
+import { prepareAutoEmailDAL } from '../DAL/email'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
 import type { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
@@ -28,6 +30,17 @@ export async function addOnRouteDefects(
 
 export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 	const result = await addTripDAL(data)
+
+	if (result.isOk()) {
+		// A completed pre-trip goes to the driver's recipients when they've
+		// turned that on. It's sent after the response, so saving stays fast.
+		const trip = result.value
+		const send = await prepareAutoEmailDAL().catch((e) => {
+			console.error('Could not check auto-email: ', e)
+			return null
+		})
+		if (send) after(() => send(trip))
+	}
 
 	return result.match(
 		(data) => {

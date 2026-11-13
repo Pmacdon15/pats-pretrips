@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
 	updateTag: vi.fn(),
 	addTripDAL: vi.fn(),
 	addOnRouteDefectsDAL: vi.fn(),
+	prepareAutoEmailDAL: vi.fn(),
+	after: vi.fn(),
 }))
 
 // Stands in for Clerk's current user: `getUser` gives the user or null.
@@ -14,6 +16,10 @@ vi.mock('@/lib/auth', () => ({
 		((await mocks.getUser()) as { email?: string } | null)?.email ?? null,
 }))
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
+vi.mock('next/server', () => ({ after: mocks.after }))
+vi.mock('@/lib/DAL/email', () => ({
+	prepareAutoEmailDAL: mocks.prepareAutoEmailDAL,
+}))
 vi.mock('@/lib/DAL/inserts', () => ({
 	addTripDAL: mocks.addTripDAL,
 	addOnRouteDefectsDAL: mocks.addOnRouteDefectsDAL,
@@ -25,6 +31,7 @@ const fetchMock = vi.fn()
 
 beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
+	mocks.prepareAutoEmailDAL.mockResolvedValue(null)
 	vi.stubGlobal('fetch', fetchMock)
 	vi.stubEnv('REVERSE_GEOCODING_API_KEY', 'key123')
 	for (const level of ['log', 'warn', 'error'] as const) {
@@ -82,11 +89,32 @@ describe('addTrip', () => {
 		expect(mocks.updateTag).toHaveBeenCalledWith('past-trips')
 	})
 
+	it('emails the new pre-trip after the response when auto-send is on', async () => {
+		const send = vi.fn()
+		mocks.prepareAutoEmailDAL.mockResolvedValue(send)
+		mocks.addTripDAL.mockResolvedValue(okAsync({ tripid: 1 }))
+
+		await addTrip(form)
+		expect(send).not.toHaveBeenCalled()
+		mocks.after.mock.calls[0][0]()
+		expect(send).toHaveBeenCalledWith({ tripid: 1 })
+	})
+
+	it("doesn't email when auto-send is off or can't be checked", async () => {
+		mocks.addTripDAL.mockResolvedValue(okAsync({ tripid: 1 }))
+		await addTrip(form)
+		mocks.prepareAutoEmailDAL.mockRejectedValue(new Error('db down'))
+		await expect(addTrip(form)).resolves.toEqual({ value: { tripid: 1 } })
+		expect(mocks.after).not.toHaveBeenCalled()
+		expect(console.error).toHaveBeenCalled()
+	})
+
 	it('returns the error reason', async () => {
 		mocks.addTripDAL.mockResolvedValue(errAsync({ reason: 'Db error' }))
 		await expect(addTrip(form)).resolves.toEqual({
 			errorMessage: 'Db error',
 		})
+		expect(mocks.prepareAutoEmailDAL).not.toHaveBeenCalled()
 	})
 
 	it('falls back to a generic message', async () => {

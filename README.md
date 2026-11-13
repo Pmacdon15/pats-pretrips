@@ -11,6 +11,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 - **Defect Tracking**: Document and track vehicle defects
 - **Responsive Design**: Works on desktop and mobile devices
 - **Installable PWA**: Add to your home screen for a full-screen, app-like experience with an offline fallback page
+- **Email pre-trips (paid)**: send each pre-trip as a PDF to dispatch or yourself when it's completed, or from any trip at any time, through Amazon SES. Locked behind the Clerk Billing feature `email_pretrips`. See [docs/email.md](docs/email.md).
 - **AI connector**: an [MCP](https://modelcontextprotocol.io) server at `https://patspretrips.ca/api/mcp` that Claude, Muse, Gemini or any MCP-capable assistant can connect to. Send it a photo of the odometer and the licence plate, tell it the make and model, and it starts your pre-trip once you confirm it; it can also update a trip from the last 24 hours. See [docs/mcp-ai-guide.md](docs/mcp-ai-guide.md) for setup (Kinde sign-in, API keys, the database migration) and the rules the assistant follows.
  
 ## Technology Stack
