@@ -1,9 +1,9 @@
 'use server'
 
-import { updateTag } from 'next/cache'
 import { after } from 'next/server'
 import type { z } from 'zod'
 import { getDriverEmail } from '@/lib/auth'
+import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import type { GeocodingResponse } from '@/lib/types/types'
 import { prepareAutoEmailDAL } from '../DAL/email'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
@@ -15,9 +15,7 @@ export async function addOnRouteDefects(
 	const result = await addOnRouteDefectsDAL(data)
 	return result.match(
 		(data) => {
-			//TODO: add id to trip tag
-			updateTag(`current-trips`)
-			updateTag(`trip-${data.tripid}`)
+			revalidateDriverTrips(data.driveremail)
 			return { value: data }
 		},
 
@@ -44,8 +42,7 @@ export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 
 	return result.match(
 		(data) => {
-			updateTag(`current-trips`)
-			updateTag(`past-trips`)
+			revalidateDriverTrips(data.driveremail)
 			return { value: data }
 		},
 

@@ -1,5 +1,7 @@
 import { neon } from '@neondatabase/serverless'
+import { cacheLife, cacheTag } from 'next/cache'
 import type z from 'zod'
+import { CACHE_TAGS } from '../cache/tags'
 import type { Trip } from '../types/types'
 import type { schemaAddTripForm } from '../ZOD/schemas'
 
@@ -128,7 +130,8 @@ export function normalizePlate(plate: string) {
 
 /**
  * One page of the driver's trips: `current` ones (the last 24 hours, which
- * can still be changed) or `past` ones, newest first.
+ * can still be changed) or `past` ones, newest first. Cached per driver until
+ * one of their trips changes (see src/lib/cache/revalidate.ts).
  */
 export async function listTripsDb(
 	driverEmail: string,
@@ -136,6 +139,10 @@ export async function listTripsDb(
 	page: number,
 	limit: number,
 ): Promise<{ trips: Trip[]; hasMore: boolean }> {
+	'use cache'
+	cacheTag(CACHE_TAGS.driverTrips(driverEmail))
+	cacheLife('hours')
+
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const offset = (page - 1) * limit
 	// One extra row says whether there's another page.
@@ -161,11 +168,18 @@ export async function listTripsDb(
 	}
 }
 
-/** One of the driver's trips, or undefined when it isn't theirs or doesn't exist. */
+/**
+ * One of the driver's trips, or undefined when it isn't theirs or doesn't
+ * exist. Cached per driver until one of their trips changes.
+ */
 export async function getTripDb(
 	tripId: number,
 	driverEmail: string,
 ): Promise<Trip | undefined> {
+	'use cache'
+	cacheTag(CACHE_TAGS.driverTrips(driverEmail))
+	cacheLife('hours')
+
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const [result] = await sql`
         SELECT * FROM PTTrips

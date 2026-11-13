@@ -53,13 +53,14 @@ const form = {
 
 describe('addOnRouteDefects', () => {
 	it('returns the trip and refreshes its cache tags', async () => {
-		mocks.addOnRouteDefectsDAL.mockResolvedValue(okAsync({ tripid: 3 }))
+		mocks.addOnRouteDefectsDAL.mockResolvedValue(
+			okAsync({ tripid: 3, driveremail: 'pat@x.com' }),
+		)
 
 		await expect(addOnRouteDefects(defects)).resolves.toEqual({
-			value: { tripid: 3 },
+			value: { tripid: 3, driveremail: 'pat@x.com' },
 		})
-		expect(mocks.updateTag).toHaveBeenCalledWith('current-trips')
-		expect(mocks.updateTag).toHaveBeenCalledWith('trip-3')
+		expect(mocks.updateTag.mock.calls).toEqual([['trips:pat@x.com']])
 	})
 
 	it('returns the error reason', async () => {
@@ -81,30 +82,39 @@ describe('addOnRouteDefects', () => {
 })
 
 describe('addTrip', () => {
-	it('returns the trip and refreshes the trip lists', async () => {
-		mocks.addTripDAL.mockResolvedValue(okAsync({ tripid: 1 }))
+	it("returns the trip and refreshes the driver's trips", async () => {
+		const saved = { tripid: 1, driveremail: 'Pat@X.com' }
+		mocks.addTripDAL.mockResolvedValue(okAsync(saved))
 
-		await expect(addTrip(form)).resolves.toEqual({ value: { tripid: 1 } })
-		expect(mocks.updateTag).toHaveBeenCalledWith('current-trips')
-		expect(mocks.updateTag).toHaveBeenCalledWith('past-trips')
+		await expect(addTrip(form)).resolves.toEqual({ value: saved })
+		expect(mocks.updateTag.mock.calls).toEqual([['trips:pat@x.com']])
 	})
 
 	it('emails the new pre-trip after the response when auto-send is on', async () => {
 		const send = vi.fn()
 		mocks.prepareAutoEmailDAL.mockResolvedValue(send)
-		mocks.addTripDAL.mockResolvedValue(okAsync({ tripid: 1 }))
+		mocks.addTripDAL.mockResolvedValue(
+			okAsync({ tripid: 1, driveremail: 'pat@x.com' }),
+		)
 
 		await addTrip(form)
 		expect(send).not.toHaveBeenCalled()
 		mocks.after.mock.calls[0][0]()
-		expect(send).toHaveBeenCalledWith({ tripid: 1 })
+		expect(send).toHaveBeenCalledWith({
+			tripid: 1,
+			driveremail: 'pat@x.com',
+		})
 	})
 
 	it("doesn't email when auto-send is off or can't be checked", async () => {
-		mocks.addTripDAL.mockResolvedValue(okAsync({ tripid: 1 }))
+		mocks.addTripDAL.mockResolvedValue(
+			okAsync({ tripid: 1, driveremail: 'pat@x.com' }),
+		)
 		await addTrip(form)
 		mocks.prepareAutoEmailDAL.mockRejectedValue(new Error('db down'))
-		await expect(addTrip(form)).resolves.toEqual({ value: { tripid: 1 } })
+		await expect(addTrip(form)).resolves.toEqual({
+			value: { tripid: 1, driveremail: 'pat@x.com' },
+		})
 		expect(mocks.after).not.toHaveBeenCalled()
 		expect(console.error).toHaveBeenCalled()
 	})

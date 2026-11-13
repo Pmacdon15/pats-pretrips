@@ -308,12 +308,9 @@ describe('tools over HTTP', () => {
 			}),
 			'pat@x.com',
 		)
-		expect(mocks.revalidateTag).toHaveBeenCalledWith('current-trips', {
-			expire: 0,
-		})
-		expect(mocks.revalidateTag).toHaveBeenCalledWith('trip-9', {
-			expire: 0,
-		})
+		expect(mocks.revalidateTag.mock.calls).toEqual([
+			['trips:pat@x.com', { expire: 0 }],
+		])
 	})
 
 	it('reads without clearing caches', async () => {
