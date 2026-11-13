@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { use } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@clerk/nextjs', () => ({
@@ -18,6 +19,7 @@ vi.mock('next/image', () => ({
 
 import SignInPage from '@/app/sign-in/[[...sign-in]]/page'
 import SignUpPage from '@/app/sign-up/[[...sign-up]]/page'
+import AuthShell from '@/components/auth/auth-shell'
 import { authPageAppearance } from '@/lib/clerk-appearance'
 
 const propsOf = (testId: string) =>
@@ -61,5 +63,21 @@ describe('/sign-up', () => {
 			routing: 'path',
 			signInUrl: '/sign-in',
 		})
+	})
+})
+
+describe('AuthShell', () => {
+	it("shows a loading card while Clerk's form is on its way", () => {
+		const Pending = () => use(new Promise<never>(() => {}))
+		render(
+			<AuthShell subtitle="sub" title="title">
+				<Pending />
+			</AuthShell>,
+		)
+		expect(screen.getByText('Loading…')).toBeInTheDocument()
+		expect(screen.getByText('Loading…').parentElement).toHaveAttribute(
+			'aria-busy',
+			'true',
+		)
 	})
 })
