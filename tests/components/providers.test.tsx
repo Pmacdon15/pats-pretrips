@@ -3,8 +3,8 @@ import { act, render, screen } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-const auth = vi.hoisted(() => ({ isSignedIn: vi.fn() }))
-vi.mock('@/lib/auth', () => auth)
+// Clerk's client session, as the header nav reads it.
+const clerk = vi.hoisted(() => ({ useAuth: vi.fn() }))
 vi.mock('@clerk/nextjs', () => {
 	// Clerk's buttons wrap the child button; the stand-in records where
 	// they'd send the driver.
@@ -30,6 +30,7 @@ vi.mock('@clerk/nextjs', () => {
 		SignInButton: wrap('sign-in'),
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
+		useAuth: clerk.useAuth,
 	}
 })
 
@@ -126,8 +127,18 @@ describe('Header', () => {
 		})
 	}
 
+	it('holds the nav space while the session loads', async () => {
+		clerk.useAuth.mockReturnValue({
+			isLoaded: false,
+			isSignedIn: undefined,
+		})
+		await renderHeader()
+		expect(screen.queryByRole('button')).toBeNull()
+		expect(screen.queryByRole('navigation')).toBeNull()
+	})
+
 	it('links home and offers sign in when signed out', async () => {
-		auth.isSignedIn.mockResolvedValue(false)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
 		await renderHeader()
 		expect(
 			screen.getByRole('link', { name: "Pat's PreTrips" }),
@@ -141,7 +152,7 @@ describe('Header', () => {
 	})
 
 	it('shows trips, Connect AI and sign out when signed in', async () => {
-		auth.isSignedIn.mockResolvedValue(true)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
 			'href',
