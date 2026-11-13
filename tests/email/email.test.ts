@@ -28,7 +28,11 @@ import {
 	splitRecipients,
 } from '@/lib/email/recipients'
 import { sendRawEmail, sesClient } from '@/lib/email/ses'
-import { sendTripEmail, tripEmailContent } from '@/lib/email/trip-email'
+import {
+	SIGNATURE_CID,
+	sendTripEmail,
+	tripEmailContent,
+} from '@/lib/email/trip-email'
 
 const driver = { name: 'Pat Mac', email: 'pat@x.com' }
 
@@ -147,6 +151,44 @@ describe('mime', () => {
 		})
 		expect(raw).not.toContain('Reply-To')
 		expect(raw).toMatch(/boundary="mixed_[0-9a-f]{24}"/)
+		expect(raw).not.toContain('multipart/related')
+	})
+
+	it('puts inline images next to the HTML in a multipart/related', () => {
+		const raw = buildMimeMessage(
+			{
+				from: 't@x.com',
+				to: ['a@x.com'],
+				subject: 'Hi',
+				text: 't',
+				html: '<img src="cid:sig@x">',
+				attachment: {
+					filename: 'a.pdf',
+					contentType: 'application/pdf',
+					content: new Uint8Array([1]),
+				},
+				inline: [
+					{
+						cid: '<sig@x>',
+						filename: 's"ig.png',
+						contentType: 'image/png',
+						content: new Uint8Array([9, 9]),
+					},
+				],
+			},
+			'b1',
+		)
+		const related = raw.indexOf('multipart/related; boundary="related_b1"')
+		const alt = raw.indexOf('multipart/alternative')
+		const image = raw.indexOf('Content-ID: <sig@x>\r\n')
+		const pdf = raw.indexOf('filename="a.pdf"')
+		expect(related).toBeGreaterThan(-1)
+		expect(alt).toBeGreaterThan(related)
+		expect(image).toBeGreaterThan(alt)
+		expect(raw.indexOf('--related_b1--')).toBeGreaterThan(image)
+		expect(pdf).toBeGreaterThan(raw.indexOf('--related_b1--'))
+		expect(raw).toContain('Content-Disposition: inline; filename="sig.png"')
+		expect(raw).toContain(Buffer.from([9, 9]).toString('base64'))
 	})
 })
 
@@ -373,6 +415,21 @@ describe('trip email', () => {
 		expect(content.text).toContain('Not signed')
 	})
 
+	it('shows the signature inline only on a signed trip', () => {
+		const signed = trip({ signed_at: new Date('2026-01-02T03:05:00Z') })
+		expect(
+			tripEmailContent(signed, driver, 'UTC', [], true).html,
+		).toContain(
+			`<img src="cid:${SIGNATURE_CID}" alt="Signature of Pat Mac"`,
+		)
+		expect(tripEmailContent(signed, driver, 'UTC').html).not.toContain(
+			'cid:',
+		)
+		expect(
+			tripEmailContent(trip(), driver, 'UTC', [], true).html,
+		).not.toContain('cid:')
+	})
+
 	it('says when and by whom the trip was signed', () => {
 		const content = tripEmailContent(
 			trip({ signed_at: new Date('2026-01-02T03:05:00Z') }),
@@ -461,7 +518,7 @@ describe('trip email', () => {
 		expect(raw).toContain('filename="pretrip-1-2026-01-02.pdf"')
 	})
 
-	it("puts the driver's signature in the PDF", async () => {
+	it("puts the driver's signature in the PDF and the email", async () => {
 		vi.stubEnv('SES_FROM_EMAIL', 'PreTrips <t@x.com>')
 		await sendTripEmail(
 			trip({ signed_at: new Date() }),
@@ -471,6 +528,37 @@ describe('trip email', () => {
 			[],
 			Buffer.from('not a png'),
 		)
-		expect(mocks.send).toHaveBeenCalled()
+		const command = mocks.send.mock.lastCall?.[0] as {
+			input: { Content: { Raw: { Data: Buffer } } }
+		}
+		const raw = command.input.Content.Raw.Data.toString()
+		expect(raw).toContain(`Content-ID: <${SIGNATURE_CID}>`)
+		expect(raw).toContain(Buffer.from('not a png').toString('base64'))
+		const html = tripEmailContent(
+			trip({ signed_at: new Date() }),
+			driver,
+			'UTC',
+			[],
+			true,
+		).html
+		expect(raw).toContain(base64Lines(html))
+	})
+
+	it('leaves the signature out of an unsigned trip', async () => {
+		vi.stubEnv('SES_FROM_EMAIL', 'PreTrips <t@x.com>')
+		await sendTripEmail(
+			trip(),
+			driver,
+			['a@x.com'],
+			'UTC',
+			[],
+			Buffer.from('stale'),
+		)
+		const command = mocks.send.mock.lastCall?.[0] as {
+			input: { Content: { Raw: { Data: Buffer } } }
+		}
+		const raw = command.input.Content.Raw.Data.toString()
+		expect(raw).not.toContain('Content-ID')
+		expect(raw).not.toContain('multipart/related')
 	})
 })
