@@ -10,8 +10,10 @@ import {
 	getEmailSettingsDb,
 	saveEmailSettingsDb,
 } from '@/lib/db/email-settings'
+import { getRepairFileDb, listTripRepairsDb } from '@/lib/db/repairs'
 import { getTripDb } from '@/lib/db/trips'
 import { fromAddress } from '@/lib/email/config'
+import type { PdfRepair } from '@/lib/email/pdf'
 import {
 	emailSettingsSchema,
 	emailTripSchema,
@@ -93,6 +95,25 @@ const pdfDriver = (driver: Driver) => ({
 	email: driver.email,
 })
 
+/** The trip's repairs, each with its signature, for the email and PDF. */
+async function tripRepairs(
+	tripId: number,
+	driverEmail: string,
+): Promise<PdfRepair[]> {
+	const repairs = await listTripRepairsDb(tripId, driverEmail)
+	return Promise.all(
+		repairs.map(async (repair) => {
+			if (!repair.has_signature) return repair
+			const file = await getRepairFileDb(
+				repair.id,
+				driverEmail,
+				'signature',
+			)
+			return { ...repair, signature: file?.bytes ?? null }
+		}),
+	)
+}
+
 /** Emails one of the driver's pre-trips, of any age, now. */
 export async function emailTripDAL(data: {
 	tripId: number
@@ -114,11 +135,13 @@ export async function emailTripDAL(data: {
 	try {
 		const trip = await getTripDb(parsed.data.tripId, driver.email)
 		if (!trip) return errAsync({ reason: 'Trip not found' } as const)
+		const repairs = await tripRepairs(parsed.data.tripId, driver.email)
 		await sendTripEmail(
 			trip,
 			pdfDriver(driver),
 			parsed.data.recipients,
 			parsed.data.timeZone,
+			repairs,
 		)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
