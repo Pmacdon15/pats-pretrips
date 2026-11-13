@@ -96,7 +96,7 @@ export function SignaturePad({
 				role="img"
 			/>
 			<p className="text-muted-foreground text-xs">
-				The mechanic signs here to confirm the repair.
+				The mechanic or shop signs here to confirm the repair.
 			</p>
 		</div>
 	)

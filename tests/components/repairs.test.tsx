@@ -89,7 +89,9 @@ describe('DefectStatusList', () => {
 			screen.getByRole('link', { name: 'View invoice' }),
 		).toHaveAttribute('href', '/api/repairs/7/invoice')
 		expect(
-			screen.getByRole('img', { name: 'Signature of Sam Wrench' }),
+			screen.getByRole('img', {
+				name: 'Signature of Sam Wrench, Highway Truck',
+			}),
 		).toHaveAttribute('src', '/api/repairs/7/signature')
 		expect(
 			screen.getAllByRole('button', { name: /Mark repaired/ }),
@@ -118,8 +120,8 @@ describe('DefectStatusList', () => {
 		const form = screen.getByRole('form', { name: 'Repair Horn' })
 		expect(form).toBeInTheDocument()
 
-		await user.type(screen.getByLabelText('Repaired by'), 'Sam Wrench')
-		await user.type(screen.getByLabelText('Shop (optional)'), 'Shop')
+		await user.type(screen.getByLabelText('Mechanic'), 'Sam Wrench')
+		await user.type(screen.getByLabelText('Shop'), 'Shop')
 		await user.type(screen.getByLabelText('Invoice number'), 'INV-9')
 		await user.type(screen.getByLabelText('Notes (optional)'), 'New horn')
 		fireEvent.change(screen.getByLabelText('Repaired on'), {
@@ -162,12 +164,13 @@ describe('DefectStatusList', () => {
 
 		await user.click(submit)
 		expect(mocks.toast.error).toHaveBeenLastCalledWith(
-			'Add who repaired it',
+			'Add the mechanic or the shop that repaired it',
 		)
-		await user.type(screen.getByLabelText('Repaired by'), 'Sam')
+		// The shop alone is enough.
+		await user.type(screen.getByLabelText('Shop'), 'Highway Truck')
 		await user.click(submit)
 		expect(mocks.toast.error).toHaveBeenLastCalledWith(
-			'The mechanic needs to sign in the box',
+			'Sign in the box to confirm the repair',
 		)
 		expect(mocks.markDefectRepaired).not.toHaveBeenCalled()
 
@@ -272,6 +275,7 @@ describe('DefectStatusList', () => {
 					repair({
 						id: 8,
 						defect: 'Horn',
+						mechanic_name: null,
 						has_signature: false,
 					}),
 				]}
@@ -284,6 +288,8 @@ describe('DefectStatusList', () => {
 			screen.getByText('No signature (recorded by AI: Claude)'),
 		).toBeInTheDocument()
 		expect(screen.getByText('No signature')).toBeInTheDocument()
+		// Only the shop is known.
+		expect(screen.getByText('Highway Truck')).toBeInTheDocument()
 	})
 })
 

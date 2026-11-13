@@ -290,7 +290,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Mark a defect repaired',
 			description:
-				"Records that a defect on one of the driver's trips was fixed, e.g. by a mechanic: who repaired it, the invoice number, the repair date and notes, plus the invoice (PDF or photo, base64, compressed before saving, up to about 3 MB) and an image of the mechanic's signature. Works on trips of any age. The trip keeps its defects; this adds the repair beside them. Confirm the details with the driver first.",
+				"Records that a defect on one of the driver's trips was fixed, e.g. by a mechanic: who repaired it (the mechanic, the shop, or both: at least one), the invoice number, the repair date and notes, plus the invoice (PDF or photo, base64, compressed before saving, up to about 3 MB) and an image of the mechanic's signature. Works on trips of any age. The trip keeps its defects; this adds the repair beside them. Confirm the details with the driver first.",
 			inputSchema: portable(markDefectRepairedInputSchema),
 			annotations: {
 				readOnlyHint: false,

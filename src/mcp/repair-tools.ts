@@ -10,7 +10,11 @@ import { appUrl } from '@/lib/email/config'
 import { FileError, fromBase64 } from '@/lib/repairs/compress'
 import { repairFilePath } from '@/lib/repairs/paths'
 import { recordRepair, undoRepair } from '@/lib/repairs/repairs'
-import { buildDefectRecord, defectStatuses } from '@/lib/repairs/status'
+import {
+	buildDefectRecord,
+	defectStatuses,
+	repairedBy,
+} from '@/lib/repairs/status'
 import type { Trip } from '@/lib/types/types'
 import type { McpCaller, ToolResult } from './tools'
 
@@ -146,10 +150,19 @@ export const markDefectRepairedInputSchema = z.object({
 	mechanic_name: z
 		.string()
 		.trim()
-		.min(2)
 		.max(120)
-		.describe('Who repaired it, as on the invoice or as the driver says'),
-	shop_name: z.string().trim().max(120).optional(),
+		.optional()
+		.describe(
+			'The mechanic who repaired it, if known. Pass this, shop_name, or both.',
+		),
+	shop_name: z
+		.string()
+		.trim()
+		.max(120)
+		.optional()
+		.describe(
+			'The shop that repaired it, as on the invoice. Pass this, mechanic_name, or both.',
+		),
 	invoice_number: z
 		.string()
 		.trim()
@@ -237,7 +250,7 @@ export async function markDefectRepaired(
 		r.has_signature ? 'signed' : 'no signature',
 	].filter(Boolean)
 	return {
-		summary: `Marked ${r.defect} on trip ${r.trip_id} repaired on ${r.repaired_on} by ${r.mechanic_name}: ${saved.join(', ')}.`,
+		summary: `Marked ${r.defect} on trip ${r.trip_id} repaired on ${r.repaired_on} by ${repairedBy(r)}: ${saved.join(', ')}.`,
 		data: { repair: repairView(r) },
 	}
 }

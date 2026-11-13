@@ -60,3 +60,14 @@ export function buildDefectRecord(
 	}
 	return { open, repaired: repairs }
 }
+
+/** Who repaired it: the mechanic, the shop, or both. */
+export function repairedBy(repair: {
+	mechanic_name: string | null
+	shop_name: string | null
+}) {
+	return (
+		[repair.mechanic_name, repair.shop_name].filter(Boolean).join(', ') ||
+		'Unknown'
+	)
+}

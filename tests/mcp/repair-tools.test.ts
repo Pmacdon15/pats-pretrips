@@ -139,7 +139,7 @@ describe('markDefectRepaired', () => {
 			signature_base64: 'data:image/png;base64,aGk=',
 		})
 		expect(result.summary).toBe(
-			'Marked Cab on trip 1 repaired on 2026-01-05 by Sam Wrench: invoice INV-1, invoice file saved (2 KB, compressed from 8 KB), signed.',
+			'Marked Cab on trip 1 repaired on 2026-01-05 by Sam Wrench, Highway Truck: invoice INV-1, invoice file saved (2 KB, compressed from 8 KB), signed.',
 		)
 		expect(mocks.recordRepair).toHaveBeenCalledWith(
 			'pat@x.com',
@@ -159,6 +159,7 @@ describe('markDefectRepaired', () => {
 		mocks.recordRepair.mockResolvedValue({
 			ok: true,
 			repair: repair({
+				mechanic_name: null,
 				invoice_number: null,
 				has_invoice: false,
 				has_signature: false,
@@ -166,11 +167,12 @@ describe('markDefectRepaired', () => {
 		})
 		const result = await markDefectRepaired(
 			{ ...caller, client: null },
-			{ trip_id: 1, defect: 'Cab', mechanic_name: 'Sam' },
+			{ trip_id: 1, defect: 'Cab', shop_name: 'Highway Truck' },
 		)
 		expect(result.summary).toBe(
-			'Marked Cab on trip 1 repaired on 2026-01-05 by Sam Wrench: no signature.',
+			'Marked Cab on trip 1 repaired on 2026-01-05 by Highway Truck: no signature.',
 		)
+		expect(result.data.repair).toMatchObject({ mechanic_name: null })
 		expect(mocks.recordRepair.mock.calls[0][2]).toEqual({
 			invoice: null,
 			signature: null,

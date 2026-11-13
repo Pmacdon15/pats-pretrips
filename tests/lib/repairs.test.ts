@@ -23,7 +23,11 @@ vi.mock('@/lib/repairs/compress', async (original) => ({
 
 import { FileError } from '@/lib/repairs/compress'
 import { recordRepair, today, undoRepair } from '@/lib/repairs/repairs'
-import { buildDefectRecord, defectStatuses } from '@/lib/repairs/status'
+import {
+	buildDefectRecord,
+	defectStatuses,
+	repairedBy,
+} from '@/lib/repairs/status'
 
 const details = {
 	tripId: 1,
@@ -84,6 +88,30 @@ describe('recordRepair', () => {
 		})
 	})
 
+	it('needs only the mechanic or the shop', async () => {
+		await recordRepair(
+			'pat@x.com',
+			{ ...details, mechanicName: undefined, shopName: 'Highway Truck' },
+			{},
+			'web',
+		)
+		expect(mocks.createRepairDb).toHaveBeenLastCalledWith(
+			'pat@x.com',
+			expect.objectContaining({
+				mechanicName: undefined,
+				shopName: 'Highway Truck',
+			}),
+		)
+		await recordRepair('pat@x.com', details, {}, 'web')
+		expect(mocks.createRepairDb).toHaveBeenLastCalledWith(
+			'pat@x.com',
+			expect.objectContaining({
+				mechanicName: 'Sam Wrench',
+				shopName: undefined,
+			}),
+		)
+	})
+
 	it('defaults the date to today and saves without files', async () => {
 		await recordRepair(
 			'pat@x.com',
@@ -105,12 +133,17 @@ describe('recordRepair', () => {
 	it('checks the details', async () => {
 		const bad = await recordRepair(
 			'pat@x.com',
-			{ ...details, mechanicName: 'x', repairedOn: '2027-01-01' },
+			{
+				...details,
+				mechanicName: ' ',
+				shopName: undefined,
+				repairedOn: '2027-01-01',
+			},
 			{},
 			'web',
 		)
 		expect(bad).toMatchObject({ ok: false, status: 'invalid' })
-		expect(bad.ok || bad.message).toMatch(/mechanic’s name/)
+		expect(bad.ok || bad.message).toMatch('Add the mechanic or the shop')
 		expect(bad.ok || bad.message).toMatch(/future/)
 		const notDate = await recordRepair(
 			'pat@x.com',
@@ -272,5 +305,22 @@ describe('buildDefectRecord', () => {
 			model: 'VNL',
 			defect: 'Cab',
 		})
+	})
+})
+
+describe('repairedBy', () => {
+	it('names the mechanic, the shop, or both', () => {
+		expect(repairedBy({ mechanic_name: 'Sam', shop_name: 'Shop' })).toBe(
+			'Sam, Shop',
+		)
+		expect(repairedBy({ mechanic_name: null, shop_name: 'Shop' })).toBe(
+			'Shop',
+		)
+		expect(repairedBy({ mechanic_name: 'Sam', shop_name: null })).toBe(
+			'Sam',
+		)
+		expect(repairedBy({ mechanic_name: null, shop_name: null })).toBe(
+			'Unknown',
+		)
 	})
 })

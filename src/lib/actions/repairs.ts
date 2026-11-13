@@ -26,7 +26,7 @@ export async function markDefectRepaired(
 
 	const signature = field(form, 'signature')
 	if (!signature?.startsWith('data:image/')) {
-		return { errorMessage: 'The mechanic needs to sign in the box.' }
+		return { errorMessage: 'Sign in the box to confirm the repair.' }
 	}
 	const file = form.get('invoice')
 	const invoice =
@@ -44,7 +44,7 @@ export async function markDefectRepaired(
 				tripId: Number(field(form, 'tripId')),
 				defect: field(form, 'defect') ?? '',
 				repairedOn: field(form, 'repairedOn') || undefined,
-				mechanicName: field(form, 'mechanicName') ?? '',
+				mechanicName: field(form, 'mechanicName'),
 				shopName: field(form, 'shopName'),
 				invoiceNumber: field(form, 'invoiceNumber'),
 				notes: field(form, 'notes'),
