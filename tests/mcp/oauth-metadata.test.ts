@@ -67,7 +67,7 @@ describe('protected resource metadata', () => {
 		expect(await res.json()).toEqual({
 			resource: 'https://patspretrips.ca/api/mcp',
 			authorization_servers: [ISSUER],
-			scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
+			scopes_supported: ['profile', 'email', 'offline_access'],
 			bearer_methods_supported: ['header'],
 			resource_name: "Pat's PreTrips",
 			resource_documentation: 'https://patspretrips.ca',

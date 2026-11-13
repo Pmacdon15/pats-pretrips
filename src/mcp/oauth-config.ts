@@ -8,13 +8,13 @@
  * who signed in (trips belong to the driver's email), plus `offline_access`
  * so the client gets a refresh token and stays linked. Google account linking
  * (Gemini) needs that refresh token; Claude and Muse use it too.
+ *
+ * Same list as Budget and Clock Out. Clients copy it into their dynamic client
+ * registration, and Clerk rejects a registration that asks for `openid`
+ * ("The provider rejected the automatic app registration" in Muse), so only
+ * these three built-in Clerk scopes are advertised.
  */
-export const MCP_SCOPES = [
-	'openid',
-	'profile',
-	'email',
-	'offline_access',
-] as const
+export const MCP_SCOPES = ['profile', 'email', 'offline_access'] as const
 
 /**
  * The Clerk Frontend API a publishable key belongs to, e.g.

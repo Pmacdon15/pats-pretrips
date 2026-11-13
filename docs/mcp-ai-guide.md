@@ -20,7 +20,7 @@ PreTrips signs in with Clerk, like Budget and Clock Out. Clerk registers AI apps
 - **Apps that ask for a Client ID (Muse, sometimes Gemini)**: in **OAuth applications**, add an application for that app, add its callback URL (Gemini's looks like `https://oauth-redirect.googleusercontent.com/r/...`), turn on PKCE (public client) or keep the secret for apps that ask for one, and give the app the Client ID with `https://patspretrips.ca/api/mcp` as the server URL.
 - **Optional:** set `MCP_TOKEN_AUDIENCE` to only accept tokens issued for that audience.
 
-The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `openid profile email offline_access`; `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
+The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `profile email offline_access` (not `openid`: Clerk rejects a dynamic client registration that asks for it, as Muse found); `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
 
 ### Production instance
 

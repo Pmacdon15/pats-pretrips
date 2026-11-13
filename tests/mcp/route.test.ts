@@ -37,7 +37,7 @@ import { messagesFromEventStream } from '@/mcp/http'
 const URL_ = 'https://patspretrips.ca/api/mcp'
 const METADATA_URL =
 	'https://patspretrips.ca/.well-known/oauth-protected-resource/api/mcp'
-const SCOPES = 'openid profile email offline_access'
+const SCOPES = 'profile email offline_access'
 const KEY = generateApiKey()
 
 beforeEach(() => {
