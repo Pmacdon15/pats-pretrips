@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({ isSignedIn: vi.fn() }))
 vi.mock('@/lib/auth', () => auth)
+const clerk = vi.hoisted(() => ({ useAuth: vi.fn() }))
 vi.mock('@clerk/nextjs', () => {
 	// Clerk's buttons wrap the child button; the stand-in records where
 	// they'd send the driver.
@@ -31,6 +32,7 @@ vi.mock('@clerk/nextjs', () => {
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
 		UserButton: () => <span data-testid="user-button" />,
+		useAuth: clerk.useAuth,
 	}
 })
 
@@ -128,7 +130,7 @@ describe('Header', () => {
 	}
 
 	it('links home and offers sign in when signed out', async () => {
-		auth.isSignedIn.mockResolvedValue(false)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
 		await renderHeader()
 		expect(
 			screen.getByRole('link', { name: "Pat's PreTrips" }),
@@ -142,7 +144,7 @@ describe('Header', () => {
 	})
 
 	it('shows trips, Connect AI, sign out and the user button when signed in', async () => {
-		auth.isSignedIn.mockResolvedValue(true)
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
 		await renderHeader()
 		expect(screen.getByRole('link', { name: 'My Trips' })).toHaveAttribute(
 			'href',
