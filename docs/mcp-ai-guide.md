@@ -57,6 +57,8 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 | `list_trips` | Your trips, 10 per page: `when` is `current` (last 24 hours) or `past` | No |
 | `get_trip` | One trip by `trip_id` | No |
 
+In AI apps that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps) (Claude, ChatGPT and others), `list_trips` and `get_trip` also show their result as a trips card in the chat: each trip's truck, plates, odometer, defects and remarks, with a link to open it in PreTrips. The card is the `ui://pats-pretrips/trips-card.html` resource (`src/mcp/trips-card.ts`); apps without MCP Apps just read the text answer.
+
 ## How it's built
 
 The same way as Budget and Clock Out: `src/app/api/mcp/route.ts` runs [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) (Streamable HTTP, stateless) behind `src/mcp/http.ts`, which handles CORS, case-insensitive `Bearer` tokens, the `401` sign-in challenge pointing to `/.well-known/oauth-protected-resource/api/mcp`, and plain JSON answers for clients that don't take event streams. Tool schemas are advertised in the JSON Schema subset Gemini accepts (`src/mcp/portable-schema.ts`). `src/mcp/auth.ts` checks Clerk OAuth access tokens with Clerk's Backend API, or looks up an API key's hash. Tools take the driver only from the verified token, never from their arguments.

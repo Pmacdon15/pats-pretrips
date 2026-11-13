@@ -19,6 +19,12 @@ import {
 	updateTrip,
 	updateTripInputSchema,
 } from '@/mcp/tools'
+import {
+	MCP_APP_MIME_TYPE,
+	TRIPS_CARD_HTML,
+	TRIPS_CARD_TOOL_META,
+	TRIPS_CARD_URI,
+} from '@/mcp/trips-card'
 
 /*
  * The PreTrips MCP server: its name, instructions and tools. Standard MCP
@@ -34,7 +40,10 @@ export const SERVER_OPTIONS = {
 	// The tool list never changes while a client is connected. Saying so keeps
 	// clients from holding a `subscriptions/listen` stream open on a
 	// serverless function until it times out.
-	capabilities: { tools: { listChanged: false } },
+	capabilities: {
+		tools: { listChanged: false },
+		resources: { listChanged: false },
+	},
 }
 
 /** The verified caller from the request's auth, or null when there isn't one. */
@@ -128,6 +137,28 @@ export async function run(
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false }
 
 export function registerPreTripTools(server: McpServer) {
+	// The card AI apps with MCP Apps show for list_trips and get_trip.
+	server.registerResource(
+		'trips_card',
+		TRIPS_CARD_URI,
+		{
+			title: 'Trips card',
+			description: "Shows the driver's trips as cards in the chat.",
+			mimeType: MCP_APP_MIME_TYPE,
+			_meta: { ui: { prefersBorder: true } },
+		},
+		(uri) => ({
+			contents: [
+				{
+					uri: uri.href,
+					mimeType: MCP_APP_MIME_TYPE,
+					text: TRIPS_CARD_HTML,
+					_meta: { ui: { prefersBorder: true } },
+				},
+			],
+		}),
+	)
+
 	server.registerTool(
 		'list_defect_categories',
 		{
@@ -209,6 +240,7 @@ export function registerPreTripTools(server: McpServer) {
 				'The driver\'s trips, newest first, 10 per page: "current" (the last 24 hours, which can still be updated) or "past". Use it to find a trip_id.',
 			inputSchema: portable(listTripsInputSchema),
 			annotations: READ_ONLY,
+			_meta: TRIPS_CARD_TOOL_META,
 		},
 		(args, ctx) =>
 			run(
@@ -229,6 +261,7 @@ export function registerPreTripTools(server: McpServer) {
 				"One of the driver's trips by trip_id, with its defects, remarks and whether it can still be updated.",
 			inputSchema: portable(getTripInputSchema),
 			annotations: READ_ONLY,
+			_meta: TRIPS_CARD_TOOL_META,
 		},
 		(args, ctx) =>
 			run(server, ctx.http?.authInfo, (caller) => getTrip(caller, args), {

@@ -239,6 +239,35 @@ describe('MCP endpoint auth', () => {
 	})
 })
 
+describe('trips card', () => {
+	it('links list_trips and get_trip to the card and serves it', async () => {
+		const tools = (await rpc(KEY, 'tools/list')).body.result
+			.tools as Array<{
+			name: string
+			_meta?: { ui?: { resourceUri?: string } }
+		}>
+		const uri = 'ui://pats-pretrips/trips-card.html'
+		for (const name of ['list_trips', 'get_trip']) {
+			expect(
+				tools.find((t) => t.name === name)?._meta?.ui?.resourceUri,
+			).toBe(uri)
+		}
+		const listed = await rpc(KEY, 'resources/list')
+		expect(listed.body.result.resources).toEqual([
+			expect.objectContaining({
+				uri,
+				mimeType: 'text/html;profile=mcp-app',
+			}),
+		])
+		const read = await rpc(KEY, 'resources/read', { uri })
+		expect(read.body.result.contents[0]).toMatchObject({
+			uri,
+			mimeType: 'text/html;profile=mcp-app',
+			text: expect.stringContaining('ui/initialize'),
+		})
+	})
+})
+
 describe('tool schemas', () => {
 	it('advertises only keywords every client accepts', async () => {
 		const res = await rpc(KEY, 'tools/list')

@@ -379,6 +379,7 @@ export async function listTrips(
 			trips: trips.map(tripView),
 			has_more: hasMore,
 			page: input.page,
+			when: input.when,
 		},
 	}
 }
