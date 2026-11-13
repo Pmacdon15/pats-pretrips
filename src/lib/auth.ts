@@ -23,11 +23,6 @@ export async function getDriverEmail() {
 	return (await getDriver())?.email ?? null
 }
 
-export async function isSignedIn() {
-	const { userId } = await auth()
-	return Boolean(userId)
-}
-
 /** The driver's full name, or their email when Clerk has no name. */
 export function driverName(driver: Driver) {
 	return (

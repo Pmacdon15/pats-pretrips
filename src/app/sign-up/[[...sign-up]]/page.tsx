@@ -7,6 +7,11 @@ export const metadata: Metadata = {
 	title: "Create account — Pat's PreTrips",
 }
 
+/** Prerenders /sign-up itself; Clerk's own sub-paths render on demand. */
+export function generateStaticParams() {
+	return [{ 'sign-up': [] }]
+}
+
 export default function SignUpPage() {
 	return (
 		<AuthShell

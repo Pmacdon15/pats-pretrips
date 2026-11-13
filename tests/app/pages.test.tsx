@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
 	fetchTrip: vi.fn(),
 	getEmailAccessDAL: vi.fn(),
 	getUser: vi.fn(),
-	isAuthenticated: vi.fn(),
 }))
 
 vi.mock('@/lib/DAL/trips', () => ({
@@ -33,7 +32,6 @@ vi.mock('@/components/email/email-settings', () => ({
 }))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getUser,
-	isSignedIn: mocks.isAuthenticated,
 }))
 vi.mock('next/image', () => ({
 	default: ({ alt, src }: { alt: string; src: string }) => (
@@ -82,9 +80,7 @@ vi.mock('@/components/trips/display-trip/DisplayTrip', () => ({
 	),
 }))
 vi.mock('@/components/home/home-page-buttons', () => ({
-	default: (p: { isLoggedInPromise: Promise<boolean> }) => (
-		<Show label="logged-in" value={p.isLoggedInPromise} />
-	),
+	default: () => <div data-testid="home-buttons" />,
 }))
 
 import ConnectPage from '@/app/connect/page'
@@ -94,6 +90,7 @@ import Home from '@/app/page'
 import TripPage from '@/app/pretrip/[tripId]/page'
 import TripsPage from '@/app/pretrips/page'
 import Privacy from '@/app/privacy/page'
+import ShellCheck, { metadata as shellMeta } from '@/app/shell-check/page'
 import Terms from '@/app/termsOfService/page'
 
 beforeEach(() => {
@@ -104,7 +101,6 @@ beforeEach(() => {
 	mocks.fetchPastTrips.mockResolvedValue({ trips: ['old'], hasMore: true })
 	mocks.fetchTrip.mockResolvedValue({ tripid: 4 })
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
-	mocks.isAuthenticated.mockResolvedValue(true)
 	mocks.getEmailAccessDAL.mockResolvedValue({ allowed: true })
 })
 
@@ -173,9 +169,9 @@ describe('/connect', () => {
 })
 
 describe('/', () => {
-	it('passes the sign-in state to the buttons and links the legal pages', async () => {
+	it('shows the sign-in buttons and links the legal pages', async () => {
 		await renderAsync(<Home />)
-		expect(screen.getByTestId('logged-in')).toHaveTextContent('true')
+		expect(screen.getByTestId('home-buttons')).toBeInTheDocument()
 		expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
 			'Pre-trips done in minutes, not paperwork.',
 		)
@@ -206,6 +202,16 @@ describe('legal pages', () => {
 		render(<Page />)
 		expect(screen.getByRole('heading')).toHaveTextContent(title)
 		expect(screen.getByText(text)).toBeInTheDocument()
+	})
+})
+
+describe('/shell-check', () => {
+	it('is a plain page kept out of search', () => {
+		render(<ShellCheck />)
+		expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+			'Static shell check',
+		)
+		expect(shellMeta.robots).toEqual({ index: false, follow: false })
 	})
 })
 

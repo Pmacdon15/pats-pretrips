@@ -2,7 +2,7 @@ import { Truck } from 'lucide-react'
 import Link from 'next/link'
 import { HeaderNav } from './header-nav'
 
-/** Static: the signed-in state is read on the client, so no page waits on auth. */
+/** Static: the nav reads the session in the browser, so pages can prerender. */
 export default function Header() {
 	return (
 		<header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">

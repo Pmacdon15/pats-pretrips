@@ -1,10 +1,10 @@
 'use client'
-
 import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
 import { Bot, ClipboardCheck, LogOut, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
+/** Sign in, or the signed-in driver's links, from Clerk's client session. */
 export function HeaderNav() {
 	const { isLoaded, isSignedIn } = useAuth()
 

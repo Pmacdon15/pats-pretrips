@@ -13,9 +13,22 @@ import { describe, expect, it } from 'vitest'
  *   ƒ Dynamic  the prerender came out empty, so the server renders it all
  *
  * No page may be ƒ, and every ◐ page must put its heading in the static
- * HTML rather than an empty loading state. No page can be fully ○ because
- * the header reads the session on every page.
+ * HTML rather than an empty loading state. Pages that don't need the request
+ * must be fully ○: the shared layout (header, footer) reads nothing on the
+ * server, so a static page never has to stream. /shell-check is the canary:
+ * it reads nothing, so if it turns ◐ a layout started reading the request.
  */
+
+/** Pages that must build as ○ Static, not ◐. */
+const STATIC_PAGES = [
+	'/',
+	'/connect',
+	'/privacy',
+	'/termsOfService',
+	'/shell-check',
+	'/sign-in',
+	'/sign-up',
+]
 
 const ROOT = path.resolve(__dirname, '../..')
 const NEXT = path.join(ROOT, '.next')
@@ -97,6 +110,15 @@ describe.skipIf(!built && !process.env.REQUIRE_BUILD)(
 			]) {
 				expect(pages).toContain(route)
 			}
+		})
+
+		it.each(STATIC_PAGES)('%s is fully static (○, not ◐)', (route) => {
+			const entry = manifest.routes[route]
+			expect(entry, `${route} wasn't prerendered at all`).toBeDefined()
+			expect(
+				symbolFor(route, entry),
+				`${route} streams dynamic content. Move whatever reads the request (session, cookies, data) into a client component, or out of the shared layout`,
+			).toBe('○')
 		})
 
 		it.each(pages)('%s has a static shell (not ƒ)', (route) => {

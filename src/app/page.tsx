@@ -9,9 +9,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Suspense } from 'react'
 import HomePageButtons from '@/components/home/home-page-buttons'
-import { isSignedIn } from '@/lib/auth'
 
 const features = [
 	{
@@ -71,13 +69,7 @@ export default function Home() {
 						Record your inspection, flag defects, and keep a clean
 						history of every trip — right from your phone.
 					</p>
-					<Suspense
-						fallback={
-							<div className="h-12 w-56 animate-pulse rounded-md bg-white/10" />
-						}
-					>
-						<HomePageButtons isLoggedInPromise={isSignedIn()} />
-					</Suspense>
+					<HomePageButtons />
 					<p className="text-slate-400 text-xs">
 						By signing up you agree to our{' '}
 						<Link

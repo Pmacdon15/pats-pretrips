@@ -17,8 +17,12 @@ vi.mock('next/image', () => ({
 	),
 }))
 
-import SignInPage from '@/app/sign-in/[[...sign-in]]/page'
-import SignUpPage from '@/app/sign-up/[[...sign-up]]/page'
+import SignInPage, {
+	generateStaticParams as signInParams,
+} from '@/app/sign-in/[[...sign-in]]/page'
+import SignUpPage, {
+	generateStaticParams as signUpParams,
+} from '@/app/sign-up/[[...sign-up]]/page'
 import AuthShell from '@/components/auth/auth-shell'
 import { authPageAppearance } from '@/lib/clerk-appearance'
 
@@ -79,5 +83,12 @@ describe('AuthShell', () => {
 			'aria-busy',
 			'true',
 		)
+	})
+})
+
+describe('auth pages', () => {
+	it('prerender their root path', () => {
+		expect(signInParams()).toEqual([{ 'sign-in': [] }])
+		expect(signUpParams()).toEqual([{ 'sign-up': [] }])
 	})
 })
