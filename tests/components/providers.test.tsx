@@ -129,6 +129,17 @@ describe('Header', () => {
 		})
 	}
 
+	it('holds the nav space until Clerk has loaded', async () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: false, isSignedIn: false })
+		await renderHeader()
+		expect(
+			screen.queryByRole('button', { name: 'Sign in' }),
+		).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole('link', { name: 'My Trips' }),
+		).not.toBeInTheDocument()
+	})
+
 	it('links home and offers sign in when signed out', async () => {
 		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: false })
 		await renderHeader()
