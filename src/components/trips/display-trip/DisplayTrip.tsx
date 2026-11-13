@@ -99,8 +99,8 @@ export default function DisplayTrip({
 						<CardTitle>Defect repairs</CardTitle>
 						<CardDescription>
 							Had a defect fixed? Mark it repaired with the
-							mechanic&apos;s signature, the invoice number and a
-							copy of the invoice.
+							signature, the invoice number and a copy of the
+							invoice.
 						</CardDescription>
 					</CardHeader>
 					<CardContent>

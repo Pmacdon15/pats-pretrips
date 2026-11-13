@@ -75,7 +75,7 @@ describe('markDefectRepaired', () => {
 		const [, details, files] = mocks.recordRepair.mock.calls[0]
 		expect(details).toMatchObject({
 			defect: '',
-			mechanicName: '',
+			mechanicName: undefined,
 			repairedOn: undefined,
 		})
 		expect(files.invoice).toBeNull()
@@ -87,12 +87,12 @@ describe('markDefectRepaired', () => {
 			errorMessage: 'Must be logged in',
 		})
 		expect(await markDefectRepaired(form({ signature: 'nope' }))).toEqual({
-			errorMessage: 'The mechanic needs to sign in the box.',
+			errorMessage: 'Sign in the box to confirm the repair.',
 		})
 		const f = form()
 		f.delete('signature')
 		expect(await markDefectRepaired(f)).toMatchObject({
-			errorMessage: expect.stringContaining('sign'),
+			errorMessage: expect.stringContaining('Sign in'),
 		})
 		expect(mocks.recordRepair).not.toHaveBeenCalled()
 	})

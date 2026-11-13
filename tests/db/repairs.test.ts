@@ -99,7 +99,7 @@ describe('createRepairDb', () => {
 			tripId: 1,
 			defect: 'Cab',
 			repairedOn: '2026-01-05',
-			mechanicName: 'Sam',
+			shopName: 'Highway Truck',
 			source: 'AI',
 		})
 		expect(result).toBeUndefined()
@@ -122,6 +122,7 @@ describe('listTripRepairsDb', () => {
 				notes: undefined,
 				invoice_type: undefined,
 				invoice_name: undefined,
+				mechanic_name: null,
 			}),
 		])
 		const [r] = await listTripRepairsDb(1, 'Pat@x.com')
@@ -135,6 +136,7 @@ describe('listTripRepairsDb', () => {
 			notes: null,
 			invoice_type: null,
 			invoice_name: null,
+			mechanic_name: null,
 		})
 		expect(mocks.cacheTag).toHaveBeenCalledWith('trips:pat@x.com')
 		expect(sql.queries()[0].values).toEqual([1, 'Pat@x.com'])

@@ -14,7 +14,7 @@ export type Repair = {
 	defect: string
 	/** YYYY-MM-DD */
 	repaired_on: string
-	mechanic_name: string
+	mechanic_name: string | null
 	shop_name: string | null
 	invoice_number: string | null
 	notes: string | null
@@ -42,7 +42,7 @@ export type NewRepair = {
 	tripId: number
 	defect: string
 	repairedOn: string
-	mechanicName: string
+	mechanicName?: string | null
 	shopName?: string | null
 	invoiceNumber?: string | null
 	notes?: string | null
@@ -66,7 +66,7 @@ function toRepair(row: Record<string, unknown>): Repair {
 		trip_id: Number(row.trip_id),
 		defect: String(row.defect),
 		repaired_on: date(row.repaired_on),
-		mechanic_name: String(row.mechanic_name),
+		mechanic_name: (row.mechanic_name as string | null) || null,
 		shop_name: (row.shop_name as string | null) ?? null,
 		invoice_number: (row.invoice_number as string | null) ?? null,
 		notes: (row.notes as string | null) ?? null,
@@ -103,7 +103,7 @@ export async function createRepairDb(
         )
         SELECT
             t.tripId, ${driverEmail}, ${repair.defect}, ${repair.repairedOn}::date,
-            ${repair.mechanicName}, ${repair.shopName ?? null}, ${repair.invoiceNumber ?? null},
+            ${repair.mechanicName ?? null}, ${repair.shopName ?? null}, ${repair.invoiceNumber ?? null},
             ${repair.notes ?? null},
             decode(${hex(repair.signature)}::text, 'hex'), ${repair.signature?.type ?? null},
             decode(${hex(repair.invoice)}::text, 'hex'), ${repair.invoice?.type ?? null},

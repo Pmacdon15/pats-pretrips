@@ -35,7 +35,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table). (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 
@@ -58,7 +58,7 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 | `list_trips` | Your trips, 10 per page: `when` is `current` (last 24 hours) or `past` | No |
 | `get_trip` | One trip by `trip_id`, with each defect open or repaired | No |
 | `list_defects` | Your defect record: `status` is `open`, `repaired` or `all`; optional `truck_plate` | No |
-| `mark_defect_repaired` | Marks a trip's defect fixed: `trip_id`, `defect`, `mechanic_name`, optional `shop_name`, `invoice_number`, `repaired_on`, `notes`, `invoice_base64` (PDF or photo, compressed before saving), `signature_base64` | Yes |
+| `mark_defect_repaired` | Marks a trip's defect fixed: `trip_id`, `defect`, `mechanic_name` and/or `shop_name` (at least one), optional `invoice_number`, `repaired_on`, `notes`, `invoice_base64` (PDF or photo, compressed before saving), `signature_base64` | Yes |
 | `undo_defect_repair` | Removes a repair by `repair_id`, so the defect is open again | Yes |
 
 In AI apps that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps) (Claude, ChatGPT and others), `list_trips` and `get_trip` also show their result as a trips card in the chat: each trip's truck, plates, odometer, defects and remarks, with a link to open it in PreTrips. The card is the `ui://pats-pretrips/trips-card.html` resource (`src/mcp/trips-card.ts`); apps without MCP Apps just read the text answer.

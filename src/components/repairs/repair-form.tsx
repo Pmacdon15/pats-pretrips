@@ -61,12 +61,12 @@ export function RepairForm({
 	}
 
 	const save = () => {
-		if (mechanicName.trim().length < 2) {
-			toast.error('Add who repaired it')
+		if (!mechanicName.trim() && !shopName.trim()) {
+			toast.error('Add the mechanic or the shop that repaired it')
 			return
 		}
 		if (!signature) {
-			toast.error('The mechanic needs to sign in the box')
+			toast.error('Sign in the box to confirm the repair')
 			return
 		}
 		const form = new FormData()
@@ -108,19 +108,18 @@ export function RepairForm({
 			</p>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="grid gap-2">
-					<Label htmlFor={`${id}-mechanic`}>Repaired by</Label>
+					<Label htmlFor={`${id}-mechanic`}>Mechanic</Label>
 					<Input
 						autoComplete="name"
 						id={`${id}-mechanic`}
 						maxLength={120}
 						onChange={(e) => setMechanicName(e.target.value)}
-						placeholder="Mechanic’s name"
-						required
+						placeholder="Name, if you know it"
 						value={mechanicName}
 					/>
 				</div>
 				<div className="grid gap-2">
-					<Label htmlFor={`${id}-shop`}>Shop (optional)</Label>
+					<Label htmlFor={`${id}-shop`}>Shop</Label>
 					<Input
 						autoComplete="organization"
 						id={`${id}-shop`}
@@ -130,6 +129,9 @@ export function RepairForm({
 						value={shopName}
 					/>
 				</div>
+				<p className="-mt-2 text-muted-foreground text-xs sm:col-span-2">
+					Add the mechanic, the shop, or both.
+				</p>
 				<div className="grid gap-2">
 					<Label htmlFor={`${id}-invoice-number`}>
 						Invoice number
@@ -182,10 +184,7 @@ export function RepairForm({
 					value={notes}
 				/>
 			</div>
-			<SignaturePad
-				label="Mechanic’s signature"
-				onChange={setSignature}
-			/>
+			<SignaturePad label="Signature" onChange={setSignature} />
 			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 				<Button
 					disabled={pending}

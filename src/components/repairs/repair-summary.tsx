@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { undoDefectRepair } from '@/lib/actions/repairs'
 import type { Repair } from '@/lib/db/repairs'
 import { repairFilePath } from '@/lib/repairs/paths'
+import { repairedBy } from '@/lib/repairs/status'
 
 /** YYYY-MM-DD as a short date, without shifting it to another day. */
 export function repairDate(value: string) {
@@ -50,10 +51,7 @@ export function RepairSummary({ repair }: { repair: Repair }) {
 					<dt className="text-muted-foreground text-xs">
 						Repaired by
 					</dt>
-					<dd>
-						{repair.mechanic_name}
-						{repair.shop_name ? `, ${repair.shop_name}` : ''}
-					</dd>
+					<dd>{repairedBy(repair)}</dd>
 				</div>
 				<div>
 					<dt className="text-muted-foreground text-xs">
@@ -91,14 +89,14 @@ export function RepairSummary({ repair }: { repair: Repair }) {
 					<figure>
 						{/* biome-ignore lint/performance/noImgElement: a private file, not an optimisable asset */}
 						<img
-							alt={`Signature of ${repair.mechanic_name}`}
+							alt={`Signature of ${repairedBy(repair)}`}
 							className="h-14 w-auto rounded border bg-white p-1"
 							height={56}
 							src={repairFilePath(repair.id, 'signature')}
 							width={168}
 						/>
 						<figcaption className="mt-1 text-muted-foreground text-xs">
-							Signed by {repair.mechanic_name}
+							Signed by {repairedBy(repair)}
 						</figcaption>
 					</figure>
 				) : (

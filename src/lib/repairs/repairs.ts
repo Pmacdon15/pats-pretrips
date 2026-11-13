@@ -26,28 +26,30 @@ const optionalText = (max: number) =>
 /** Today as YYYY-MM-DD. */
 export const today = () => new Date().toISOString().slice(0, 10)
 
-export const repairDetailsSchema = z.object({
-	tripId: z.number().int().positive(),
-	defect: z.string().trim().min(1, 'Choose the defect').max(60),
-	repairedOn: z
-		.string()
-		.regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-11-13')
-		.refine((d) => !Number.isNaN(Date.parse(d)), 'Not a real date')
-		.refine(
-			// A day of slack for time zones ahead of the server's.
-			(d) => Date.parse(d) <= Date.now() + 24 * 60 * 60 * 1000,
-			'The repair date is in the future',
-		)
-		.optional(),
-	mechanicName: z
-		.string()
-		.trim()
-		.min(2, 'Who repaired it? Add the mechanic’s name')
-		.max(120),
-	shopName: optionalText(120),
-	invoiceNumber: optionalText(60),
-	notes: optionalText(2000),
-})
+export const repairDetailsSchema = z
+	.object({
+		tripId: z.number().int().positive(),
+		defect: z.string().trim().min(1, 'Choose the defect').max(60),
+		repairedOn: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-11-13')
+			.refine((d) => !Number.isNaN(Date.parse(d)), 'Not a real date')
+			.refine(
+				// A day of slack for time zones ahead of the server's.
+				(d) => Date.parse(d) <= Date.now() + 24 * 60 * 60 * 1000,
+				'The repair date is in the future',
+			)
+			.optional(),
+		/** The mechanic, the shop, or both: at least one of them. */
+		mechanicName: optionalText(120),
+		shopName: optionalText(120),
+		invoiceNumber: optionalText(60),
+		notes: optionalText(2000),
+	})
+	.refine((r) => r.mechanicName || r.shopName, {
+		message: 'Who repaired it? Add the mechanic or the shop',
+		path: ['mechanicName'],
+	})
 
 export type RepairDetails = z.input<typeof repairDetailsSchema>
 

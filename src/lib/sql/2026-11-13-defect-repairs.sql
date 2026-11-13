@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS pt_defect_repairs (
     driver_email VARCHAR(255) NOT NULL,
     defect VARCHAR(60) NOT NULL,
     repaired_on DATE NOT NULL,
-    mechanic_name VARCHAR(120) NOT NULL,
+    -- Who repaired it: the mechanic, the shop, or both (at least one).
+    mechanic_name VARCHAR(120),
     shop_name VARCHAR(120),
     invoice_number VARCHAR(60),
     notes TEXT,
