@@ -138,11 +138,26 @@ a:hover { text-decoration: underline; }
 		return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 	}
 
+	function tripUrl(id) {
+		return SITE + '/pretrip/' + encodeURIComponent(id);
+	}
+
+	// Runs inside the click, so the browser still counts it as the driver's
+	// own click: a window opened after waiting on the host would be blocked
+	// as a popup. Order: ChatGPT's own API, then a plain new window (works
+	// where the frame may open popups), then asking the host to open it.
 	function openTrip(id) {
-		var url = SITE + '/pretrip/' + encodeURIComponent(id);
-		request('ui/open-link', { url: url }).then(function (res) {
-			if (res && res.error) window.open(url, '_blank', 'noopener');
-		});
+		var url = tripUrl(id);
+		if (window.openai && typeof window.openai.openExternal === 'function') {
+			try { window.openai.openExternal({ href: url }); return; } catch (e) {}
+		}
+		var opened = null;
+		try { opened = window.open(url, '_blank'); } catch (e) {}
+		if (opened) {
+			try { opened.opener = null; } catch (e) {}
+			return;
+		}
+		request('ui/open-link', { url: url });
 	}
 
 	function tripCard(t) {
@@ -174,7 +189,9 @@ a:hover { text-decoration: underline; }
 		foot.style.marginTop = '8px';
 		foot.appendChild(el('span', 'muted', 'Trip #' + t.trip_id));
 		var link = el('a', null, 'Open in PreTrips →');
-		link.href = SITE + '/pretrip/' + encodeURIComponent(t.trip_id);
+		link.href = tripUrl(t.trip_id);
+		link.target = '_blank';
+		link.rel = 'noopener noreferrer';
 		link.addEventListener('click', function (e) { e.preventDefault(); openTrip(t.trip_id); });
 		foot.appendChild(link);
 		card.appendChild(foot);
