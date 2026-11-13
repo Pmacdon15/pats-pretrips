@@ -1,9 +1,10 @@
 'use client'
 import { useForm } from '@tanstack/react-form'
 import { LocateFixed } from 'lucide-react'
-import { startTransition, useEffect } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
+import { DriverSignatureField } from '@/components/signature/driver-signature-field'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
 import type { Trip, TripsAction } from '@/lib/types/types'
@@ -28,6 +29,8 @@ export default function AddTripForm({
 		location?.longitude ?? 0,
 	)
 	const formattedAddress = addressData?.data?.results?.[0]?.formatted_address
+	// Bumped after each save, so the signature box starts empty again.
+	const [saves, setSaves] = useState(0)
 
 	const form = useForm({
 		defaultValues: {
@@ -42,6 +45,8 @@ export default function AddTripForm({
 			trailerPlateB: '',
 			defects: '',
 			remarks: '',
+			signature: '',
+			saveSignature: true,
 		} as TripForm,
 		validators: {
 			onChange: schemaAddTripForm,
@@ -76,6 +81,7 @@ export default function AddTripForm({
 			date: new Date(),
 			defects: formData.defects,
 			remarks: formData.remarks,
+			signed_at: new Date(),
 			pending: true,
 		}
 
@@ -86,6 +92,7 @@ export default function AddTripForm({
 			await mutateAsync({ data: formData }).catch(() => {})
 		})
 		form.reset()
+		setSaves((n) => n + 1)
 		if (formattedAddress) {
 			form.setFieldValue('inspectionAddress', formattedAddress)
 		}
@@ -205,6 +212,32 @@ export default function AddTripForm({
 					name="remarks"
 					placeholder="Anything worth noting about the inspection"
 				/>
+			</FormSection>
+
+			<FormSection title="Sign">
+				<form.Field name="signature">
+					{(field) => (
+						<form.Field name="saveSignature">
+							{(saveField) => (
+								<DriverSignatureField
+									error={
+										form.state.submissionAttempts > 0
+											? field.state.meta.errors[0]
+													?.message
+											: undefined
+									}
+									key={saves}
+									onChange={field.handleChange}
+									onSaveChange={(v) =>
+										saveField.handleChange(v)
+									}
+									save={Boolean(saveField.state.value)}
+									value={field.state.value}
+								/>
+							)}
+						</form.Field>
+					)}
+				</form.Field>
 			</FormSection>
 
 			<div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-end">

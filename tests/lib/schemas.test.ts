@@ -10,9 +10,34 @@ const trip = {
 	odometer: 1000,
 	defects: '',
 	remarks: 'All good',
+	signature: 'saved',
 }
 
 describe('schemaAddTripForm', () => {
+	it.each([
+		['the saved signature', 'saved'],
+		['a drawn one', 'data:image/png;base64,aGk='],
+	])('accepts %s', (_label, signature) => {
+		expect(
+			schemaAddTripForm.safeParse({ ...trip, signature }).success,
+		).toBe(true)
+	})
+
+	it.each([
+		['', 'Sign the pre-trip'],
+		['hello', 'Sign the pre-trip'],
+		[
+			`data:image/png;base64,${'a'.repeat(1_500_000)}`,
+			'The signature is too large. Clear it and sign again.',
+		],
+	])('rejects a missing or bad signature', (signature, message) => {
+		const result = schemaAddTripForm.safeParse({ ...trip, signature })
+		expect(result.error?.issues[0]).toMatchObject({
+			path: ['signature'],
+			message,
+		})
+	})
+
 	it('accepts a complete trip with the plates left out', () => {
 		expect(schemaAddTripForm.safeParse(trip).success).toBe(true)
 	})

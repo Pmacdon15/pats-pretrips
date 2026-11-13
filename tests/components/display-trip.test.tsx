@@ -14,6 +14,15 @@ vi.mock('@/lib/mutations/mutations', () => ({
 vi.mock('@/components/repairs/defect-status-list', () => ({
 	DefectStatusList: (p: { tripId: number }) => <p>Repairs for {p.tripId}</p>,
 }))
+// The signature card has its own tests; here it shows what it was given.
+vi.mock('@/components/signature/trip-signature', () => ({
+	TripSignature: (p: { trip: { tripid: number }; editable: boolean }) => (
+		<p>
+			Signature for {p.trip.tripid}
+			{p.editable ? ' (can sign)' : ''}
+		</p>
+	),
+}))
 // The email form has its own tests; here it shows what it was given.
 vi.mock('@/components/email/email-trip', () => ({
 	EmailTrip: (p: { tripId: number }) => <p>Email trip {p.tripId}</p>,
@@ -122,6 +131,13 @@ describe('DisplayTrip', () => {
 	it('has no repairs card without defects', async () => {
 		await show(trip({ defects: '' }))
 		expect(screen.queryByText('Repairs for 1')).toBeNull()
+	})
+
+	it("shows the trip's signature, signable while it can be changed", async () => {
+		await show(trip())
+		expect(
+			screen.getByText('Signature for 1 (can sign)'),
+		).toBeInTheDocument()
 	})
 
 	it('locks a trip older than 24 hours', async () => {

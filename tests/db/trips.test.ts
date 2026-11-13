@@ -52,6 +52,7 @@ describe('createTripDb', () => {
 		const [query] = sql.queries()
 		expect(query.text).toContain('INSERT INTO PTTrips')
 		expect(query.text).toContain('RETURNING *')
+		expect(query.text).toContain('INSERT INTO pt_trip_signatures')
 		expect(query.values).toEqual([
 			'pat@x.com',
 			'Acme',
@@ -66,6 +67,30 @@ describe('createTripDb', () => {
 			'2026-01-02T03:04:05.000Z',
 			'Cab',
 			'All good',
+			// Unsigned: no signed_at and no signature row.
+			null,
+			null,
+			null,
+			null,
+			0,
+		])
+	})
+
+	it('saves the signature with the trip', async () => {
+		vi.useFakeTimers({ now: new Date('2026-01-02T03:04:05Z') })
+		sql.respond(() => [{ tripid: 7 }])
+		await createTripDb(form, 'pat@x.com', {
+			bytes: Buffer.from('hi'),
+			type: 'image/png',
+			source: 'web',
+		})
+		// signed_at, then the signature as hex, its type, who saved it and "sign".
+		expect(sql.queries()[0].values.slice(-5)).toEqual([
+			'2026-01-02T03:04:05.000Z',
+			'6869',
+			'image/png',
+			'web',
+			1,
 		])
 	})
 })

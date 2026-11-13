@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
 	sendTripEmail: vi.fn(),
 	listTripRepairsDb: vi.fn(),
 	getRepairFileDb: vi.fn(),
+	getTripSignatureDb: vi.fn(),
+}))
+vi.mock('@/lib/db/signatures', () => ({
+	getTripSignatureDb: mocks.getTripSignatureDb,
 }))
 vi.mock('@/lib/db/repairs', () => ({
 	listTripRepairsDb: mocks.listTripRepairsDb,
@@ -53,6 +57,7 @@ beforeEach(() => {
 	mocks.sendTripEmail.mockResolvedValue('msg-1')
 	mocks.listTripRepairsDb.mockResolvedValue([])
 	mocks.getRepairFileDb.mockResolvedValue(undefined)
+	mocks.getTripSignatureDb.mockResolvedValue(undefined)
 	vi.stubEnv('SES_FROM_EMAIL', 'trips@x.com')
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -153,7 +158,24 @@ describe('emailTripDAL', () => {
 			['a@x.com'],
 			'UTC',
 			[],
+			null,
 		)
+		expect(mocks.getTripSignatureDb).not.toHaveBeenCalled()
+	})
+
+	it("includes the driver's signature on a signed trip", async () => {
+		mocks.getTripDb.mockResolvedValue(trip({ signed_at: new Date() }))
+		mocks.getTripSignatureDb.mockResolvedValueOnce({
+			bytes: Buffer.from('sig'),
+			type: 'image/png',
+		})
+		await emailTripDAL(data)
+		expect(mocks.getTripSignatureDb).toHaveBeenCalledWith(1, 'pat@x.com')
+		expect(mocks.sendTripEmail.mock.calls[0][5]).toEqual(Buffer.from('sig'))
+
+		// Signed, but the signature can't be found.
+		await emailTripDAL(data)
+		expect(mocks.sendTripEmail.mock.calls[1][5]).toBeNull()
 	})
 
 	it("includes the trip's repairs and their signatures", async () => {
@@ -223,6 +245,8 @@ describe('prepareAutoEmailDAL', () => {
 			{ name: 'Pat', email: 'pat@x.com' },
 			['a@x.com'],
 			'UTC',
+			[],
+			null,
 		)
 	})
 

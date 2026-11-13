@@ -13,6 +13,8 @@ export interface Trip {
 	date: Date
 	defects: string
 	remarks: string
+	/** When the driver signed the trip; null or missing when unsigned. */
+	signed_at?: Date | string | null
 	/** Set on optimistic trips that have not been saved yet. */
 	pending?: boolean
 }

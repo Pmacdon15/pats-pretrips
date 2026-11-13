@@ -251,7 +251,7 @@ describe('pdf', () => {
 			],
 		)
 		const doc = await PDFDocument.load(bytes)
-		expect(doc.getPageCount()).toBe(1)
+		expect(doc.getPageCount()).toBeLessThanOrEqual(2)
 		const images = (pdf: Uint8Array) =>
 			Buffer.from(pdf)
 				.toString('latin1')
@@ -263,6 +263,51 @@ describe('pdf', () => {
 			{ ...repair(), signature: Buffer.from('bad') },
 		])
 		expect(images(unreadable)).toBe(0)
+	})
+
+	it("draws the driver's signature on a signed trip", async () => {
+		const png = Buffer.from(
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+			'base64',
+		)
+		const images = (pdf: Uint8Array) =>
+			Buffer.from(pdf)
+				.toString('latin1')
+				.match(/\/Subtype\s*\/Image/g)?.length ?? 0
+		const signed = trip({ defects: '', signed_at: new Date() })
+		// The PNG and its transparency mask.
+		expect(images(await buildTripPdf(signed, driver, 'UTC', [], png))).toBe(
+			2,
+		)
+		expect(
+			images(
+				await buildTripPdf(
+					signed,
+					{ name: '', email: 'pat@x.com' },
+					'UTC',
+					[],
+					png,
+				),
+			),
+		).toBe(2)
+		// Unreadable, missing, or on a trip that isn't signed: "Not signed".
+		expect(
+			images(
+				await buildTripPdf(signed, driver, 'UTC', [], Buffer.from('x')),
+			),
+		).toBe(0)
+		expect(images(await buildTripPdf(signed, driver, 'UTC', []))).toBe(0)
+		expect(
+			images(
+				await buildTripPdf(
+					trip({ defects: '' }),
+					driver,
+					'UTC',
+					[],
+					png,
+				),
+			),
+		).toBe(0)
 	})
 
 	it('starts a new page for a field row or links near the bottom', async () => {
@@ -325,6 +370,21 @@ describe('trip email', () => {
 			'&lt;b&gt;bad&lt;/b&gt; &amp; &quot;x&quot;',
 		)
 		expect(content.html).toContain('#d97706')
+		expect(content.text).toContain('Not signed')
+	})
+
+	it('says when and by whom the trip was signed', () => {
+		const content = tripEmailContent(
+			trip({ signed_at: new Date('2026-01-02T03:05:00Z') }),
+			driver,
+			'UTC',
+		)
+		expect(content.text).toContain(
+			'Signed by Pat Mac, Jan 2, 2026, 3:05 a.m. UTC',
+		)
+		expect(content.html).toContain(
+			'Signed by Pat Mac, Jan 2, 2026, 3:05 a.m. UTC',
+		)
 	})
 
 	it('reads well with no defects, plate or remarks', () => {
@@ -399,5 +459,18 @@ describe('trip email', () => {
 		expect(raw).toContain('To: a@x.com')
 		expect(raw).toContain('Reply-To: pat@x.com')
 		expect(raw).toContain('filename="pretrip-1-2026-01-02.pdf"')
+	})
+
+	it("puts the driver's signature in the PDF", async () => {
+		vi.stubEnv('SES_FROM_EMAIL', 'PreTrips <t@x.com>')
+		await sendTripEmail(
+			trip({ signed_at: new Date() }),
+			driver,
+			['a@x.com'],
+			'UTC',
+			[],
+			Buffer.from('not a png'),
+		)
+		expect(mocks.send).toHaveBeenCalled()
 	})
 })

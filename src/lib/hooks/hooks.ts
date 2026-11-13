@@ -1,6 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { getAddress } from '../actions/actions'
+import { getSignatureStatus } from '../actions/signatures'
+
+export const SIGNATURE_STATUS_KEY = ['signatureStatus']
+
+/** Whether the driver has a saved signature to sign pre-trips with. */
+export const useSignatureStatus = () => {
+	return useQuery({
+		queryKey: SIGNATURE_STATUS_KEY,
+		queryFn: () => getSignatureStatus(),
+		staleTime: 5 * 60 * 1000,
+	})
+}
 
 export const useGetAddress = (lat: number, long: number) => {
 	return useQuery({

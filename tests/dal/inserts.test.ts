@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	createTripDb: vi.fn(),
 	getTripDefectsDb: vi.fn(),
 	updateTripDefectsDb: vi.fn(),
+	resolveSignature: vi.fn(),
 }))
 
 // Stands in for Clerk's current user: `getUser` gives the user or null.
@@ -18,10 +19,18 @@ vi.mock('@/lib/db/trips', () => ({
 	updateTripDefectsDb: mocks.updateTripDefectsDb,
 }))
 
+vi.mock('@/lib/signatures/signatures', () => ({
+	resolveSignature: mocks.resolveSignature,
+}))
+
 import { addOnRouteDefectsDAL, addTripDAL } from '@/lib/DAL/inserts'
+
+const PNG = { bytes: Buffer.from('png'), type: 'image/png' }
+const SIGNED = { ...PNG, source: 'web' }
 
 beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
+	mocks.resolveSignature.mockResolvedValue({ ok: true, file: PNG })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -35,26 +44,62 @@ const form = {
 	defects: '',
 	remarks: 'All good',
 }
+const signedForm = { ...form, signature: 'saved' }
 
 describe('addTripDAL', () => {
 	it('saves the trip for the signed-in driver', async () => {
 		const trip = { tripid: 1 }
 		mocks.createTripDb.mockResolvedValue(trip)
 
-		const result = await addTripDAL(form)
+		const result = await addTripDAL(signedForm)
 
 		expect(result._unsafeUnwrap()).toBe(trip)
-		expect(mocks.createTripDb).toHaveBeenCalledWith(form, 'pat@x.com')
+		expect(mocks.resolveSignature).toHaveBeenCalledWith(
+			'pat@x.com',
+			'saved',
+			undefined,
+		)
+		expect(mocks.createTripDb).toHaveBeenCalledWith(
+			form,
+			'pat@x.com',
+			SIGNED,
+		)
 	})
 
 	it('saves only the validated fields', async () => {
-		await addTripDAL({ ...form, extra: 'x' } as typeof form)
-		expect(mocks.createTripDb).toHaveBeenCalledWith(form, 'pat@x.com')
+		await addTripDAL({ ...signedForm, extra: 'x' } as typeof signedForm)
+		expect(mocks.createTripDb).toHaveBeenCalledWith(
+			form,
+			'pat@x.com',
+			SIGNED,
+		)
+	})
+
+	it('keeps a drawn signature as the saved one when asked', async () => {
+		const drawn = 'data:image/png;base64,aGk='
+		await addTripDAL({ ...form, signature: drawn, saveSignature: true })
+		expect(mocks.resolveSignature).toHaveBeenCalledWith(
+			'pat@x.com',
+			drawn,
+			true,
+		)
+	})
+
+	it("doesn't save a trip it can't sign", async () => {
+		mocks.resolveSignature.mockResolvedValue({
+			ok: false,
+			message: 'No saved signature',
+		})
+		const result = await addTripDAL(signedForm)
+		expect(result._unsafeUnwrapErr()).toEqual({
+			reason: 'No saved signature',
+		})
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
 	})
 
 	it('requires a signed-in driver', async () => {
 		mocks.getUser.mockResolvedValue(null)
-		const result = await addTripDAL(form)
+		const result = await addTripDAL(signedForm)
 		expect(result._unsafeUnwrapErr()).toEqual({
 			reason: 'Must be logged in',
 		})
@@ -62,7 +107,7 @@ describe('addTripDAL', () => {
 	})
 
 	it('returns the validation errors for a bad form', async () => {
-		const result = await addTripDAL({ ...form, carrier: '' })
+		const result = await addTripDAL({ ...signedForm, carrier: '' })
 		const err = result._unsafeUnwrapErr() as {
 			reason: string
 			errors: { properties: Record<string, { errors: string[] }> }
@@ -75,7 +120,7 @@ describe('addTripDAL', () => {
 
 	it('reports a database error', async () => {
 		mocks.createTripDb.mockRejectedValue(new Error('down'))
-		const result = await addTripDAL(form)
+		const result = await addTripDAL(signedForm)
 		expect(result._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not save your trip. Please try again.',
 		})

@@ -16,6 +16,11 @@ const mocks = vi.hoisted(() => ({
 		status: 'loading',
 	},
 	address: { data: undefined as unknown, isFetching: false },
+	signatureStatus: {
+		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' } as
+			| undefined
+			| { saved: boolean; updatedAt: string | null },
+	},
 }))
 vi.mock('@/lib/mutations/mutations', () => ({
 	useAddTrip: () => ({ mutateAsync: mocks.addTrip }),
@@ -24,6 +29,8 @@ vi.mock('@/lib/mutations/mutations', () => ({
 vi.mock('@/lib/hooks/hooks', () => ({
 	useGetLocation: () => mocks.location,
 	useGetAddress: () => mocks.address,
+	useSignatureStatus: () => mocks.signatureStatus,
+	SIGNATURE_STATUS_KEY: ['signatureStatus'],
 }))
 
 beforeEach(() => {
@@ -31,6 +38,20 @@ beforeEach(() => {
 	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
 	mocks.address = { data: undefined, isFetching: false }
+	mocks.signatureStatus = {
+		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' },
+	}
+	HTMLCanvasElement.prototype.setPointerCapture ??= () => {}
+	vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+		scale: vi.fn(),
+		beginPath: vi.fn(),
+		moveTo: vi.fn(),
+		lineTo: vi.fn(),
+		stroke: vi.fn(),
+	} as never)
+	vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
+		'data:image/png;base64,aGk=',
+	)
 })
 
 const chip = (name: string) => screen.getByRole('button', { name })
@@ -229,6 +250,8 @@ describe('AddTripForm', () => {
 			trailerPlateB: '',
 			defects: 'Horn',
 			remarks: 'All good',
+			signature: 'saved',
+			saveSignature: true,
 		}
 		expect(mocks.addTrip).toHaveBeenCalledWith({ data })
 		expect(setOptimistic).toHaveBeenCalledWith({
@@ -239,12 +262,127 @@ describe('AddTripForm', () => {
 				carrier: 'Acme',
 				defects: 'Horn',
 				truckplate: 'TRK1',
+				signed_at: expect.any(Date),
 				pending: true,
 			}),
 		})
 		expect(onDone).toHaveBeenCalled()
 		expect(screen.getByLabelText('Carrier')).toHaveValue('')
 		expect(inspection).toHaveValue(gps ?? '')
+	})
+})
+
+describe('AddTripForm signature', () => {
+	const fill = async (user: ReturnType<typeof userEvent.setup>) => {
+		await user.type(screen.getByLabelText('Carrier'), 'Acme')
+		await user.type(screen.getByLabelText('Carrier address'), '1 Main St')
+		await user.type(
+			screen.getByLabelText('Inspection address'),
+			'123 North St',
+		)
+		await user.type(screen.getByLabelText('Make'), 'Volvo')
+		await user.type(screen.getByLabelText('Model'), 'VNL')
+		await user.type(screen.getByLabelText('Odometer'), '1500')
+		await user.type(screen.getByLabelText('Remarks'), 'All good')
+	}
+	const sign = () => {
+		const box = screen.getByRole('img', { name: /signature box/i })
+		fireEvent.pointerDown(box, { clientX: 5, clientY: 5, pointerId: 1 })
+		fireEvent.pointerMove(box, { clientX: 20, clientY: 15, pointerId: 1 })
+		fireEvent.pointerUp(box, { pointerId: 1 })
+	}
+
+	it('asks a driver without a saved signature to sign, and saves it', async () => {
+		mocks.signatureStatus = { data: { saved: false, updatedAt: null } }
+		const user = userEvent.setup()
+		render(
+			<AddTripForm
+				onDone={() => {}}
+				setOptimisticCurrentTrips={() => {}}
+			/>,
+		)
+		await fill(user)
+		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
+		expect(await screen.findByRole('alert')).toHaveTextContent(
+			'Sign the pre-trip',
+		)
+		expect(mocks.addTrip).not.toHaveBeenCalled()
+
+		sign()
+		expect(
+			screen.getByLabelText(/Save my signature for next time/),
+		).toBeChecked()
+		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
+		expect(mocks.addTrip).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				signature: 'data:image/png;base64,aGk=',
+				saveSignature: true,
+			}),
+		})
+	})
+
+	it('lets a driver with a saved signature sign differently, once', async () => {
+		const user = userEvent.setup()
+		render(
+			<AddTripForm
+				onDone={() => {}}
+				setOptimisticCurrentTrips={() => {}}
+			/>,
+		)
+		expect(
+			screen.getByRole('img', { name: 'Your saved signature' }),
+		).toHaveAttribute(
+			'src',
+			'/api/signature?v=2026-01-01T00%3A00%3A00.000Z',
+		)
+		await user.click(
+			screen.getByRole('button', { name: 'Sign differently' }),
+		)
+		const keep = screen.getByLabelText(/Make this my saved signature/)
+		expect(keep).not.toBeChecked()
+
+		// Back to the saved one, then drawing again.
+		await user.click(
+			screen.getByRole('button', { name: 'Use my saved signature' }),
+		)
+		await user.click(
+			screen.getByRole('button', { name: 'Sign differently' }),
+		)
+		sign()
+		await user.click(screen.getByLabelText(/Make this my saved signature/))
+		await fill(user)
+		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
+		expect(mocks.addTrip).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				signature: 'data:image/png;base64,aGk=',
+				saveSignature: true,
+			}),
+		})
+	})
+
+	it('goes back to the saved signature once a new one is saved', () => {
+		mocks.signatureStatus = { data: undefined }
+		const { rerender } = render(
+			<AddTripForm
+				onDone={() => {}}
+				setOptimisticCurrentTrips={() => {}}
+			/>,
+		)
+		expect(
+			screen.queryByRole('img', { name: 'Your saved signature' }),
+		).toBeNull()
+		mocks.signatureStatus = {
+			data: { saved: true, updatedAt: '2026-02-01T00:00:00.000Z' },
+		}
+		rerender(
+			<AddTripForm
+				onDone={() => {}}
+				setOptimisticCurrentTrips={() => {}}
+			/>,
+		)
+		expect(
+			screen.getByRole('img', { name: 'Your saved signature' }),
+		).toBeInTheDocument()
 	})
 })
 

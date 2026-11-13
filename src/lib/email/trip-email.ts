@@ -46,6 +46,9 @@ export function tripEmailContent(
 			: [`- ${defect}: not repaired yet`],
 	)
 	const who = driver.name || driver.email
+	const signed = trip.signed_at
+		? `Signed by ${who}, ${formatTripCreated(trip.signed_at, timeZone)}`
+		: 'Not signed'
 	const url = tripUrl(trip.tripid)
 	const defectUrl = `${url}#add-defect`
 
@@ -59,6 +62,7 @@ export function tripEmailContent(
 		status,
 		...(defects.length ? ['Repairs:', ...repairText] : []),
 		`Remarks: ${trip.remarks || '-'}`,
+		signed,
 		'',
 		'The full report is attached as a PDF.',
 		`Open or edit this pre-trip: ${url}`,
@@ -94,7 +98,8 @@ export function tripEmailContent(
 <tr><td style="padding:4px 0;color:#64748b">Inspected at</td><td style="padding:4px 0">${e(trip.inspectionaddress)}</td></tr>
 </table>
 <p style="margin:16px 0 4px;font-weight:700;color:${open.length ? '#d97706' : '#059669'}">${e(status)}</p>
-${repairHtml}<p style="margin:0 0 20px;white-space:pre-line">${e(trip.remarks || '-')}</p>
+${repairHtml}<p style="margin:0 0 12px;white-space:pre-line">${e(trip.remarks || '-')}</p>
+<p style="margin:0 0 20px;color:#64748b;font-size:13px">${e(signed)}</p>
 ${button(url, 'Open / edit this pre-trip')}${button(defectUrl, 'Add an on-route defect')}
 <p style="margin:12px 0 0;color:#64748b;font-size:12px">The full report is attached as a PDF. On-route defects can be added for 24 hours after the inspection.</p>
 </div></body></html>`
@@ -117,11 +122,18 @@ export async function sendTripEmail(
 	to: string[],
 	timeZone?: string,
 	repairs: PdfRepair[] = [],
+	driverSignature: Uint8Array | null = null,
 ) {
 	const from = fromAddress()
 	if (!from) throw new Error('SES_FROM_EMAIL is not set')
 	const content = tripEmailContent(trip, driver, timeZone, repairs)
-	const pdf = await buildTripPdf(trip, driver, timeZone, repairs)
+	const pdf = await buildTripPdf(
+		trip,
+		driver,
+		timeZone,
+		repairs,
+		driverSignature,
+	)
 	const raw = buildMimeMessage({
 		from,
 		to,

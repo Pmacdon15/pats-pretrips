@@ -35,7 +35,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 
@@ -43,18 +43,19 @@ Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds
 2. **Look up the defaults.** `get_trip_defaults` with the plate gives the carrier, carrier address and inspection address from your last trip and, if you've driven that truck before, its make, model, trailers and last odometer.
 3. **Confirm the whole trip with you.** For example: *"Start a pre-trip: Freightliner Cascadia, plate ABC 1234, 482,317 km, carrier Acme Freight (12 Depot Rd), inspected at 455 Yard Ave, no defects. OK?"* It always asks where you're inspecting and whether you found defects. Nothing is saved until you say OK.
 4. **`start_trip` saves it.** Defects use the app's names (`list_defect_categories`). Remarks are required: your words, or "No defects found".
-5. **Odometer going backwards?** If the reading is lower than the truck's last one, the assistant gets a warning and checks the photo with you.
-6. **Updates for 24 hours.** `update_trip` changes only the fields you pass. Defects and remarks are only added to, never removed. Trips older than 24 hours can't be changed, same as on the website.
-7. **Repairs, any time.** When a defect is fixed (say a mechanic replaced a tire), `mark_defect_repaired` records who fixed it, the invoice number and date, a compressed copy of the invoice and the mechanic's signature. The trip still shows the defect as found; the repair sits beside it, so `list_defects` (and the website's **Defects** page) shows a clear record of what's open and what was fixed. `undo_defect_repair` reopens one recorded by mistake.
+5. **Signed with your saved signature.** Save your signature once on the website's **Signature** page (`/signature`), or tick "Save my signature" the first time you sign a pre-trip there. Every trip the assistant starts is then signed with it: saying OK to the trip is your sign-off. `get_trip_defaults` tells the assistant whether you have one. Without one the trip is saved unsigned; sign it later on the trip's page, or save a signature and ask the assistant to sign it (`update_trip` with `sign: true`). Each trip keeps a copy, so changing your saved signature never changes a signed trip.
+6. **Odometer going backwards?** If the reading is lower than the truck's last one, the assistant gets a warning and checks the photo with you.
+7. **Updates for 24 hours.** `update_trip` changes only the fields you pass. Defects and remarks are only added to, never removed. Trips older than 24 hours can't be changed, same as on the website.
+8. **Repairs, any time.** When a defect is fixed (say a mechanic replaced a tire), `mark_defect_repaired` records who fixed it, the invoice number and date, a compressed copy of the invoice and the mechanic's signature. The trip still shows the defect as found; the repair sits beside it, so `list_defects` (and the website's **Defects** page) shows a clear record of what's open and what was fixed. `undo_defect_repair` reopens one recorded by mistake.
 
 ## Tools
 
 | Tool | What it does | Changes data? |
 | --- | --- | --- |
 | `list_defect_categories` | The defect names PreTrips uses | No |
-| `get_trip_defaults` | Suggestions for a new trip from your last trip and, with `truck_plate`, that truck's make, model, trailers and last odometer | No |
-| `start_trip` | Saves a new pre-trip: `odometer`, `make`, `model`, `carrier`, `carrier_address`, `inspection_address`, `remarks`, optional `truck_plate`, `trailer_plate_a`, `trailer_plate_b`, `defects` | Yes |
-| `update_trip` | Changes a trip from the last 24 hours: `trip_id` plus only what changes; `add_defects` and `add_remarks` add on-route defects | Yes |
+| `get_trip_defaults` | Suggestions for a new trip from your last trip and, with `truck_plate`, that truck's make, model, trailers and last odometer, and whether you have a saved signature (`saved_signature`) | No |
+| `start_trip` | Saves a new pre-trip: `odometer`, `make`, `model`, `carrier`, `carrier_address`, `inspection_address`, `remarks`, optional `truck_plate`, `trailer_plate_a`, `trailer_plate_b`, `defects`, `sign` (default `true`: signs with your saved signature) | Yes |
+| `update_trip` | Changes a trip from the last 24 hours: `trip_id` plus only what changes; `add_defects` and `add_remarks` add on-route defects; `sign: true` signs an unsigned trip with your saved signature | Yes |
 | `list_trips` | Your trips, 10 per page: `when` is `current` (last 24 hours) or `past` | No |
 | `get_trip` | One trip by `trip_id`, with each defect open or repaired | No |
 | `list_defects` | Your defect record: `status` is `open`, `repaired` or `all`; optional `truck_plate` | No |

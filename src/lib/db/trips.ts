@@ -3,14 +3,25 @@ import { cacheLife, cacheTag } from 'next/cache'
 import type z from 'zod'
 import { CACHE_TAGS } from '../cache/tags'
 import type { Trip } from '../types/types'
-import type { schemaAddTripForm } from '../ZOD/schemas'
+import type { schemaTripFields } from '../ZOD/schemas'
+import type { StoredFile } from './repairs'
 
+/** The driver's signature for a new trip, and who's saving it ("web" or the AI app). */
+export type TripSignature = StoredFile & { source: string }
+
+/**
+ * Saves a new trip for the driver, signed when `signature` is given: the trip
+ * and its signature are written together, so a trip is never half signed.
+ */
 export async function createTripDb(
-	data: z.infer<typeof schemaAddTripForm>,
+	data: z.infer<typeof schemaTripFields>,
 	driverEmail: string,
+	signature?: TripSignature | null,
 ): Promise<Trip> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
+	const now = new Date().toISOString()
 	const [result] = await sql`
+                WITH t AS (
                 INSERT INTO PTTrips (
                 driverEmail,
                 carrier,
@@ -24,7 +35,8 @@ export async function createTripDb(
                 trailerPlateB,
                 date,
                 defects,
-                remarks
+                remarks,
+                signed_at
                 ) VALUES (
                 ${driverEmail},
                 ${data.carrier},
@@ -36,11 +48,20 @@ export async function createTripDb(
                 ${data.truckPlate},
                 ${data.trailerPlateA},
                 ${data.trailerPlateB},
-                ${new Date().toISOString()},
+                ${now},
                 ${data.defects},
-                ${data.remarks}
+                ${data.remarks},
+                ${signature ? now : null}::timestamptz
                 )
-                RETURNING *;
+                RETURNING *
+                ), s AS (
+                INSERT INTO pt_trip_signatures (trip_id, driver_email, signature, signature_type, source)
+                SELECT tripId, driverEmail, decode(${signature ? signature.bytes.toString('hex') : null}::text, 'hex'),
+                    ${signature?.type ?? null}, ${signature?.source ?? null}
+                FROM t
+                WHERE ${signature ? 1 : 0}::int = 1
+                )
+                SELECT * FROM t;
             `
 	return result as Trip
 }

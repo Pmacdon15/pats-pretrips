@@ -177,7 +177,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Get suggestions for a new trip',
 			description:
-				"What to suggest for a new pre-trip: the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer. Call it before start_trip, then confirm everything with the driver.",
+				"What to suggest for a new pre-trip: the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer, and whether the driver has a saved signature to sign the trip with. Call it before start_trip, then confirm everything with the driver.",
 			inputSchema: portable(getTripDefaultsInputSchema),
 			annotations: READ_ONLY,
 		},
@@ -195,7 +195,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Start a pre-trip',
 			description:
-				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults, and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The answer warns when the odometer is lower than the truck's last reading.",
+				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults, and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The trip is signed with the driver's saved signature when they have one. The answer warns when the odometer is lower than the truck's last reading.",
 			inputSchema: portable(startTripInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -215,7 +215,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Update a trip',
 			description:
-				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
+				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. sign: true signs an unsigned trip with the driver\'s saved signature. Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
 			inputSchema: portable(updateTripInputSchema),
 			annotations: {
 				readOnlyHint: false,

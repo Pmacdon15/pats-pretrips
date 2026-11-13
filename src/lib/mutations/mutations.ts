@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 import { addOnRouteDefects, addTrip } from '@/lib/actions/actions'
+import { SIGNATURE_STATUS_KEY } from '@/lib/hooks/hooks'
 import type { schemaAddDefects, schemaAddTripForm } from '@/lib/ZOD/schemas'
 
 export const useAddDefectOnRoute = () => {
@@ -37,6 +38,7 @@ export const useAddDefectOnRoute = () => {
 	})
 }
 export const useAddTrip = () => {
+	const queryClient = useQueryClient()
 	return useMutation({
 		mutationFn: async ({
 			data,
@@ -53,8 +55,14 @@ export const useAddTrip = () => {
 			}
 			return res
 		},
-		onSuccess: () => {
+		onSuccess: (_trip, { data }) => {
 			toast.success('Pre-trip saved')
+			// A drawn signature may now be the driver's saved one.
+			if (data.saveSignature && data.signature !== 'saved') {
+				queryClient.invalidateQueries({
+					queryKey: SIGNATURE_STATUS_KEY,
+				})
+			}
 		},
 		onError: (error) => {
 			toast.error('Could not save pre-trip', {

@@ -1,6 +1,13 @@
 'use client'
 import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
-import { Bot, ClipboardCheck, LogOut, Mail, Wrench } from 'lucide-react'
+import {
+	Bot,
+	ClipboardCheck,
+	LogOut,
+	Mail,
+	PenLine,
+	Wrench,
+} from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
@@ -48,6 +55,14 @@ export function HeaderNav() {
 			>
 				<Mail />
 				<span className="hidden sm:inline">Email</span>
+			</Link>
+			<Link
+				aria-label="Your signature"
+				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				href="/signature"
+			>
+				<PenLine />
+				<span className="hidden sm:inline">Signature</span>
 			</Link>
 			<Link
 				aria-label="Connect your AI"
