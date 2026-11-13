@@ -35,6 +35,16 @@ vi.mock('@/components/trips/add-trip/addTripContainer', () => ({
 	},
 }))
 
+// The one-tap signature has its own tests; here it shows what it was given.
+vi.mock('@/components/signature/quick-sign', () => ({
+	QuickSignButton: (p: { tripId: number; signHref: string }) => (
+		<button data-href={p.signHref} type="button">
+			Quick sign {p.tripId}
+		</button>
+	),
+	SignedBadge: () => <span>Signed</span>,
+}))
+
 beforeEach(() => {
 	nav.search = ''
 })
@@ -99,6 +109,42 @@ describe('TripsTable', () => {
 		)
 		expect(screen.queryByRole('link')).toBeNull()
 		expect(document.querySelector('[aria-busy=true]')).not.toBeNull()
+	})
+
+	it('offers a one-tap signature on unsigned trips from the last 24 hours', () => {
+		vi.useFakeTimers({ now: new Date('2026-01-02T12:00:00Z') })
+		render(
+			<TripsTable
+				emptyMessage="None"
+				pageParam="page"
+				trips={{
+					trips: [
+						trip(),
+						trip({ tripid: 2, signed_at: new Date() }),
+						trip({
+							tripid: 3,
+							date: new Date('2025-12-30T00:00:00Z'),
+						}),
+						trip({
+							tripid: -4,
+							pending: true,
+							signed_at: new Date(),
+						}),
+					],
+					hasMore: false,
+				}}
+			/>,
+		)
+		expect(
+			screen.getByRole('button', { name: 'Quick sign 1' }),
+		).toHaveAttribute('data-href', '/pretrip/1#signature')
+		expect(
+			screen.getAllByRole('button', { name: /Quick sign/ }),
+		).toHaveLength(1)
+		expect(screen.getAllByRole('link')[1]).toHaveTextContent('Signed')
+		// The pending trip shows neither.
+		expect(screen.getAllByText('Signed')).toHaveLength(1)
+		vi.useRealTimers()
 	})
 
 	it('shows the empty message', () => {

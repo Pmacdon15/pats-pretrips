@@ -4,6 +4,7 @@ import { Suspense, use, useOptimistic } from 'react'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
 import { EmailTrip } from '@/components/email/email-trip'
 import { DefectStatusList } from '@/components/repairs/defect-status-list'
+import { QuickSignButton } from '@/components/signature/quick-sign'
 import { TripSignature } from '@/components/signature/trip-signature'
 import {
 	Card,
@@ -75,6 +76,17 @@ export default function DisplayTrip({
 				</div>
 				<PageHead userPromise={userPromise} />
 			</div>
+			{isEditable && !optimisticTrip.signed_at ? (
+				<div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3">
+					<p className="flex-1 text-muted-foreground text-sm">
+						This pre-trip isn&apos;t signed yet.
+					</p>
+					<QuickSignButton
+						signHref="#signature"
+						tripId={Number(optimisticTrip.tripid)}
+					/>
+				</div>
+			) : null}
 
 			<Card>
 				<CardHeader>

@@ -23,6 +23,12 @@ vi.mock('@/components/signature/trip-signature', () => ({
 		</p>
 	),
 }))
+// The one-tap signature has its own tests.
+vi.mock('@/components/signature/quick-sign', () => ({
+	QuickSignButton: (p: { tripId: number; signHref: string }) => (
+		<a href={p.signHref}>Quick sign {p.tripId}</a>
+	),
+}))
 // The email form has its own tests; here it shows what it was given.
 vi.mock('@/components/email/email-trip', () => ({
 	EmailTrip: (p: { tripId: number }) => <p>Email trip {p.tripId}</p>,

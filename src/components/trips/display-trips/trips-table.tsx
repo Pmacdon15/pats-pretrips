@@ -6,6 +6,7 @@ import {
 	Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
+import { QuickSignButton, SignedBadge } from '@/components/signature/quick-sign'
 import { Badge } from '@/components/ui/badge'
 import type { Trip, TripsResponse } from '@/lib/types/types'
 import { parseDefects } from '@/lib/utils-defects'
@@ -41,6 +42,8 @@ export default function TripsTable({
 	)
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+
 function TripRow({ trip }: { trip: Trip }) {
 	const defectList = parseDefects(trip.defects)
 	const units = [trip.truckplate, trip.trailerplatea, trip.trailerplateb]
@@ -66,6 +69,7 @@ function TripRow({ trip }: { trip: Trip }) {
 							{defectList.length === 1 ? '' : 's'}
 						</Badge>
 					)}
+					{trip.signed_at && !trip.pending ? <SignedBadge /> : null}
 				</div>
 				<p className="truncate text-muted-foreground text-sm">
 					{[trip.carrier, `${trip.make} ${trip.model}`.trim(), units]
@@ -97,12 +101,28 @@ function TripRow({ trip }: { trip: Trip }) {
 		)
 	}
 
-	return (
+	const link = (
 		<Link
 			className={`${className} hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none`}
 			href={`/pretrip/${trip.tripid}`}
 		>
 			{content}
 		</Link>
+	)
+	// Unsigned trips that can still be changed get a one-tap signature.
+	const canSign =
+		!trip.signed_at && Date.now() - new Date(trip.date).getTime() < DAY_MS
+	if (!canSign) return link
+
+	return (
+		<div className="flex items-center">
+			<div className="min-w-0 flex-1">{link}</div>
+			<div className="shrink-0 pr-5 sm:pr-6">
+				<QuickSignButton
+					signHref={`/pretrip/${trip.tripid}#signature`}
+					tripId={trip.tripid}
+				/>
+			</div>
+		</div>
 	)
 }

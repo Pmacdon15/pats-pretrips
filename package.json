@@ -1,6 +1,6 @@
 {
 	"name": "pats-pretrips",
-	"version": "2.8.0",
+	"version": "2.8.1",
 	"private": true,
 	"scripts": {
 		"dev": "bun --bun next dev --turbopack",
