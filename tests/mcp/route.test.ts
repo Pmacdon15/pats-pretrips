@@ -10,7 +10,8 @@ import { trip } from '../helpers/fixtures'
  */
 
 const mocks = vi.hoisted(() => ({
-	touchApiKeyDb: vi.fn(),
+	verify: vi.fn(),
+	getUser: vi.fn(),
 	createTripDb: vi.fn(),
 	getLatestTripDb: vi.fn(),
 	getLatestTripForPlateDb: vi.fn(),
@@ -21,7 +22,12 @@ const mocks = vi.hoisted(() => ({
 	countHitDb: vi.fn(),
 	getAiSigningAllowedDb: vi.fn(),
 }))
-vi.mock('@/lib/db/api-keys', () => ({ touchApiKeyDb: mocks.touchApiKeyDb }))
+vi.mock('@clerk/nextjs/server', () => ({
+	clerkClient: async () => ({
+		idPOAuthAccessToken: { verify: mocks.verify },
+		users: { getUser: mocks.getUser },
+	}),
+}))
 vi.mock('@/lib/db/rate-limits', () => ({ countHitDb: mocks.countHitDb }))
 vi.mock('@/lib/db/trips', () => ({
 	createTripDb: mocks.createTripDb,
@@ -51,7 +57,6 @@ vi.mock('@/lib/db/signatures', () => ({
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
 import { DELETE, GET, OPTIONS, POST } from '@/app/api/mcp/route'
-import { generateApiKey } from '@/lib/api-keys'
 import { resetRateLimiter } from '@/lib/rate-limit'
 import { messagesFromEventStream } from '@/mcp/http'
 
@@ -59,16 +64,24 @@ const URL_ = 'https://patspretrips.ca/api/mcp'
 const METADATA_URL =
 	'https://patspretrips.ca/.well-known/oauth-protected-resource/api/mcp'
 const SCOPES = 'profile email offline_access'
-const KEY = generateApiKey()
+const KEY = 'oat_good'
+/** Shaped like the personal API keys the server used to accept. */
+const OLD_API_KEY = `ppt_${'a'.repeat(43)}`
 
 beforeEach(() => {
 	resetRateLimiter()
 	mocks.countHitDb.mockResolvedValue({ hits: 1, retryAfter: 60 })
 	mocks.getAiSigningAllowedDb.mockResolvedValue(true)
-	mocks.touchApiKeyDb.mockResolvedValue({
-		id: 3,
-		driverEmail: 'pat@x.com',
-		name: 'Muse',
+	mocks.verify.mockResolvedValue({
+		clientId: 'claude',
+		subject: 'user_1',
+		scopes: ['profile', 'email', 'offline_access'],
+		revoked: false,
+		expired: false,
+		expiration: null,
+	})
+	mocks.getUser.mockResolvedValue({
+		primaryEmailAddress: { emailAddress: 'pat@x.com' },
 	})
 	vi.spyOn(console, 'info').mockImplementation(() => {})
 	vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -158,7 +171,7 @@ describe('MCP endpoint auth', () => {
 	})
 
 	it('marks a rejected token invalid_token, so the client signs in again', async () => {
-		mocks.touchApiKeyDb.mockResolvedValue(null)
+		mocks.verify.mockRejectedValue(new Error('invalid'))
 		const res = await initialize(KEY)
 		expect(res.status).toBe(401)
 		expect(res.challenge).toContain('error="invalid_token"')
@@ -171,10 +184,35 @@ describe('MCP endpoint auth', () => {
 
 	it('refuses when verifying the token throws', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {})
-		mocks.touchApiKeyDb.mockRejectedValue(new Error('db down'))
+		mocks.getUser.mockRejectedValue(new Error('clerk down'))
 		const res = await initialize(KEY)
 		expect(res.status).toBe(401)
 		expect(res.challenge).toContain('invalid_token')
+	})
+
+	it('refuses a personal API key like any bad token, without a database or Clerk call', async () => {
+		const res = await initialize(OLD_API_KEY)
+		expect(res.status).toBe(401)
+		expect(res.challenge).toContain('error="invalid_token"')
+		expect(res.body).toEqual({
+			error: 'invalid_token',
+			error_description: 'The access token is invalid or has expired.',
+		})
+		expect(mocks.verify).not.toHaveBeenCalled()
+		expect(mocks.getUser).not.toHaveBeenCalled()
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
+		expect(mocks.listTripsDb).not.toHaveBeenCalled()
+		// The only database call is the failed sign-in it counts toward.
+		expect(mocks.countHitDb).toHaveBeenCalledTimes(1)
+		expect(mocks.countHitDb.mock.calls[0][0]).toContain(
+			'mcp-auth-failures:',
+		)
+		expect(console.warn).toHaveBeenCalledWith(
+			'MCP: refused a personal API key: API keys are no longer accepted, only OAuth sign-in',
+		)
+		expect(
+			vi.mocked(console.warn).mock.calls.flat().join(' '),
+		).not.toContain('aaaa')
 	})
 
 	it('names the canonical domain in production, even on a deployment host', async () => {
@@ -445,17 +483,24 @@ describe('tools over HTTP', () => {
 })
 
 describe('failed sign-ins over HTTP', () => {
-	it('answers 429 with Retry-After and CORS once an IP is over the limit, and stops checking keys', async () => {
-		mocks.touchApiKeyDb.mockResolvedValue(null)
+	it('answers 429 with Retry-After and CORS once an IP is over the limit, and stops checking tokens', async () => {
+		mocks.verify.mockRejectedValue(new Error('invalid'))
 		mocks.countHitDb.mockResolvedValue({ hits: 31, retryAfter: 120 })
 		const first = await initialize(KEY)
 		expect(first.status).toBe(429)
 		expect(first.headers.get('retry-after')).toBe('120')
 		expect(first.headers.get('access-control-allow-origin')).toBe('*')
 		expect(first.body.error).toBe('rate_limited')
-		mocks.touchApiKeyDb.mockClear()
+		mocks.verify.mockClear()
 		const second = await initialize(KEY)
 		expect(second.status).toBe(429)
-		expect(mocks.touchApiKeyDb).not.toHaveBeenCalled()
+		expect(mocks.verify).not.toHaveBeenCalled()
+	})
+
+	it('counts personal API keys as failed sign-ins toward the same limit', async () => {
+		mocks.countHitDb.mockResolvedValue({ hits: 31, retryAfter: 120 })
+		const res = await initialize(OLD_API_KEY)
+		expect(res.status).toBe(429)
+		expect(res.headers.get('retry-after')).toBe('120')
 	})
 })

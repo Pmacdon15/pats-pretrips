@@ -10,7 +10,7 @@ The rules below are sent to every assistant automatically when it connects (the 
 2. When it asks, sign in with your PreTrips account (Clerk, the same sign-in as the website). The assistant only ever sees your own trips.
 3. Send it your photos, e.g. *"Start my pre-trip"* with a picture of the dash and one of the plate.
 
-The **Connect AI** page (`/connect`) is static: just the URL and these steps. The server still accepts existing personal API keys (`Authorization: Bearer ppt_…`), but there is no page to create or revoke them.
+The **Connect AI** page (`/connect`) is static: just the URL and these steps. OAuth sign-in is the only way in. Personal API keys (`Authorization: Bearer ppt_…`) are no longer accepted: such a token gets the normal `401 invalid_token`, counts as a failed sign-in for the rate limit, and logs `MCP: refused a personal API key: API keys are no longer accepted, only OAuth sign-in`. Reconnect that app with OAuth.
 
 ### Setting up sign-in (once, in Clerk)
 
@@ -23,7 +23,7 @@ PreTrips signs in with Clerk, like Budget and Clock Out. Clerk registers AI apps
 
 The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `profile email offline_access` (not `openid`: Clerk rejects a dynamic client registration that asks for it, as Muse found); `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
 
-**Scopes the server requires.** An OAuth access token must carry the `email` scope (`REQUIRED_OAUTH_SCOPES` in `src/mcp/auth.ts`), because tools act as the driver's email and the driver has to have agreed to share it with that app. A token without it gets the normal `401 invalid_token`, so the client signs in again asking for the advertised scopes; the log line `MCP: refused an access token for client … without the email scope (it has: …)` shows which app and what it was granted. `profile` isn't required. Personal API keys (`ppt_…`) have no scopes and aren't affected.
+**Scopes the server requires.** An OAuth access token must carry the `email` scope (`REQUIRED_OAUTH_SCOPES` in `src/mcp/auth.ts`), because tools act as the driver's email and the driver has to have agreed to share it with that app. A token without it gets the normal `401 invalid_token`, so the client signs in again asking for the advertised scopes; the log line `MCP: refused an access token for client … without the email scope (it has: …)` shows which app and what it was granted. `profile` isn't required.
 
 ### Binding tokens to PreTrips
 
@@ -48,7 +48,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). For rate limits, run `src/lib/sql/2026-11-16-rate-limits.sql` (the `pt_rate_limits` table; see [rate-limits.md](rate-limits.md)). For the "Allow AI apps to sign for me" setting, run `src/lib/sql/2026-11-17-ai-signing-setting.sql` (`pt_driver_signatures.allow_ai_signing`, off for everyone until they turn it on); until it's run, AI apps can't sign and the server logs once that the column is missing. (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds an index on trips (and the old `pt_api_keys` table); it's safe to run again. Then run `src/lib/sql/2026-11-18-revoke-api-keys.sql`, which marks every personal API key revoked now that keys are no longer accepted. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). For rate limits, run `src/lib/sql/2026-11-16-rate-limits.sql` (the `pt_rate_limits` table; see [rate-limits.md](rate-limits.md)). For the "Allow AI apps to sign for me" setting, run `src/lib/sql/2026-11-17-ai-signing-setting.sql` (`pt_driver_signatures.allow_ai_signing`, off for everyone until they turn it on); until it's run, AI apps can't sign and the server logs once that the column is missing. (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 
@@ -79,4 +79,4 @@ In AI apps that support [MCP Apps](https://modelcontextprotocol.io/extensions/ap
 
 ## How it's built
 
-The same way as Budget and Clock Out: `src/app/api/mcp/route.ts` runs [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) (Streamable HTTP, stateless) behind `src/mcp/http.ts`, which handles CORS, case-insensitive `Bearer` tokens, the `401` sign-in challenge pointing to `/.well-known/oauth-protected-resource/api/mcp`, and plain JSON answers for clients that don't take event streams. Tool schemas are advertised in the JSON Schema subset Gemini accepts (`src/mcp/portable-schema.ts`). `src/mcp/auth.ts` checks Clerk OAuth access tokens with Clerk's Backend API, or looks up an API key's hash. Tools take the driver only from the verified token, never from their arguments.
+The same way as Budget and Clock Out: `src/app/api/mcp/route.ts` runs [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) (Streamable HTTP, stateless) behind `src/mcp/http.ts`, which handles CORS, case-insensitive `Bearer` tokens, the `401` sign-in challenge pointing to `/.well-known/oauth-protected-resource/api/mcp`, and plain JSON answers for clients that don't take event streams. Tool schemas are advertised in the JSON Schema subset Gemini accepts (`src/mcp/portable-schema.ts`). `src/mcp/auth.ts` checks Clerk OAuth access tokens with Clerk's Backend API; nothing else is accepted. Tools take the driver only from the verified token, never from their arguments.

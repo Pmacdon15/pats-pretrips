@@ -32,7 +32,7 @@ All of them are in `src/lib/rate-limit/limits.ts`.
 
 | Limit | Bucket | Allowed | Where |
 | --- | --- | --- | --- |
-| `MCP_AUTH_FAILURES` | client IP | 30 failed sign-ins per 10 minutes | `/api/mcp`: bad, revoked or expired API keys and access tokens. Over it, every request from that IP gets `429` with `Retry-After` until the window ends, even with a good token. |
+| `MCP_AUTH_FAILURES` | client IP | 30 failed sign-ins per 10 minutes | `/api/mcp`: bad, revoked or expired access tokens, and personal API keys (`ppt_…`), which are no longer accepted. Over it, every request from that IP gets `429` with `Retry-After` until the window ends, even with a good token. |
 | `MCP_TOOL_CALLS` | driver | 300 tool calls per 5 minutes | Every MCP tool call, across all the driver's AI apps. Over it, the tool answers a readable error. |
 | `REPAIR_UPLOADS` | driver | 30 per hour | Recording a defect repair (invoice and signature upload), from the web app and the `mark_defect_repaired` tool together. |
 | `GEOCODE` | driver | 60 per hour | `getAddress` (Google Geocoding). Over it, the address is left for the driver to type. |
@@ -45,9 +45,6 @@ again."*
 
 Not limited: reading pages, `undoDefectRepair`, `deleteSignature` (cheap, and
 only the driver's own data), and emailing, which has its own limits.
-
-The API key lookup on `/api/mcp` is a read; `last_used_at` is written only for a
-real key, at most once a minute, so unknown keys never cause a write.
 
 ## Recommended on top: Vercel Firewall
 

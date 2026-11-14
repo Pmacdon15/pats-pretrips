@@ -1,20 +1,16 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import type { AuthInfo } from '@modelcontextprotocol/server'
-import { hashApiKey, looksLikeApiKey } from '@/lib/api-keys'
-import { touchApiKeyDb } from '@/lib/db/api-keys'
 
 /*
- * Who is calling the MCP server. Two ways in:
+ * Who is calling the MCP server. The only way in is OAuth: the AI app
+ * registers itself with Clerk (dynamic client registration), sends the driver
+ * to sign in to PreTrips, and Clerk issues it an access token. Clerk's Backend
+ * API checks the token. (Personal API keys, `ppt_...`, are no longer accepted;
+ * see src/lib/sql/2026-11-18-revoke-api-keys.sql.)
  *
- * - OAuth (the normal way): the AI app registers itself with Clerk (dynamic
- *   client registration), sends the driver to sign in to PreTrips, and Clerk
- *   issues it an access token. Clerk's Backend API checks the token.
- * - A personal API key (`ppt_...`), for apps that can't do OAuth. Its hash is
- *   looked up; revoked keys don't work.
- *
- * Either way the result carries the driver's email in `extra.email`, which is
- * the only place tools take the driver from. Trips belong to an email, as
- * they do in the web app.
+ * The result carries the driver's email in `extra.email`, which is the only
+ * place tools take the driver from. Trips belong to an email, as they do in
+ * the web app.
  */
 
 /**
@@ -127,20 +123,11 @@ export async function verifyMcpToken(
 ): Promise<AuthInfo | undefined> {
 	if (!token) return undefined
 
-	if (looksLikeApiKey(token)) {
-		const key = await touchApiKeyDb(hashApiKey(token))
-		if (!key) return undefined
-		return {
-			token,
-			clientId: `api-key:${key.id}`,
-			scopes: [],
-			extra: { email: key.driverEmail, client: key.name, via: 'api_key' },
-		}
-	}
-
 	if (!looksLikeOAuthToken(token)) {
 		console.warn(
-			"MCP: refused a bearer token that isn't an OAuth token or API key",
+			token.startsWith('ppt_')
+				? 'MCP: refused a personal API key: API keys are no longer accepted, only OAuth sign-in'
+				: "MCP: refused a bearer token that isn't an OAuth token",
 		)
 		return undefined
 	}
