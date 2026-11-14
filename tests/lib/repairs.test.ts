@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
 	deleteRepairDb: vi.fn(),
 	compressInvoice: vi.fn(),
 	compressSignature: vi.fn(),
+	recordOwner: vi.fn(),
 }))
+vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/trips', () => ({ getTripDb: mocks.getTripDb }))
 vi.mock('@/lib/db/repairs', () => ({
 	listTripRepairsDb: mocks.listTripRepairsDb,
@@ -86,6 +88,19 @@ describe('recordRepair', () => {
 			invoice: expect.objectContaining({ name: 'a.jpg' }),
 			source: 'web',
 		})
+		// No user ID given: recordOwner skips the stamp.
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: undefined },
+			{ table: 'repair', repairId: repair().id },
+		)
+	})
+
+	it("stamps the new repair with the driver's Clerk user", async () => {
+		await recordRepair('pat@x.com', details, {}, 'web', 'user_1')
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: 'user_1' },
+			{ table: 'repair', repairId: repair().id },
+		)
 	})
 
 	it('needs only the mechanic or the shop', async () => {
@@ -205,8 +220,10 @@ describe('recordRepair', () => {
 		// Another request got there between the check and the insert.
 		mocks.createRepairDb.mockResolvedValueOnce(undefined)
 		expect(
-			await recordRepair('pat@x.com', details, {}, 'web'),
+			await recordRepair('pat@x.com', details, {}, 'web', 'user_1'),
 		).toMatchObject({ ok: false, status: 'already_repaired' })
+		// Nothing saved, nothing stamped.
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 
 	it('says what is wrong with a file, and rethrows anything else', async () => {

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	updateTripDefectsDb: vi.fn(),
 	resolveSignature: vi.fn(),
 	rateLimit: vi.fn(),
+	recordOwner: vi.fn(),
 }))
 vi.mock('@/lib/rate-limit', async (original) => ({
 	...(await original<typeof import('@/lib/rate-limit')>()),
@@ -15,9 +16,19 @@ vi.mock('@/lib/rate-limit', async (original) => ({
 
 // Stands in for Clerk's current user: `getUser` gives the user or null.
 vi.mock('@/lib/auth', () => ({
-	getDriverEmail: async () =>
-		((await mocks.getUser()) as { email?: string } | null)?.email ?? null,
+	getDriver: async () => {
+		const user = (await mocks.getUser()) as { email?: string } | null
+		return user?.email
+			? {
+					userId: 'user_1',
+					email: user.email,
+					givenName: null,
+					familyName: null,
+				}
+			: null
+	},
 }))
+vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/trips', () => ({
 	createTripDb: mocks.createTripDb,
 	getTripDefectsDb: mocks.getTripDefectsDb,
@@ -93,11 +104,18 @@ describe('addTripDAL', () => {
 			'pat@x.com',
 			'saved',
 			undefined,
+			'user_1',
 		)
 		expect(mocks.createTripDb).toHaveBeenCalledWith(
 			form,
 			'pat@x.com',
 			SIGNED,
+		)
+		// The new trip and its signature are stamped with the Clerk user.
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{ table: 'trip', tripId: 1 },
+			{ table: 'trip_signature', tripId: 1 },
 		)
 	})
 
@@ -117,6 +135,7 @@ describe('addTripDAL', () => {
 			'pat@x.com',
 			drawn,
 			true,
+			'user_1',
 		)
 	})
 
@@ -130,6 +149,7 @@ describe('addTripDAL', () => {
 			reason: 'No saved signature',
 		})
 		expect(mocks.createTripDb).not.toHaveBeenCalled()
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 
 	it('requires a signed-in driver', async () => {
@@ -180,6 +200,10 @@ describe('addOnRouteDefectsDAL', () => {
 			'Horn, Wipers',
 			'Loud',
 		)
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{ table: 'trip', tripId: 3 },
+		)
 	})
 
 	it('requires a signed-in driver', async () => {
@@ -205,6 +229,7 @@ describe('addOnRouteDefectsDAL', () => {
 			reason: '"Horn" is already listed on this trip',
 		})
 		expect(mocks.updateTripDefectsDb).not.toHaveBeenCalled()
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 
 	it('matches whole defects, not substrings', async () => {

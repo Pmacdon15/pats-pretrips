@@ -5,7 +5,9 @@ const mocks = vi.hoisted(() => ({
 	getSavedSignatureDb: vi.fn(),
 	saveSignatureDb: vi.fn(),
 	compressSignature: vi.fn(),
+	recordOwner: vi.fn(),
 }))
+vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/signatures', () => ({
 	getAiSigningAllowedDb: mocks.getAiSigningAllowedDb,
 	getSavedSignatureDb: mocks.getSavedSignatureDb,
@@ -61,8 +63,15 @@ describe('resolveSignature', () => {
 		)
 		expect(mocks.saveSignatureDb).not.toHaveBeenCalled()
 
-		await resolveSignature('pat@x.com', DRAWN, true)
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
+
+		await resolveSignature('pat@x.com', DRAWN, true, 'user_1')
 		expect(mocks.saveSignatureDb).toHaveBeenCalledWith('pat@x.com', PNG)
+		// The saved signature is stamped with the driver's Clerk user.
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: 'user_1' },
+			{ table: 'driver_signature' },
+		)
 	})
 
 	it("says what's wrong with a bad image, and rethrows anything else", async () => {

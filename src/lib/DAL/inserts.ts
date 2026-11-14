@@ -1,6 +1,7 @@
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
-import { getDriverEmail } from '@/lib/auth'
+import { getDriver } from '@/lib/auth'
+import { recordOwner } from '@/lib/db/owner-stamps'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { TRIP_WRITES } from '@/lib/rate-limit/limits'
 import {
@@ -12,11 +13,12 @@ import { resolveSignature } from '../signatures/signatures'
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
-	const driverEmail = await getDriverEmail()
+	const driver = await getDriver()
 
-	if (!driverEmail) {
+	if (!driver) {
 		return errAsync({ reason: 'Must be logged in' })
 	}
+	const driverEmail = driver.email
 	const limited = await rateLimit(TRIP_WRITES, driverEmail)
 	if (!limited.ok) {
 		return errAsync({ reason: rateLimitMessage(limited.retryAfter) })
@@ -39,12 +41,19 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 			driverEmail,
 			signature,
 			saveSignature,
+			driver.userId,
 		)
 		if (!signed.ok) return errAsync({ reason: signed.message })
 		const trip = await createTripDb(fields, driverEmail, {
 			...signed.file,
 			source: 'web',
 		})
+		const tripId = Number(trip.tripid)
+		await recordOwner(
+			driver,
+			{ table: 'trip', tripId },
+			{ table: 'trip_signature', tripId },
+		)
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Db error adding trip: ', e)
@@ -57,11 +66,12 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 export async function addOnRouteDefectsDAL(
 	data: z.infer<typeof schemaAddDefects>,
 ) {
-	const driverEmail = await getDriverEmail()
+	const driver = await getDriver()
 
-	if (!driverEmail) {
+	if (!driver) {
 		return errAsync({ reason: 'Not authorized' } as const)
 	}
+	const driverEmail = driver.email
 	const limited = await rateLimit(TRIP_WRITES, driverEmail)
 	if (!limited.ok) {
 		return errAsync({ reason: rateLimitMessage(limited.retryAfter) })
@@ -103,6 +113,7 @@ export async function addOnRouteDefectsDAL(
 			cleanDefectsToAdd,
 			data.remarks,
 		)
+		await recordOwner(driver, { table: 'trip', tripId: data.trip_id })
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error updating trip:', e)

@@ -129,15 +129,18 @@ describe('listDefects', () => {
 describe('markDefectRepaired', () => {
 	it('records the repair from base64 files', async () => {
 		mocks.recordRepair.mockResolvedValue({ ok: true, repair: repair() })
-		const result = await markDefectRepaired(caller, {
-			trip_id: 1,
-			defect: 'Cab',
-			mechanic_name: 'Sam Wrench',
-			invoice_number: 'INV-1',
-			invoice_base64: 'aGVsbG8=',
-			invoice_filename: 'bill.jpg',
-			signature_base64: 'data:image/png;base64,aGk=',
-		})
+		const result = await markDefectRepaired(
+			{ ...caller, userId: 'user_1' },
+			{
+				trip_id: 1,
+				defect: 'Cab',
+				mechanic_name: 'Sam Wrench',
+				invoice_number: 'INV-1',
+				invoice_base64: 'aGVsbG8=',
+				invoice_filename: 'bill.jpg',
+				signature_base64: 'data:image/png;base64,aGk=',
+			},
+		)
 		expect(result.summary).toBe(
 			'Marked Cab on trip 1 repaired on 2026-01-05 by Sam Wrench, Highway Truck: invoice INV-1, invoice file saved (2 KB, compressed from 8 KB), signed.',
 		)
@@ -152,6 +155,8 @@ describe('markDefectRepaired', () => {
 				signature: new Uint8Array([104, 105]),
 			},
 			'AI: Claude',
+			// Recorded on the repair beside the email.
+			'user_1',
 		)
 	})
 

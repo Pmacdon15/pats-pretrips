@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 	compressSignature: vi.fn(),
 	resolveSignature: vi.fn(),
 	rateLimit: vi.fn(),
+	recordOwner: vi.fn(),
 	setAiSigningDb: vi.fn(),
 	aiSigningAllowed: vi.fn(),
 	warnMissingAiSigningColumn: vi.fn(),
@@ -18,7 +19,17 @@ vi.mock('@/lib/rate-limit', async (original) => ({
 	...(await original<typeof import('@/lib/rate-limit')>()),
 	rateLimit: mocks.rateLimit,
 }))
-vi.mock('@/lib/auth', () => ({ getDriverEmail: mocks.email }))
+// `email` stands in for the signed-in driver's email (null when signed out).
+vi.mock('@/lib/auth', () => ({
+	getDriverEmail: mocks.email,
+	getDriver: async () => {
+		const email = await mocks.email()
+		return email
+			? { userId: 'user_1', email, givenName: null, familyName: null }
+			: null
+	},
+}))
+vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/signatures', () => ({
 	getSavedSignatureDateDb: mocks.getSavedSignatureDateDb,
 	saveSignatureDb: mocks.saveSignatureDb,
@@ -135,6 +146,10 @@ describe('saveSignatureDAL', () => {
 			allowAiSigning: false,
 		})
 		expect(mocks.saveSignatureDb).toHaveBeenCalledWith('pat@x.com', PNG)
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{ table: 'driver_signature' },
+		)
 	})
 
 	it("keeps the driver's AI signing choice when replacing it", async () => {
@@ -282,12 +297,18 @@ describe('signTripDAL', () => {
 			'pat@x.com',
 			'saved',
 			true,
+			'user_1',
 		)
 		expect(mocks.signTripDb).toHaveBeenCalledWith(
 			1,
 			'pat@x.com',
 			PNG,
 			'web',
+		)
+		expect(mocks.recordOwner).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{ table: 'trip', tripId: 1 },
+			{ table: 'trip_signature', tripId: 1 },
 		)
 	})
 
@@ -314,6 +335,7 @@ describe('signTripDAL', () => {
 		expect((await signTripDAL(data))._unsafeUnwrapErr()).toEqual({
 			reason: 'This pre-trip is already signed, or older than 24 hours.',
 		})
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 		mocks.signTripDb.mockRejectedValueOnce(new Error('down'))
 		expect((await signTripDAL(data))._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not sign the pre-trip. Please try again.',

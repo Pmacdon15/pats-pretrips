@@ -12,7 +12,16 @@ vi.mock('@/lib/rate-limit', async (original) => ({
 	...(await original<typeof import('@/lib/rate-limit')>()),
 	rateLimit: mocks.rateLimit,
 }))
-vi.mock('@/lib/auth', () => ({ getDriverEmail: mocks.email }))
+// `email` stands in for the signed-in driver's email (null when signed out).
+vi.mock('@/lib/auth', () => ({
+	getDriverEmail: mocks.email,
+	getDriver: async () => {
+		const email = await mocks.email()
+		return email
+			? { userId: 'user_1', email, givenName: null, familyName: null }
+			: null
+	},
+}))
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
 vi.mock('@/lib/repairs/repairs', () => ({
 	recordRepair: mocks.recordRepair,
@@ -69,6 +78,7 @@ describe('markDefectRepaired', () => {
 				signature: new Uint8Array([104, 105]),
 			},
 			'web',
+			'user_1',
 		)
 		expect(mocks.updateTag).toHaveBeenCalledWith('trips:pat@x.com')
 	})

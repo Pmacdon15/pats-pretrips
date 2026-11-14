@@ -113,7 +113,9 @@ async function verifyOAuthToken(token: string): Promise<AuthInfo | undefined> {
 		clientId: accessToken.clientId,
 		scopes: accessToken.scopes,
 		expiresAt: accessToken.expiration ?? undefined,
-		extra: { email, via: 'oauth' },
+		// userId (the Clerk user ID) is recorded beside the email on every
+		// write; see src/lib/db/owner-stamps.ts.
+		extra: { email, userId: accessToken.subject, via: 'oauth' },
 	}
 }
 

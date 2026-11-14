@@ -80,15 +80,29 @@ describe('callerFrom', () => {
 		).toEqual({
 			email: 'pat@x.com',
 			client: null,
+			userId: null,
 		})
 		expect(callerFrom(auth({ email: 'pat@x.com' }), 'claude-ai')).toEqual({
 			email: 'pat@x.com',
 			client: 'claude-ai',
+			userId: null,
 		})
 		expect(callerFrom(auth({ email: 'pat@x.com' }), null)).toEqual({
 			email: 'pat@x.com',
 			client: null,
+			userId: null,
 		})
+	})
+
+	it("takes the Clerk user ID from OAuth's extra.userId", () => {
+		expect(
+			callerFrom(auth({ email: 'pat@x.com', userId: 'user_1' })),
+		).toMatchObject({ email: 'pat@x.com', userId: 'user_1' })
+		for (const userId of ['', 5, undefined]) {
+			expect(
+				callerFrom(auth({ email: 'pat@x.com', userId }))?.userId,
+			).toBeNull()
+		}
 	})
 })
 

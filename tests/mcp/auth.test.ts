@@ -77,7 +77,8 @@ describe('Clerk OAuth access tokens', () => {
 			clientId: 'claude',
 			scopes: ['profile', 'email', 'offline_access'],
 			expiresAt: 99,
-			extra: { email: 'pat@x.com', via: 'oauth' },
+			// The Clerk user ID is the token's subject.
+			extra: { email: 'pat@x.com', userId: 'user_1', via: 'oauth' },
 		})
 		expect(mocks.verify).toHaveBeenCalledWith(TOKEN, {
 			audience: undefined,

@@ -14,7 +14,9 @@ const mocks = vi.hoisted(() => ({
 	reserveEmailSend: vi.fn(),
 	confirmEmailSend: vi.fn(),
 	releaseEmailSend: vi.fn(),
+	recordOwner: vi.fn(),
 }))
+vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/email/send-log', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/email/send-log')>()),
 	reserveEmailSend: mocks.reserveEmailSend,
@@ -55,7 +57,12 @@ const settings = {
 	autoSend: true,
 	timeZone: 'UTC',
 }
-const pat = { email: 'pat@x.com', givenName: 'Pat', familyName: null }
+const pat = {
+	userId: 'user_1',
+	email: 'pat@x.com',
+	givenName: 'Pat',
+	familyName: null,
+}
 
 beforeEach(() => {
 	mocks.getDriver.mockResolvedValue(pat)
@@ -351,5 +358,53 @@ describe('prepareAutoEmailDAL', () => {
 		vi.stubEnv('SES_FROM_EMAIL', 'trips@x.com')
 		mocks.getDriver.mockResolvedValue(null)
 		await expect(prepareAutoEmailDAL()).resolves.toBeNull()
+	})
+})
+
+describe('recording the Clerk user on writes', () => {
+	it('stamps saved email settings', async () => {
+		await saveEmailSettingsDAL({ recipients: 'a@x.com', autoSend: true })
+		expect(mocks.recordOwner).toHaveBeenCalledWith(pat, {
+			table: 'email_settings',
+		})
+	})
+
+	it('stamps nothing when the settings were not saved', async () => {
+		mocks.saveEmailSettingsDb.mockRejectedValue(new Error('down'))
+		await saveEmailSettingsDAL({ recipients: 'a@x.com', autoSend: true })
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
+	})
+
+	it('stamps the logged send of an emailed trip', async () => {
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		expect(mocks.recordOwner).toHaveBeenCalledWith(pat, {
+			table: 'email_send',
+			sendId: '41',
+		})
+	})
+
+	it('stamps the logged send of an auto-emailed trip', async () => {
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip())
+		expect(mocks.recordOwner).toHaveBeenCalledWith(pat, {
+			table: 'email_send',
+			sendId: '41',
+		})
+	})
+
+	it('has nothing to stamp when the send log could not be used', async () => {
+		mocks.reserveEmailSend.mockResolvedValue({ ok: true, id: null })
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip())
+		expect(mocks.sendTripEmail).toHaveBeenCalledTimes(2)
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
+	})
+
+	it('stamps nothing for a send that failed', async () => {
+		mocks.sendTripEmail.mockRejectedValue(new Error('SES down'))
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 })

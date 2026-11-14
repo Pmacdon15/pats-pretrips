@@ -10,6 +10,7 @@ import {
 	getEmailSettingsDb,
 	saveEmailSettingsDb,
 } from '@/lib/db/email-settings'
+import { recordOwner } from '@/lib/db/owner-stamps'
 import { getRepairFileDb, listTripRepairsDb } from '@/lib/db/repairs'
 import { getTripSignatureDb } from '@/lib/db/signatures'
 import { getTripDb } from '@/lib/db/trips'
@@ -88,12 +89,20 @@ export async function saveEmailSettingsDAL(data: {
 			autoSend: parsed.data.autoSend,
 			timeZone: parsed.data.timeZone ?? null,
 		})
+		await recordOwner(driver, { table: 'email_settings' })
 		return okAsync(settings)
 	} catch (e) {
 		console.error('Db error saving email settings: ', e)
 		return errAsync({
 			reason: 'Could not save your email settings. Please try again.',
 		} as const)
+	}
+}
+
+/** Records the driver's Clerk user ID on a logged send (none without a log). */
+async function recordEmailSendOwner(driver: Driver, sendId: string | null) {
+	if (sendId !== null) {
+		await recordOwner(driver, { table: 'email_send', sendId })
 	}
 }
 
@@ -177,6 +186,7 @@ export async function emailTripDAL(data: {
 			throw e
 		}
 		await confirmEmailSend(slot.id, messageId)
+		await recordEmailSendOwner(driver, slot.id)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
 		console.error('Error emailing trip: ', e)
@@ -222,6 +232,7 @@ export async function prepareAutoEmailDAL() {
 				await tripSignature(trip, driver.email),
 			)
 			await confirmEmailSend(slot.id, messageId)
+			await recordEmailSendOwner(driver, slot.id)
 		} catch (e) {
 			await releaseEmailSend(slot.id)
 			console.error('Error auto-emailing trip: ', e)

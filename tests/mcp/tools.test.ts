@@ -21,6 +21,8 @@ const signatureMocks = vi.hoisted(() => ({
 	signTripDb: vi.fn(),
 }))
 vi.mock('@/lib/db/signatures', () => signatureMocks)
+const ownerMocks = vi.hoisted(() => ({ recordOwner: vi.fn() }))
+vi.mock('@/lib/db/owner-stamps', () => ownerMocks)
 
 import {
 	getTrip,
@@ -827,5 +829,55 @@ describe('getTrip', () => {
 		mocks.getTripDb.mockResolvedValue(undefined)
 		const result = await getTrip(caller, { trip_id: 1 })
 		expect(result.isError).toBe(true)
+	})
+})
+
+describe('recording the Clerk user on writes', () => {
+	const pat = { ...caller, userId: 'user_1' }
+
+	it('stamps a started trip and its signature', async () => {
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(pat, start)
+		expect(ownerMocks.recordOwner).toHaveBeenCalledWith(
+			pat,
+			{ table: 'trip', tripId: 5 },
+			{ table: 'trip_signature', tripId: 5 },
+		)
+	})
+
+	it('stamps only the trip when it was not signed', async () => {
+		signatureMocks.getSavedSignatureDb.mockResolvedValue(undefined)
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(pat, start)
+		expect(ownerMocks.recordOwner).toHaveBeenCalledWith(pat, {
+			table: 'trip',
+			tripId: 5,
+		})
+	})
+
+	it('stamps an updated trip, and its signature when it was signed', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(recent({ make: 'Mack' }))
+		await updateTrip(pat, { trip_id: 1, make: 'Mack' })
+		expect(ownerMocks.recordOwner).toHaveBeenLastCalledWith(pat, {
+			table: 'trip',
+			tripId: 1,
+		})
+		signatureMocks.signTripDb.mockResolvedValue(recent({ signed_at: NOW }))
+		await updateTrip(pat, { trip_id: 1, sign: true })
+		expect(ownerMocks.recordOwner).toHaveBeenLastCalledWith(
+			pat,
+			{ table: 'trip', tripId: 1 },
+			{ table: 'trip_signature', tripId: 1 },
+		)
+	})
+
+	it('stamps nothing when the update changed nothing', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(undefined)
+		await updateTrip(pat, { trip_id: 1, odometer: 2 })
+		mocks.getTripDb.mockResolvedValue(undefined)
+		await updateTrip(pat, { trip_id: 1, odometer: 2 })
+		expect(ownerMocks.recordOwner).not.toHaveBeenCalled()
 	})
 })

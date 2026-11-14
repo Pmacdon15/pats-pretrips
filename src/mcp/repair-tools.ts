@@ -230,6 +230,7 @@ export async function markDefectRepaired(
 		},
 		files,
 		caller.client ? `AI: ${caller.client}`.slice(0, 60) : 'AI assistant',
+		caller.userId,
 	)
 	if (!result.ok) {
 		return {
