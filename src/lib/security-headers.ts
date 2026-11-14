@@ -30,6 +30,36 @@ export function clerkOrigins(publishableKey: string | undefined) {
 export const ENFORCED_CSP =
 	"frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
 
+/**
+ * CSP for the routes that serve stored invoices and signatures: the file
+ * can't load or run anything, and `sandbox` gives it an opaque origin. Each
+ * directive was checked in Chromium. `style-src 'unsafe-inline'` lets the
+ * browser's own image page centre the image; `img-src 'self'` is for image
+ * pages that load the image as a subresource.
+ */
+export const FILE_CSP =
+	"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'self'"
+
+/** The routes that serve stored files (see src/lib/file-response.ts). */
+export const FILE_ROUTES = [
+	'/api/repairs/:repairId/:kind',
+	'/api/signature',
+	'/api/trips/:tripId/signature',
+]
+
+/**
+ * next.config.ts `headers()` entries giving the file routes FILE_CSP. Needed
+ * there, not only in the route: on Next 16.4 a header set in `headers()`
+ * replaces the same header from a route handler's Response, so the site-wide
+ * policy would otherwise win. List these after the site-wide entry.
+ */
+export function fileRouteHeaders() {
+	return FILE_ROUTES.map((source) => ({
+		source,
+		headers: [{ key: 'Content-Security-Policy', value: FILE_CSP }],
+	}))
+}
+
 /** Clerk's bot protection (Cloudflare Turnstile) and its own protect service. */
 const TURNSTILE = 'https://challenges.cloudflare.com'
 const CLERK_PROTECT = 'https://*.protect.clerk.com'
