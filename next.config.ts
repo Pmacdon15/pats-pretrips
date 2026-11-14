@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { securityHeaders } from './src/lib/security-headers'
 
 const nextConfig: NextConfig = {
 	typedRoutes: true,
@@ -11,6 +12,9 @@ const nextConfig: NextConfig = {
 	},
 	async headers() {
 		return [
+			// Every route. Listed first: when two entries set the same header,
+			// the later one wins, so /sw.js keeps its own stricter CSP below.
+			{ source: '/:path*', headers: securityHeaders() },
 			{
 				source: '/sw.js',
 				headers: [
