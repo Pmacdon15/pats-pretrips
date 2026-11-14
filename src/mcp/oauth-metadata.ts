@@ -1,4 +1,9 @@
-import { mcpResourceUrl, publicOrigin } from '@/mcp/http'
+import {
+	ALLOWED_HEADERS,
+	mcpResourceUrl,
+	publicOrigin,
+	reportUnlistedHeaders,
+} from '@/mcp/http'
 import { MCP_SCOPES } from '@/mcp/oauth-config'
 
 export { configuredIssuer } from '@/mcp/oauth-config'
@@ -9,15 +14,21 @@ export { configuredIssuer } from '@/mcp/oauth-config'
  * resource. Same shape as Budget and Clock Out.
  */
 
+/**
+ * CORS for the discovery documents, which browser-based clients fetch too:
+ * any origin, the same fixed request headers as /api/mcp (SDK clients send
+ * `MCP-Protocol-Version` here too), never credentials. See src/mcp/http.ts.
+ */
 export const METADATA_CORS_HEADERS: Record<string, string> = {
 	'Access-Control-Allow-Origin': '*',
 	'Access-Control-Allow-Methods': 'GET, OPTIONS',
-	'Access-Control-Allow-Headers': '*',
+	'Access-Control-Allow-Headers': ALLOWED_HEADERS,
 	'Access-Control-Max-Age': '86400',
 }
 
-/** CORS preflight for the discovery documents, which browser-based clients fetch too. */
-export function metadataPreflight() {
+/** CORS preflight for the discovery documents. Unlisted headers are logged, as for /api/mcp. */
+export function metadataPreflight(req: Request) {
+	reportUnlistedHeaders(req)
 	return new Response(null, { status: 204, headers: METADATA_CORS_HEADERS })
 }
 
