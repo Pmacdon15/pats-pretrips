@@ -232,7 +232,8 @@ a:hover { text-decoration: underline; }
 			chips.appendChild(el('span', fixed ? 'chip ok' : 'chip bad', d + (s ? (fixed ? ' · Repaired' : ' · Open') : '')));
 		});
 		else chips.appendChild(el('span', 'chip ok', 'No defects'));
-		if (t.can_update) chips.appendChild(el('span', 'chip', 'Editable'));
+		// Signed trips keep their details; only defects and remarks can be added.
+		if (t.can_update) chips.appendChild(el('span', 'chip', t.can_edit_details === false ? 'Signed · can add defects' : 'Editable'));
 		card.appendChild(chips);
 
 		if (repaired.length) {
