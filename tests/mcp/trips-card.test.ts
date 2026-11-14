@@ -91,6 +91,38 @@ describe('trips card', () => {
 		expect(window.document.querySelectorAll('.chip.bad')).toHaveLength(2)
 	})
 
+	it('says a signed trip from the last 24 hours only takes defects', () => {
+		const { window, deliver } = load()
+		deliver({
+			jsonrpc: '2.0',
+			method: 'ui/notifications/tool-result',
+			params: {
+				structuredContent: {
+					trips: [
+						trip({ trip_id: 1, can_edit_details: true }),
+						trip({ trip_id: 2, can_edit_details: false }),
+						trip({
+							trip_id: 3,
+							can_update: false,
+							can_edit_details: false,
+						}),
+					],
+					has_more: false,
+					page: 1,
+					when: 'current',
+				},
+			},
+		})
+		const chips = [...window.document.querySelectorAll('.trip')].map((t) =>
+			[...t.querySelectorAll('.chip')].map((c) => c.textContent),
+		)
+		expect(chips[0]).toContain('Editable')
+		expect(chips[1]).toContain('Signed · can add defects')
+		expect(chips[1]).not.toContain('Editable')
+		expect(chips[2]).not.toContain('Editable')
+		expect(chips[2]).not.toContain('Signed · can add defects')
+	})
+
 	it('shows one trip from get_trip, and an empty list kindly', () => {
 		const { window, deliver } = load()
 		deliver({
