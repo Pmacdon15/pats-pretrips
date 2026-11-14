@@ -6,6 +6,8 @@ import {
 	saveSignatureDb,
 	signTripDb,
 } from '@/lib/db/signatures'
+import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { SIGNATURES } from '@/lib/rate-limit/limits'
 import {
 	compressSignature,
 	FileError,
@@ -17,6 +19,12 @@ import { schemaSignature, schemaSignTrip } from '@/lib/ZOD/schemas'
 /* The signed-in driver's saved signature, and signing their trips. */
 
 const NOT_SIGNED_IN = { reason: 'Must be logged in' } as const
+
+/** Why the driver can't save or sign right now, or null when they can. */
+async function signatureLimit(email: string) {
+	const limited = await rateLimit(SIGNATURES, email)
+	return limited.ok ? null : { reason: rateLimitMessage(limited.retryAfter) }
+}
 
 export type SignatureStatus = {
 	/** The driver has a saved signature to sign new pre-trips with. */
@@ -36,6 +44,8 @@ export async function getSignatureStatusDAL(): Promise<SignatureStatus> {
 export async function saveSignatureDAL(dataUrl: string) {
 	const email = await getDriverEmail()
 	if (!email) return errAsync(NOT_SIGNED_IN)
+	const limited = await signatureLimit(email)
+	if (limited) return errAsync(limited)
 	const parsed = schemaSignature.safeParse(dataUrl)
 	if (!parsed.success || parsed.data === 'saved') {
 		return errAsync({ reason: 'Sign in the box first.' } as const)
@@ -75,6 +85,8 @@ export async function signTripDAL(data: {
 }) {
 	const email = await getDriverEmail()
 	if (!email) return errAsync(NOT_SIGNED_IN)
+	const limited = await signatureLimit(email)
+	if (limited) return errAsync(limited)
 	const parsed = schemaSignTrip.safeParse(data)
 	if (!parsed.success) {
 		return errAsync({

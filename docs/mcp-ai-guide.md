@@ -35,7 +35,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). For rate limits, run `src/lib/sql/2026-11-16-rate-limits.sql` (the `pt_rate_limits` table; see [rate-limits.md](rate-limits.md)). (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 

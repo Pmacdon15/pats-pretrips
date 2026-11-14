@@ -66,15 +66,57 @@ describe('API key queries', () => {
 		await expect(revokeApiKeyDb('pat@x.com', 2)).resolves.toBe(false)
 	})
 
-	it("finds a live key's driver by hash", async () => {
-		sql.respond(() => [{ id: 1, driver_email: 'pat@x.com', name: 'Muse' }])
-		await expect(touchApiKeyDb('hash')).resolves.toEqual({
-			id: 1,
-			driverEmail: 'pat@x.com',
-			name: 'Muse',
-		})
-		expect(sql.queries()[0].text).toContain('SET last_used_at = NOW()')
+	const keyRow = {
+		id: 1,
+		driver_email: 'pat@x.com',
+		name: 'Muse',
+		last_used_at: null as Date | string | null,
+	}
+	const driver = { id: 1, driverEmail: 'pat@x.com', name: 'Muse' }
+
+	it("finds a live key's driver by hash, noting its first use", async () => {
+		sql.respond((call) => (call.text.startsWith('SELECT') ? [keyRow] : []))
+		await expect(touchApiKeyDb('hash')).resolves.toEqual(driver)
+		const [lookup, update] = sql.queries()
+		expect(lookup.text).toContain('SELECT id, driver_email, name')
+		expect(lookup.text).toContain('revoked_at IS NULL')
+		expect(lookup.values).toEqual(['hash'])
+		expect(update.text).toContain('SET last_used_at = NOW()')
+		expect(update.text).toContain("INTERVAL '1 minute'")
+		expect(update.values).toEqual([1])
+	})
+
+	it('answers an unknown key with one read and no write', async () => {
 		sql.respond(() => [])
 		await expect(touchApiKeyDb('nope')).resolves.toBeNull()
+		expect(sql.queries()).toHaveLength(1)
+		expect(sql.queries()[0].text).not.toContain('UPDATE')
+	})
+
+	it('writes last_used_at at most once a minute', async () => {
+		sql.respond(() => [
+			{
+				...keyRow,
+				last_used_at: new Date(Date.now() - 10_000).toISOString(),
+			},
+		])
+		await expect(touchApiKeyDb('hash')).resolves.toEqual(driver)
+		expect(sql.queries()).toHaveLength(1)
+
+		sql.reset()
+		sql.respond(() => [
+			{ ...keyRow, last_used_at: new Date(Date.now() - 120_000) },
+		])
+		await touchApiKeyDb('hash')
+		expect(sql.queries()).toHaveLength(2)
+	})
+
+	it("still signs in when last_used_at can't be written", async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		sql.respond((call) =>
+			call.text.startsWith('SELECT') ? [keyRow] : new Error('read-only'),
+		)
+		await expect(touchApiKeyDb('hash')).resolves.toEqual(driver)
+		expect(error).toHaveBeenCalled()
 	})
 })
