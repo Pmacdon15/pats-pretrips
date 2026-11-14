@@ -7,6 +7,7 @@ import {
 	compressSignature,
 	FileError,
 	fromBase64,
+	MAX_INPUT_PIXELS,
 	MAX_UPLOAD_BYTES,
 	sniff,
 } from '@/lib/repairs/compress'
@@ -102,6 +103,27 @@ describe('compressInvoice', () => {
 		).rejects.toBeInstanceOf(FileError)
 	})
 
+	it('accepts a 50 MP phone photo but refuses anything over the pixel cap', async () => {
+		const phone = await compressInvoice(await photo(8160, 6144))
+		expect(phone.type).toBe('image/jpeg')
+
+		const side = Math.ceil(Math.sqrt(MAX_INPUT_PIXELS)) + 1
+		const bomb = await photo(side, side)
+		expect(bomb.length).toBeLessThan(MAX_UPLOAD_BYTES)
+		const error = await compressInvoice(bomb).catch((e) => e)
+		expect(error).toBeInstanceOf(FileError)
+		expect(error.message).toBe('The invoice photo could not be read.')
+	})
+
+	it('refuses a truncated JPEG', async () => {
+		const jpeg = await sharp(await photo(400, 300))
+			.jpeg()
+			.toBuffer()
+		await expect(
+			compressInvoice(jpeg.subarray(0, Math.floor(jpeg.length / 2))),
+		).rejects.toThrow('The invoice photo could not be read.')
+	})
+
 	it('refuses an invoice still over 3 MB after compression', async () => {
 		vi.resetModules()
 		vi.doMock('sharp', () => ({
@@ -148,6 +170,13 @@ describe('compressSignature', () => {
 		await expect(
 			compressSignature(bytes(0x89, 0x50, 0x4e, 0x47, 0)),
 		).rejects.toThrow('could not be read')
+	})
+
+	it('refuses a signature over the pixel cap', async () => {
+		const side = Math.ceil(Math.sqrt(MAX_INPUT_PIXELS)) + 1
+		await expect(
+			compressSignature(await photo(side, side)),
+		).rejects.toThrow('The signature image could not be read.')
 	})
 })
 
