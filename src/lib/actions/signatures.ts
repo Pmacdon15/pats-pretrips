@@ -5,6 +5,7 @@ import {
 	deleteSignatureDAL,
 	getSignatureStatusDAL,
 	saveSignatureDAL,
+	setAiSigningDAL,
 	signTripDAL,
 } from '../DAL/signatures'
 
@@ -24,6 +25,15 @@ export async function saveSignature(dataUrl: string) {
 
 export async function deleteSignature() {
 	const result = await deleteSignatureDAL()
+	return result.match(
+		(value) => ({ value }),
+		(err) => ({ errorMessage: err.reason }),
+	)
+}
+
+/** "Allow AI apps to sign for me", on or off. */
+export async function setAiSigning(allow: boolean) {
+	const result = await setAiSigningDAL(allow)
 	return result.match(
 		(value) => ({ value }),
 		(err) => ({ errorMessage: err.reason }),

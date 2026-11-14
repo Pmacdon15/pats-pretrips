@@ -4,6 +4,7 @@ import {
 	deleteSavedSignatureDb,
 	getSavedSignatureDateDb,
 	saveSignatureDb,
+	setAiSigningDb,
 	signTripDb,
 } from '@/lib/db/signatures'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
@@ -13,8 +14,17 @@ import {
 	FileError,
 	fromBase64,
 } from '@/lib/repairs/compress'
-import { resolveSignature } from '@/lib/signatures/signatures'
-import { schemaSignature, schemaSignTrip } from '@/lib/ZOD/schemas'
+import {
+	aiSigningAllowed,
+	isMissingAiSigningColumn,
+	resolveSignature,
+	warnMissingAiSigningColumn,
+} from '@/lib/signatures/signatures'
+import {
+	schemaAllowAiSigning,
+	schemaSignature,
+	schemaSignTrip,
+} from '@/lib/ZOD/schemas'
 
 /* The signed-in driver's saved signature, and signing their trips. */
 
@@ -31,13 +41,27 @@ export type SignatureStatus = {
 	saved: boolean
 	/** When it was saved, as an ISO date; null without one. */
 	updatedAt: string | null
+	/**
+	 * "Allow AI apps to sign for me": AI apps may sign pre-trips with the
+	 * saved signature. Always false without one, and before the migration.
+	 */
+	allowAiSigning: boolean
+}
+
+const NO_SIGNATURE: SignatureStatus = {
+	saved: false,
+	updatedAt: null,
+	allowAiSigning: false,
 }
 
 export async function getSignatureStatusDAL(): Promise<SignatureStatus> {
 	const email = await getDriverEmail()
-	if (!email) return { saved: false, updatedAt: null }
-	const updatedAt = await getSavedSignatureDateDb(email)
-	return { saved: Boolean(updatedAt), updatedAt }
+	if (!email) return NO_SIGNATURE
+	const [updatedAt, allowAiSigning] = await Promise.all([
+		getSavedSignatureDateDb(email),
+		aiSigningAllowed(email),
+	])
+	return updatedAt ? { saved: true, updatedAt, allowAiSigning } : NO_SIGNATURE
 }
 
 /** Saves the signature the driver drew (a PNG data URL) as their saved one. */
@@ -53,7 +77,13 @@ export async function saveSignatureDAL(dataUrl: string) {
 	try {
 		const file = await compressSignature(fromBase64(parsed.data))
 		const updatedAt = await saveSignatureDb(email, file)
-		return okAsync({ saved: true, updatedAt } as SignatureStatus)
+		// Replacing a signature keeps the driver's AI signing choice.
+		const allowAiSigning = await aiSigningAllowed(email)
+		return okAsync({
+			saved: true,
+			updatedAt,
+			allowAiSigning,
+		} as SignatureStatus)
 	} catch (e) {
 		if (e instanceof FileError) return errAsync({ reason: e.message })
 		console.error('Error saving signature: ', e)
@@ -67,12 +97,50 @@ export async function deleteSignatureDAL() {
 	const email = await getDriverEmail()
 	if (!email) return errAsync(NOT_SIGNED_IN)
 	try {
+		// The AI signing choice goes with it (it's on the same row).
 		await deleteSavedSignatureDb(email)
-		return okAsync({ saved: false, updatedAt: null } as SignatureStatus)
+		return okAsync(NO_SIGNATURE)
 	} catch (e) {
 		console.error('Error deleting signature: ', e)
 		return errAsync({
 			reason: 'Could not delete your signature. Please try again.',
+		} as const)
+	}
+}
+
+/**
+ * Turns "Allow AI apps to sign for me" on or off. Only with a saved
+ * signature, since that's what AI apps sign with.
+ */
+export async function setAiSigningDAL(allow: unknown) {
+	const email = await getDriverEmail()
+	if (!email) return errAsync(NOT_SIGNED_IN)
+	const limited = await signatureLimit(email)
+	if (limited) return errAsync(limited)
+	const parsed = schemaAllowAiSigning.safeParse(allow)
+	if (!parsed.success) {
+		return errAsync({
+			reason: parsed.error.issues.map((i) => i.message).join(', '),
+		})
+	}
+	try {
+		const row = await setAiSigningDb(email, parsed.data)
+		if (!row) {
+			return errAsync({
+				reason: 'Save a signature first, then choose whether AI apps can sign with it.',
+			} as const)
+		}
+		return okAsync({ saved: true, ...row } as SignatureStatus)
+	} catch (e) {
+		if (isMissingAiSigningColumn(e)) {
+			warnMissingAiSigningColumn()
+			return errAsync({
+				reason: "This setting isn't available yet. Please try again later.",
+			} as const)
+		}
+		console.error('Error changing AI signing: ', e)
+		return errAsync({
+			reason: 'Could not change the setting. Please try again.',
 		} as const)
 	}
 }
