@@ -1,0 +1,40 @@
+name: Dependency audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Advisories are published without any change here, so check main weekly too.
+  schedule:
+    - cron: "17 14 * * 1"
+  # Lets you re-run the checks by hand from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      # Also fails if bun.lock is out of date with package.json, so the audit sees what ships.
+      - run: bun install --frozen-lockfile
+
+      # Lists every advisory, low and moderate included, without failing the job.
+      - name: List all advisories
+        run: bun audit || echo "::warning title=bun audit::Advisories found; see the List all advisories step log."
+
+      # Fails only on high or critical advisories. To accept one that can't be fixed yet,
+      # add --ignore=GHSA-xxxx-xxxx-xxxx here with a comment saying why.
+      - name: Fail on high or critical advisories
+        run: bun audit --audit-level=high
