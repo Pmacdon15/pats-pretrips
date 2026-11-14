@@ -1,6 +1,8 @@
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
 import { getDriverEmail } from '@/lib/auth'
+import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { TRIP_WRITES } from '@/lib/rate-limit/limits'
 import {
 	createTripDb,
 	getTripDefectsDb,
@@ -14,6 +16,10 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 
 	if (!driverEmail) {
 		return errAsync({ reason: 'Must be logged in' })
+	}
+	const limited = await rateLimit(TRIP_WRITES, driverEmail)
+	if (!limited.ok) {
+		return errAsync({ reason: rateLimitMessage(limited.retryAfter) })
 	}
 
 	const validatedFields = schemaAddTripForm.safeParse(data)
@@ -55,6 +61,10 @@ export async function addOnRouteDefectsDAL(
 
 	if (!driverEmail) {
 		return errAsync({ reason: 'Not authorized' } as const)
+	}
+	const limited = await rateLimit(TRIP_WRITES, driverEmail)
+	if (!limited.ok) {
+		return errAsync({ reason: rateLimitMessage(limited.retryAfter) })
 	}
 
 	const validatedFields = schemaAddDefects.safeParse(data)

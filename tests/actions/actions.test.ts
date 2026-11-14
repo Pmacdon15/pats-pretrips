@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
 	addOnRouteDefectsDAL: vi.fn(),
 	prepareAutoEmailDAL: vi.fn(),
 	after: vi.fn(),
+	rateLimit: vi.fn(),
+}))
+vi.mock('@/lib/rate-limit', async (original) => ({
+	...(await original<typeof import('@/lib/rate-limit')>()),
+	rateLimit: mocks.rateLimit,
 }))
 
 // Stands in for Clerk's current user: `getUser` gives the user or null.
@@ -32,6 +37,7 @@ const fetchMock = vi.fn()
 beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
 	mocks.prepareAutoEmailDAL.mockResolvedValue(null)
+	mocks.rateLimit.mockResolvedValue({ ok: true })
 	vi.stubGlobal('fetch', fetchMock)
 	vi.stubEnv('REVERSE_GEOCODING_API_KEY', 'key123')
 	for (const level of ['log', 'warn', 'error'] as const) {
@@ -150,6 +156,20 @@ describe('getAddress', () => {
 			'https://maps.googleapis.com/maps/api/geocode/json?latlng=51,-114&key=key123',
 			{ cache: 'no-cache' },
 		)
+		expect(mocks.rateLimit).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'geocode' }),
+			'pat@x.com',
+		)
+	})
+
+	it("doesn't call Google once the driver is over the limit", async () => {
+		mocks.rateLimit.mockResolvedValue({ ok: false, retryAfter: 900 })
+		await expect(getAddress(51, -114)).resolves.toEqual({
+			data: undefined,
+			errorMessage:
+				'Too many requests in a short time. Please wait about 15 minutes and try again.',
+		})
+		expect(fetchMock).not.toHaveBeenCalled()
 	})
 
 	it.each([

@@ -3,6 +3,8 @@
 import { getDriverEmail } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import type { Repair } from '@/lib/db/repairs'
+import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { REPAIR_UPLOADS } from '@/lib/rate-limit/limits'
 import { fromBase64 } from '@/lib/repairs/compress'
 import { recordRepair, undoRepair } from '@/lib/repairs/repairs'
 
@@ -23,6 +25,10 @@ export async function markDefectRepaired(
 ): Promise<{ value: Repair } | { errorMessage: string }> {
 	const email = await getDriverEmail()
 	if (!email) return { errorMessage: 'Must be logged in' }
+	const limited = await rateLimit(REPAIR_UPLOADS, email)
+	if (!limited.ok) {
+		return { errorMessage: rateLimitMessage(limited.retryAfter) }
+	}
 
 	const signature = field(form, 'signature')
 	if (!signature?.startsWith('data:image/')) {

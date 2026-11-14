@@ -1,6 +1,12 @@
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { expireDriverTrips } from '@/lib/cache/revalidate'
+import { rateLimitAll, rateLimitMessage } from '@/lib/rate-limit'
+import {
+	type Limit,
+	MCP_TOOL_CALLS,
+	REPAIR_UPLOADS,
+} from '@/lib/rate-limit/limits'
 import { MCP_INSTRUCTIONS } from '@/mcp/instructions'
 import { portable } from '@/mcp/portable-schema'
 import {
@@ -88,13 +94,17 @@ function respond(result: ToolResult) {
 /**
  * Runs a tool for the verified caller; bad input becomes a readable tool
  * error. A tool that writes also clears the cached trip lists, so a trip an
- * assistant started shows up in the web app straight away.
+ * assistant started shows up in the web app straight away. Every call counts
+ * against the driver's tool-call limit, plus any `limits` the tool adds.
  */
 export async function run(
 	server: McpServer,
 	authInfo: AuthInfo | undefined,
 	tool: (caller: McpCaller) => ToolResult | Promise<ToolResult>,
-	{ readOnly = false }: { readOnly?: boolean } = {},
+	{
+		readOnly = false,
+		limits = [],
+	}: { readOnly?: boolean; limits?: Limit[] } = {},
 ) {
 	const caller = callerFrom(
 		authInfo,
@@ -105,6 +115,17 @@ export async function run(
 			summary:
 				"Not signed in to Pat's PreTrips. Reconnect the connector and sign in.",
 			data: {},
+			isError: true,
+		})
+	}
+	const limited = await rateLimitAll(caller.email, [
+		MCP_TOOL_CALLS,
+		...limits,
+	])
+	if (!limited.ok) {
+		return respond({
+			summary: rateLimitMessage(limited.retryAfter),
+			data: { retry_after_seconds: limited.retryAfter },
 			isError: true,
 		})
 	}
@@ -303,8 +324,11 @@ export function registerPreTripTools(server: McpServer) {
 			},
 		},
 		(args, ctx) =>
-			run(server, ctx.http?.authInfo, (caller) =>
-				markDefectRepaired(caller, args),
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => markDefectRepaired(caller, args),
+				{ limits: [REPAIR_UPLOADS] },
 			),
 	)
 
