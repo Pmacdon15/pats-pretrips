@@ -41,6 +41,11 @@ export const schemaSignTrip = z.object({
 	saveSignature: z.boolean().optional(),
 })
 
+/** "Allow AI apps to sign for me", on or off. */
+export const schemaAllowAiSigning = z.boolean({
+	error: 'Choose whether AI apps can sign for you.',
+})
+
 export const schemaAddDefects = z.object({
 	defects: z.string().min(3, 'Must Add Defect'),
 	remarks: z.string().min(3, 'Must Add Remark'),
