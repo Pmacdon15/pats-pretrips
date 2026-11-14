@@ -155,8 +155,12 @@ a:hover { text-decoration: underline; }
 		if (parts.length !== 3 || parts.some(isNaN)) return '';
 		return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 	}
-	function isHttp(url) {
-		return typeof url === 'string' && url.indexOf('https://') === 0;
+	// Only links to the app itself: an https URL on the site's own origin.
+	// The trailing slash pins the host, so "https://patspretrips.ca.evil.test"
+	// or "https://patspretrips.ca@evil.test" never pass, and neither does
+	// javascript:, data: or any other scheme.
+	function isSiteUrl(url) {
+		return typeof url === 'string' && url.indexOf(SITE + '/') === 0;
 	}
 
 	// Runs inside the click, so the browser still counts it as the driver's
@@ -164,6 +168,7 @@ a:hover { text-decoration: underline; }
 	// as a popup. Order: ChatGPT's own API, then a plain new window (works
 	// where the frame may open popups), then asking the host to open it.
 	function openUrl(url) {
+		if (!isSiteUrl(url)) return;
 		if (window.openai && typeof window.openai.openExternal === 'function') {
 			try { window.openai.openExternal({ href: url }); return; } catch (e) {}
 		}
@@ -177,6 +182,7 @@ a:hover { text-decoration: underline; }
 	}
 
 	function linkTo(label, url) {
+		if (!isSiteUrl(url)) return el('span', 'muted', label);
 		var link = el('a', null, label);
 		link.href = url;
 		link.target = '_blank';
@@ -199,8 +205,8 @@ a:hover { text-decoration: underline; }
 		row.appendChild(el('div', 'muted', bits));
 		if (r.notes) row.appendChild(el('div', 'remarks', r.notes));
 		var links = el('div', 'links');
-		if (isHttp(r.invoice_url)) links.appendChild(linkTo('Invoice →', r.invoice_url));
-		if (isHttp(r.signature_url)) links.appendChild(linkTo('Signature →', r.signature_url));
+		if (isSiteUrl(r.invoice_url)) links.appendChild(linkTo('Invoice →', r.invoice_url));
+		if (isSiteUrl(r.signature_url)) links.appendChild(linkTo('Signature →', r.signature_url));
 		if (links.childNodes.length) row.appendChild(links);
 		return row;
 	}
@@ -278,9 +284,16 @@ a:hover { text-decoration: underline; }
 		return card;
 	}
 
+	function isObject(x) {
+		return !!x && typeof x === 'object' && !Array.isArray(x);
+	}
+	function clear(node) {
+		while (node.firstChild) node.removeChild(node.firstChild);
+	}
+
 	function renderDefects(data, list, heading, count) {
-		var open = Array.isArray(data.open) ? data.open : null;
-		var repaired = Array.isArray(data.repaired) ? data.repaired : null;
+		var open = Array.isArray(data.open) ? data.open.filter(isObject) : null;
+		var repaired = Array.isArray(data.repaired) ? data.repaired.filter(isObject) : null;
 		heading.textContent = 'Defects & repairs';
 		count.textContent = [
 			open ? (data.open_count != null ? data.open_count : open.length) + ' open' : '',
@@ -294,21 +307,10 @@ a:hover { text-decoration: underline; }
 		(repaired || []).forEach(function (r) { list.appendChild(defectCard(r, true)); });
 	}
 
-	function render(data) {
-		if (!data || typeof data !== 'object') return;
-		var list = document.getElementById('list');
-		var heading = document.getElementById('heading');
-		var count = document.getElementById('count');
-		if (Array.isArray(data.open) || Array.isArray(data.repaired)) {
-			list.replaceChildren();
-			renderDefects(data, list, heading, count);
-			reportSize();
-			return;
-		}
-		var trips = Array.isArray(data.trips) ? data.trips : data.trip ? [data.trip] : null;
-		if (!trips) return;
-		list.replaceChildren();
-		if (data.trip) {
+	function renderTrips(data, list, heading, count) {
+		var one = isObject(data.trip);
+		var trips = (one ? [data.trip] : data.trips).filter(isObject);
+		if (one) {
 			heading.textContent = 'Trip #' + data.trip.trip_id;
 			count.textContent = '';
 		} else {
@@ -319,13 +321,37 @@ a:hover { text-decoration: underline; }
 		if (!trips.length) {
 			list.appendChild(el('div', 'empty', data.when === 'past' ? 'No older trips.' : 'No trips in the last 24 hours.'));
 		} else {
-			trips.forEach(function (t) { list.appendChild(tripCard(t, data.trip ? data.defect_status : null)); });
+			trips.forEach(function (t) { list.appendChild(tripCard(t, one ? data.defect_status : null)); });
 		}
+	}
+
+	// Draws a tool result. Anything that is not a trips or defects result is
+	// left alone. The new card is built off-screen and swapped in whole, so
+	// odd data never leaves a half-drawn card: if building it fails, the card
+	// says so instead.
+	function render(data) {
+		if (!isObject(data)) return;
+		var defects = Array.isArray(data.open) || Array.isArray(data.repaired);
+		if (!defects && !Array.isArray(data.trips) && !isObject(data.trip)) return;
+		var list = document.getElementById('list');
+		var heading = document.getElementById('heading');
+		var count = document.getElementById('count');
+		var built = document.createDocumentFragment();
+		try {
+			if (defects) renderDefects(data, built, heading, count);
+			else renderTrips(data, built, heading, count);
+		} catch (e) {
+			heading.textContent = "Pat's PreTrips";
+			count.textContent = '';
+			built = el('div', 'empty', 'Could not show this result.');
+		}
+		clear(list);
+		list.appendChild(built);
 		reportSize();
 	}
 
 	function applyTheme(ctx) {
-		if (ctx && (ctx.theme === 'dark' || ctx.theme === 'light')) {
+		if (isObject(ctx) && (ctx.theme === 'dark' || ctx.theme === 'light')) {
 			document.documentElement.setAttribute('data-theme', ctx.theme);
 		}
 	}
@@ -335,19 +361,36 @@ a:hover { text-decoration: underline; }
 		notify('ui/notifications/size-changed', { height: h });
 	}
 
+	// Only the frame that embeds the card speaks for the host: the host
+	// itself, or the sandbox proxy frame that relays for it. A message from
+	// any other window (a sibling frame, a popup, the top page reaching in
+	// through window.frames) is ignored, so nothing else can draw trips in
+	// the card or answer its requests. The origin is not checked: it differs
+	// per AI app and is not known in advance, and the parent's page cannot
+	// change while the card is in it (navigating the parent unloads the card).
 	window.addEventListener('message', function (event) {
+		if (event.source !== window.parent) return;
 		var msg = event.data;
-		if (!msg || msg.jsonrpc !== '2.0') return;
-		if (msg.id != null && pending[msg.id]) {
-			pending[msg.id](msg);
-			delete pending[msg.id];
+		if (!isObject(msg) || msg.jsonrpc !== '2.0') return;
+		var hasId = typeof msg.id === 'number' || typeof msg.id === 'string';
+		if (typeof msg.method !== 'string') {
+			// A response: only to a request the card sent and still waits on
+			// (the card numbers its requests, so the id must be that number).
+			if (typeof msg.id === 'number' && Object.prototype.hasOwnProperty.call(pending, msg.id)) {
+				var resolve = pending[msg.id];
+				delete pending[msg.id];
+				resolve(msg);
+			}
 			return;
 		}
+		var params = isObject(msg.params) ? msg.params : null;
 		if (msg.method === 'ui/notifications/tool-result') {
-			render(msg.params && msg.params.structuredContent);
+			if (params) render(params.structuredContent);
 		} else if (msg.method === 'ui/notifications/host-context-changed') {
-			applyTheme(msg.params);
-		} else if (msg.id != null) {
+			applyTheme(params);
+		} else if (hasId) {
+			// Requests the card has nothing for (ping, teardown) get an empty
+			// result, so the host is not left waiting.
 			send({ id: msg.id, result: {} });
 		}
 	});
@@ -363,7 +406,7 @@ a:hover { text-decoration: underline; }
 		appInfo: { name: 'pats-pretrips-trips-card', version: '1.0.0' },
 		appCapabilities: {},
 	}).then(function (res) {
-		applyTheme(res && res.result && res.result.hostContext);
+		applyTheme(isObject(res.result) ? res.result.hostContext : null);
 		notify('ui/notifications/initialized');
 	});
 
