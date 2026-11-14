@@ -15,7 +15,9 @@ const repairMocks = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/db/repairs', () => repairMocks)
 const signatureMocks = vi.hoisted(() => ({
+	getAiSigningAllowedDb: vi.fn(),
 	getSavedSignatureDb: vi.fn(),
+	saveSignatureDb: vi.fn(),
 	signTripDb: vi.fn(),
 }))
 vi.mock('@/lib/db/signatures', () => signatureMocks)
@@ -43,10 +45,17 @@ const SAVED = {
 	type: 'image/png',
 	updatedAt: '2026-11-01T00:00:00.000Z',
 }
+const PNG = { bytes: SAVED.bytes, type: 'image/png' }
+const missingColumn = () =>
+	Object.assign(new Error('column "allow_ai_signing" does not exist'), {
+		code: '42703',
+	})
 
 beforeEach(() => {
 	vi.useFakeTimers({ now: NOW })
 	signatureMocks.getSavedSignatureDb.mockResolvedValue(SAVED)
+	// Most tests are for a driver who allows AI apps to sign for them.
+	signatureMocks.getAiSigningAllowedDb.mockResolvedValue(true)
 })
 
 describe('tripView', () => {
@@ -110,10 +119,11 @@ describe('getTripDefaults', () => {
 			last_trip: null,
 			truck: null,
 			saved_signature: false,
+			ai_signing_allowed: false,
 		})
 		expect(result.summary).toContain('no trips yet')
 		expect(result.summary).toContain(
-			'no saved signature, so the trip will be unsigned until they save one at https://patspretrips.ca/signature',
+			'no saved signature, so the trip will be saved unsigned. They can sign it in the app; to let you sign, they save a signature and turn on "Allow AI apps to sign for me" at https://patspretrips.ca/signature',
 		)
 		expect(mocks.getLatestTripForPlateDb).not.toHaveBeenCalled()
 	})
@@ -148,8 +158,26 @@ describe('getTripDefaults', () => {
 		})
 		expect(result.summary).toContain('Plate abc 1 is the Mack Anthem')
 		expect(result.data.saved_signature).toBe(true)
+		expect(result.data.ai_signing_allowed).toBe(true)
 		expect(result.summary).toContain(
-			"signed with the driver's saved signature",
+			"signed with the driver's saved signature (they allow AI apps to sign for them)",
+		)
+	})
+
+	it.each([
+		['off', () => Promise.resolve(false)],
+		['not migrated yet', () => Promise.reject(missingColumn())],
+	])('says the trip will be unsigned when AI signing is %s', async (_name, allowed) => {
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		mocks.getLatestTripDb.mockResolvedValue(undefined)
+		signatureMocks.getAiSigningAllowedDb.mockImplementation(allowed)
+		const result = await getTripDefaults(caller, {})
+		expect(result.data).toMatchObject({
+			saved_signature: true,
+			ai_signing_allowed: false,
+		})
+		expect(result.summary).toContain(
+			'The driver hasn\'t turned on "Allow AI apps to sign for me", so the trip will be saved unsigned. They can sign it in the app, or turn that on at https://patspretrips.ca/signature to let you sign.',
 		)
 	})
 
@@ -220,7 +248,54 @@ describe('startTrip', () => {
 		expect(result.summary).toBe(
 			"Started trip 5: Freightliner Cascadia (ABC 1234) at 482317 km, defects: Tires, Lights. Signed with the driver's saved signature.",
 		)
+		expect(result.data.signing).toBe('signed')
+		expect(result.data.trip_url).toBeUndefined()
 		expect(result.data.warning).toBeUndefined()
+	})
+
+	it("saves the trip unsigned when the driver hasn't allowed AI signing", async () => {
+		signatureMocks.getAiSigningAllowedDb.mockResolvedValue(false)
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(caller, {
+			...start,
+			truck_plate: undefined,
+		})
+		expect(signatureMocks.getAiSigningAllowedDb).toHaveBeenCalledWith(
+			'pat@x.com',
+		)
+		expect(mocks.createTripDb.mock.calls[0][2]).toBeNull()
+		expect(result.isError).toBeUndefined()
+		expect(result.data).toMatchObject({
+			signing: 'ai_signing_off',
+			trip_url: 'https://patspretrips.ca/pretrip/5',
+			trip: { signed: false },
+		})
+		expect(result.summary).toContain(
+			'Not signed: the driver hasn\'t allowed AI apps to sign for them. They can sign it themselves in the app at https://patspretrips.ca/pretrip/5, or turn on "Allow AI apps to sign for me" on the Signature page (https://patspretrips.ca/signature) and then ask you to sign it (update_trip with sign: true).',
+		)
+	})
+
+	it('saves the trip unsigned before the AI signing migration has run', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		signatureMocks.getAiSigningAllowedDb.mockRejectedValue(missingColumn())
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(caller, {
+			...start,
+			truck_plate: undefined,
+		})
+		expect(mocks.createTripDb.mock.calls[0][2]).toBeNull()
+		expect(result.data.signing).toBe('ai_signing_off')
+		expect(error.mock.calls.length).toBeLessThanOrEqual(1)
+	})
+
+	it('fails rather than guessing when the setting cannot be read', async () => {
+		signatureMocks.getAiSigningAllowedDb.mockRejectedValue(
+			new Error('down'),
+		)
+		await expect(
+			startTrip(caller, { ...start, truck_plate: undefined }),
+		).rejects.toThrow('down')
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
 	})
 
 	it('warns when the odometer is lower than the truck’s last reading', async () => {
@@ -251,8 +326,12 @@ describe('startTrip', () => {
 		)
 		expect(mocks.createTripDb.mock.calls[0][2]).toBeNull()
 		expect(result.summary).toContain(
-			'Not signed: the driver has no saved signature. They can save one at https://patspretrips.ca/signature',
+			'Not signed: the driver has no saved signature. They can sign this trip in the app at https://patspretrips.ca/pretrip/5, or save a signature and turn on "Allow AI apps to sign for me" at https://patspretrips.ca/signature, then ask you to sign it (update_trip with sign: true).',
 		)
+		expect(result.data).toMatchObject({
+			signing: 'no_saved_signature',
+			trip_url: 'https://patspretrips.ca/pretrip/5',
+		})
 	})
 
 	it('names "ai" as the signer when the app gives no name', async () => {
@@ -274,8 +353,10 @@ describe('startTrip', () => {
 			sign: false,
 		})
 		expect(signatureMocks.getSavedSignatureDb).not.toHaveBeenCalled()
+		expect(signatureMocks.getAiSigningAllowedDb).not.toHaveBeenCalled()
 		expect(mocks.createTripDb.mock.calls[0][2]).toBeNull()
 		expect(result.summary).toContain('Not signed, as the driver asked.')
+		expect(result.data.signing).toBe('not_requested')
 	})
 
 	it('rejects a trip without remarks', async () => {
@@ -336,7 +417,7 @@ describe('updateTrip', () => {
 		expect(signatureMocks.signTripDb).toHaveBeenCalledWith(
 			1,
 			'pat@x.com',
-			SAVED,
+			PNG,
 			'Claude',
 		)
 		expect(result.summary).toBe(
@@ -369,9 +450,52 @@ describe('updateTrip', () => {
 		})
 		expect(result).toMatchObject({
 			isError: true,
-			data: { status: 'no_saved_signature' },
+			data: {
+				status: 'no_saved_signature',
+				trip_url: 'https://patspretrips.ca/pretrip/1',
+			},
 		})
+		expect(result.summary).toContain(
+			"The driver has no saved signature, so trip 1 wasn't signed and nothing was changed.",
+		)
 		expect(mocks.updateTripDb).not.toHaveBeenCalled()
+		expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['off', () => Promise.resolve(false)],
+		['not migrated yet', () => Promise.reject(missingColumn())],
+	])('refuses to sign, changing nothing, when AI signing is %s', async (_name, allowed) => {
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		mocks.getTripDb.mockResolvedValue(recent())
+		signatureMocks.getAiSigningAllowedDb.mockImplementation(allowed)
+		const result = await updateTrip(caller, {
+			trip_id: 1,
+			make: 'Mack',
+			sign: true,
+		})
+		expect(result).toMatchObject({
+			isError: true,
+			data: {
+				status: 'ai_signing_off',
+				trip: { signed: false },
+				trip_url: 'https://patspretrips.ca/pretrip/1',
+			},
+		})
+		expect(result.summary).toBe(
+			'The driver hasn\'t allowed AI apps to sign for them, so trip 1 wasn\'t signed and nothing was changed. They can sign it themselves in the app at https://patspretrips.ca/pretrip/1, or turn on "Allow AI apps to sign for me" on the Signature page (https://patspretrips.ca/signature) and then ask you to sign it (update_trip with sign: true).',
+		)
+		expect(mocks.updateTripDb).not.toHaveBeenCalled()
+		expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+	})
+
+	it("doesn't check the AI setting when not signing", async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(recent({ make: 'Mack' }))
+		signatureMocks.getAiSigningAllowedDb.mockResolvedValue(false)
+		const result = await updateTrip(caller, { trip_id: 1, make: 'Mack' })
+		expect(result.isError).toBeUndefined()
+		expect(signatureMocks.getAiSigningAllowedDb).not.toHaveBeenCalled()
 	})
 
 	it('says when the trip passed 24 hours before it was signed', async () => {

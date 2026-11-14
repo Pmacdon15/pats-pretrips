@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 	updateTripDb: vi.fn(),
 	revalidateTag: vi.fn(),
 	countHitDb: vi.fn(),
+	getAiSigningAllowedDb: vi.fn(),
 }))
 vi.mock('@/lib/db/api-keys', () => ({ touchApiKeyDb: mocks.touchApiKeyDb }))
 vi.mock('@/lib/db/rate-limits', () => ({ countHitDb: mocks.countHitDb }))
@@ -43,6 +44,8 @@ vi.mock('@/lib/db/signatures', () => ({
 		type: 'image/png',
 		updatedAt: '2026-11-01T00:00:00.000Z',
 	})),
+	getAiSigningAllowedDb: mocks.getAiSigningAllowedDb,
+	saveSignatureDb: vi.fn(),
 	signTripDb: vi.fn(),
 }))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
@@ -61,6 +64,7 @@ const KEY = generateApiKey()
 beforeEach(() => {
 	resetRateLimiter()
 	mocks.countHitDb.mockResolvedValue({ hits: 1, retryAfter: 60 })
+	mocks.getAiSigningAllowedDb.mockResolvedValue(true)
 	mocks.touchApiKeyDb.mockResolvedValue({
 		id: 3,
 		driverEmail: 'pat@x.com',
@@ -307,6 +311,33 @@ describe('tool schemas', () => {
 })
 
 describe('tools over HTTP', () => {
+	it("starts an unsigned trip when the driver hasn't allowed AI signing", async () => {
+		mocks.getAiSigningAllowedDb.mockResolvedValue(false)
+		mocks.getLatestTripForPlateDb.mockResolvedValue(undefined)
+		mocks.createTripDb.mockResolvedValue(
+			trip({ tripid: 9, date: new Date(), defects: '' }),
+		)
+		const res = await callTool('start_trip', {
+			odometer: 482317,
+			make: 'Freightliner',
+			model: 'Cascadia',
+			carrier: 'Acme',
+			carrier_address: '1 Main St',
+			inspection_address: '455 Yard Ave',
+			remarks: 'No defects found',
+			sign: true,
+		})
+		expect(res.body.result.isError).toBeUndefined()
+		expect(res.body.result.content[0].text).toContain(
+			"the driver hasn't allowed AI apps to sign for them",
+		)
+		expect(mocks.createTripDb).toHaveBeenCalledWith(
+			expect.anything(),
+			'pat@x.com',
+			null,
+		)
+	})
+
 	it('starts a trip for the driver who owns the key', async () => {
 		mocks.getLatestTripForPlateDb.mockResolvedValue(undefined)
 		mocks.createTripDb.mockResolvedValue(

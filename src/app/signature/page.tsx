@@ -19,8 +19,8 @@ export default function Page() {
 						<PenLine className="size-5" /> Your signature
 					</CardTitle>
 					<CardDescription>
-						Sign once and every new pre-trip is signed with it,
-						including the ones your AI assistant starts for you.
+						Sign once and sign each new pre-trip with it in a tap.
+						AI apps can only sign for you if you allow it.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>

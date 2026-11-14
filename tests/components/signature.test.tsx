@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 	getSignatureStatus: vi.fn(),
 	saveSignature: vi.fn(),
 	deleteSignature: vi.fn(),
+	setAiSigning: vi.fn(),
 	signTrip: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn() },
 }))
@@ -19,13 +20,14 @@ vi.mock('@/lib/actions/signatures', () => ({
 	getSignatureStatus: mocks.getSignatureStatus,
 	saveSignature: mocks.saveSignature,
 	deleteSignature: mocks.deleteSignature,
+	setAiSigning: mocks.setAiSigning,
 	signTrip: mocks.signTrip,
 }))
 vi.mock('sonner', () => ({ toast: mocks.toast }))
 
 const WHEN = '2026-01-01T00:00:00.000Z'
-const SAVED = { saved: true, updatedAt: WHEN }
-const NONE = { saved: false, updatedAt: null }
+const SAVED = { saved: true, updatedAt: WHEN, allowAiSigning: false }
+const NONE = { saved: false, updatedAt: null, allowAiSigning: false }
 const DRAWN = 'data:image/png;base64,aGk='
 
 beforeEach(() => {
@@ -187,6 +189,75 @@ describe('SignatureSettings', () => {
 		)
 		expect(
 			screen.getByText(/You don't have a saved signature yet/),
+		).toBeInTheDocument()
+	})
+
+	it('turns "Allow AI apps to sign for me" on and off', async () => {
+		const user = userEvent.setup()
+		renderQ(<SignatureSettings />)
+		const toggle = await screen.findByRole('switch', {
+			name: /Allow AI apps to sign for me/,
+		})
+		expect(toggle).not.toBeChecked()
+		expect(
+			screen.getByText(/can sign the pre-trips they start for you/),
+		).toBeVisible()
+
+		// A half-drawn signature stays while the setting changes.
+		sign()
+		mocks.setAiSigning.mockResolvedValueOnce({
+			value: { ...SAVED, allowAiSigning: true },
+		})
+		await user.click(toggle)
+		expect(mocks.setAiSigning).toHaveBeenLastCalledWith(true)
+		expect(mocks.toast.success).toHaveBeenCalledWith(
+			'AI apps can now sign pre-trips for you',
+		)
+		expect(toggle).toBeChecked()
+		// Replacing the signature keeps the choice (the server says so).
+		mocks.saveSignature.mockResolvedValueOnce({
+			value: { ...SAVED, allowAiSigning: true },
+		})
+		await user.click(screen.getByRole('button', { name: 'Save signature' }))
+		expect(mocks.saveSignature).toHaveBeenLastCalledWith(DRAWN)
+		expect(
+			screen.getByRole('switch', { name: /Allow AI apps to sign/ }),
+		).toBeChecked()
+
+		mocks.setAiSigning.mockResolvedValueOnce({ value: SAVED })
+		await user.click(
+			screen.getByRole('switch', { name: /Allow AI apps to sign/ }),
+		)
+		expect(mocks.setAiSigning).toHaveBeenLastCalledWith(false)
+		expect(mocks.toast.success).toHaveBeenCalledWith(
+			'AI apps can no longer sign pre-trips for you',
+		)
+	})
+
+	it('keeps the setting as it was when changing it fails', async () => {
+		mocks.setAiSigning.mockResolvedValueOnce({
+			errorMessage: "This setting isn't available yet.",
+		})
+		const user = userEvent.setup()
+		renderQ(<SignatureSettings />)
+		const toggle = await screen.findByRole('switch', {
+			name: /Allow AI apps to sign for me/,
+		})
+		await user.click(toggle)
+		expect(mocks.toast.error).toHaveBeenCalledWith(
+			'Could not change the setting',
+			{ description: "This setting isn't available yet." },
+		)
+		expect(toggle).not.toBeChecked()
+	})
+
+	it('only offers the AI setting with a saved signature', async () => {
+		mocks.getSignatureStatus.mockResolvedValue(NONE)
+		renderQ(<SignatureSettings />)
+		await screen.findByText('Sign here')
+		expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+		expect(
+			screen.getByText(/are saved unsigned; you can sign them/),
 		).toBeInTheDocument()
 	})
 

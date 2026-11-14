@@ -6,10 +6,12 @@ vi.mock('@neondatabase/serverless', () => ({ neon: mocks.neon }))
 
 import {
 	deleteSavedSignatureDb,
+	getAiSigningAllowedDb,
 	getSavedSignatureDateDb,
 	getSavedSignatureDb,
 	getTripSignatureDb,
 	saveSignatureDb,
+	setAiSigningDb,
 	signTripDb,
 } from '@/lib/db/signatures'
 
@@ -74,6 +76,56 @@ describe('deleteSavedSignatureDb', () => {
 		expect(sql.queries()[0].text).toContain(
 			'DELETE FROM pt_driver_signatures',
 		)
+	})
+})
+
+describe('getAiSigningAllowedDb', () => {
+	it('is on only when the saved signature has it turned on', async () => {
+		await expect(getAiSigningAllowedDb('pat@x.com')).resolves.toBe(false)
+		sql.respond(() => [{ allow_ai_signing: false }])
+		await expect(getAiSigningAllowedDb('pat@x.com')).resolves.toBe(false)
+		sql.respond(() => [{ allow_ai_signing: true }])
+		await expect(getAiSigningAllowedDb('pat@x.com')).resolves.toBe(true)
+		const [query] = sql.queries()
+		expect(query.text).toContain(
+			'SELECT allow_ai_signing FROM pt_driver_signatures',
+		)
+		expect(query.values).toEqual(['pat@x.com'])
+	})
+
+	it('throws a missing column, for the caller to treat as off', async () => {
+		const missing = Object.assign(new Error('no column'), { code: '42703' })
+		sql.respond(() => missing)
+		await expect(getAiSigningAllowedDb('pat@x.com')).rejects.toBe(missing)
+	})
+})
+
+describe('setAiSigningDb', () => {
+	it("changes the setting on the driver's saved signature", async () => {
+		sql.respond(() => [{ allow_ai_signing: true, updated_at: WHEN }])
+		await expect(setAiSigningDb('pat@x.com', true)).resolves.toEqual({
+			allowAiSigning: true,
+			updatedAt: WHEN,
+		})
+		const [query] = sql.queries()
+		expect(query.text).toContain(
+			'UPDATE pt_driver_signatures SET allow_ai_signing = ?',
+		)
+		expect(query.text).toContain('WHERE driver_email = ?')
+		// The signature's date (the image's cache key) is left alone.
+		expect(query.text).not.toContain('updated_at =')
+		expect(query.values).toEqual([true, 'pat@x.com'])
+	})
+
+	it('is undefined without a saved signature', async () => {
+		await expect(
+			setAiSigningDb('pat@x.com', false),
+		).resolves.toBeUndefined()
+		sql.respond(() => [{ allow_ai_signing: false, updated_at: WHEN }])
+		await expect(setAiSigningDb('pat@x.com', false)).resolves.toEqual({
+			allowAiSigning: false,
+			updatedAt: WHEN,
+		})
 	})
 })
 
