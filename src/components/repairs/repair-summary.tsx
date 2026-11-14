@@ -1,11 +1,12 @@
 'use client'
 
-import { FileText, Undo2 } from 'lucide-react'
+import { Download, FileText, Undo2 } from 'lucide-react'
 import { useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { undoDefectRepair } from '@/lib/actions/repairs'
 import type { Repair } from '@/lib/db/repairs'
+import { opensInline } from '@/lib/file-types'
 import { repairFilePath } from '@/lib/repairs/paths'
 import { repairedBy } from '@/lib/repairs/status'
 
@@ -14,6 +15,33 @@ export function repairDate(value: string) {
 	return new Date(`${value}T12:00:00`).toLocaleDateString('en-CA', {
 		dateStyle: 'medium',
 	})
+}
+
+const LINK =
+	'inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline'
+
+/**
+ * A photo invoice opens in a new tab. A PDF downloads, to open in the
+ * driver's PDF reader: the app never shows a shop's PDF in its own origin.
+ */
+function InvoiceLink({ repair }: { repair: Repair }) {
+	const href = repairFilePath(repair.id, 'invoice')
+	if (opensInline(repair.invoice_type)) {
+		return (
+			<a className={LINK} href={href} rel="noopener" target="_blank">
+				<FileText className="size-3.5" />
+				View invoice
+			</a>
+		)
+	}
+	return (
+		<a className={LINK} download href={href}>
+			<Download className="size-3.5" />
+			{repair.invoice_type === 'application/pdf'
+				? 'Download invoice (PDF)'
+				: 'Download invoice'}
+		</a>
+	)
 }
 
 /** Who repaired a defect, when, the invoice and the signature. */
@@ -63,15 +91,7 @@ export function RepairSummary({ repair }: { repair: Repair }) {
 					<dt className="text-muted-foreground text-xs">Invoice</dt>
 					<dd>
 						{repair.has_invoice ? (
-							<a
-								className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
-								href={repairFilePath(repair.id, 'invoice')}
-								rel="noopener"
-								target="_blank"
-							>
-								<FileText className="size-3.5" />
-								View invoice
-							</a>
+							<InvoiceLink repair={repair} />
 						) : (
 							'—'
 						)}

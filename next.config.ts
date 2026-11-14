@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import { securityHeaders } from './src/lib/security-headers'
+import { fileRouteHeaders, securityHeaders } from './src/lib/security-headers'
 
 const nextConfig: NextConfig = {
 	typedRoutes: true,
@@ -13,8 +13,11 @@ const nextConfig: NextConfig = {
 	async headers() {
 		return [
 			// Every route. Listed first: when two entries set the same header,
-			// the later one wins, so /sw.js keeps its own stricter CSP below.
+			// the later one wins, so /sw.js and the stored-file routes keep their
+			// own stricter CSP below. A route handler can't override these: on
+			// Next 16.4 a header set here replaces the handler's own.
 			{ source: '/:path*', headers: securityHeaders() },
+			...fileRouteHeaders(),
 			{
 				source: '/sw.js',
 				headers: [

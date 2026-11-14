@@ -3,9 +3,13 @@ import {
 	clerkOrigins,
 	ENFORCED_CSP,
 	FALLBACK_CLERK_ORIGINS,
+	FILE_CSP,
+	FILE_ROUTES,
+	fileRouteHeaders,
 	reportOnlyCsp,
 	securityHeaders,
 } from '@/lib/security-headers'
+import nextConfig from '../../next.config'
 
 // `pk_live_` + base64("clerk.patspretrips.ca$")
 const LIVE_KEY = 'pk_live_Y2xlcmsucGF0c3ByZXRyaXBzLmNhJA'
@@ -137,5 +141,46 @@ describe('securityHeaders', () => {
 
 	it('reads process.env by default', () => {
 		expect(header(securityHeaders(), 'X-Frame-Options')).toBe('SAMEORIGIN')
+	})
+})
+
+describe('stored file routes', () => {
+	it('lets a file load or run nothing, in an opaque origin', () => {
+		const csp = directives(FILE_CSP)
+		expect(Object.fromEntries(csp)).toEqual({
+			'default-src': ["'none'"],
+			'img-src': ["'self'"],
+			'style-src': ["'unsafe-inline'"],
+			sandbox: [],
+			'frame-ancestors': ["'self'"],
+		})
+	})
+
+	it('gives every file route FILE_CSP', () => {
+		expect(fileRouteHeaders()).toEqual(
+			FILE_ROUTES.map((source) => ({
+				source,
+				headers: [{ key: 'Content-Security-Policy', value: FILE_CSP }],
+			})),
+		)
+		expect(FILE_ROUTES).toEqual([
+			'/api/repairs/:repairId/:kind',
+			'/api/signature',
+			'/api/trips/:tripId/signature',
+		])
+	})
+
+	it('lists the file routes after the site-wide headers in next.config', async () => {
+		const entries = (await nextConfig.headers?.()) ?? []
+		const sources = entries.map((e) => e.source)
+		const all = sources.indexOf('/:path*')
+		expect(all).toBe(0)
+		for (const route of FILE_ROUTES) {
+			const index = sources.indexOf(route)
+			expect(index).toBeGreaterThan(all)
+			expect(
+				header(entries[index].headers, 'Content-Security-Policy'),
+			).toBe(FILE_CSP)
+		}
 	})
 })

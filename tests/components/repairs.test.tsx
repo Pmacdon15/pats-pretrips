@@ -98,6 +98,40 @@ describe('DefectStatusList', () => {
 		).toHaveLength(1)
 	})
 
+	it('opens a photo invoice in a tab and downloads a PDF one', () => {
+		const { rerender } = render(
+			<DefectStatusList defects="Cab" repairs={[repair()]} tripId={1} />,
+		)
+		const view = screen.getByRole('link', { name: 'View invoice' })
+		expect(view).toHaveAttribute('target', '_blank')
+		expect(view).not.toHaveAttribute('download')
+
+		rerender(
+			<DefectStatusList
+				defects="Cab"
+				repairs={[repair({ invoice_type: 'application/pdf' })]}
+				tripId={1}
+			/>,
+		)
+		const pdf = screen.getByRole('link', {
+			name: 'Download invoice (PDF)',
+		})
+		expect(pdf).toHaveAttribute('href', '/api/repairs/7/invoice')
+		expect(pdf).toHaveAttribute('download')
+		expect(pdf).not.toHaveAttribute('target')
+
+		rerender(
+			<DefectStatusList
+				defects="Cab"
+				repairs={[repair({ invoice_type: null })]}
+				tripId={1}
+			/>,
+		)
+		expect(
+			screen.getByRole('link', { name: 'Download invoice' }),
+		).toHaveAttribute('download')
+	})
+
 	it('says when everything is repaired, and shows nothing without defects', () => {
 		const { rerender, container } = render(
 			<DefectStatusList defects="Cab" repairs={[repair()]} tripId={1} />,

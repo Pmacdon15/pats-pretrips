@@ -31,7 +31,25 @@ describe('GET /api/signature', () => {
 		const res = await getSaved()
 		expect(res.status).toBe(200)
 		expect(res.headers.get('content-type')).toBe('image/png')
+		expect(res.headers.get('content-disposition')).toBe('inline')
+		expect(res.headers.get('content-length')).toBe('3')
+		expect(res.headers.get('cache-control')).toBe('private, max-age=60')
+		expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+		expect(res.headers.get('content-security-policy')).toBe(
+			"default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'self'",
+		)
 		expect(mocks.getSavedSignatureDb).toHaveBeenCalledWith('pat@x.com')
+	})
+
+	it('downloads a stored type the app never writes, as octet-stream', async () => {
+		mocks.getSavedSignatureDb.mockResolvedValue({
+			bytes: Buffer.from('<svg/>'),
+			type: 'image/svg+xml',
+			updatedAt: 'x',
+		})
+		const res = await getSaved()
+		expect(res.headers.get('content-type')).toBe('application/octet-stream')
+		expect(res.headers.get('content-disposition')).toBe('attachment')
 	})
 
 	it('needs a signed-in driver with a signature', async () => {
@@ -47,6 +65,7 @@ describe('GET /api/trips/[tripId]/signature', () => {
 		const res = await trip('4')
 		expect(res.status).toBe(200)
 		expect(await res.text()).toBe('png')
+		expect(res.headers.get('content-security-policy')).toContain('sandbox')
 		expect(mocks.getTripSignatureDb).toHaveBeenCalledWith(4, 'pat@x.com')
 	})
 
