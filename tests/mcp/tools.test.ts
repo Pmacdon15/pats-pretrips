@@ -40,6 +40,18 @@ const recent = (over = {}) =>
 const old = (over = {}) =>
 	trip({ date: new Date('2026-11-10T08:00:00Z'), ...over })
 
+const LOCKED = [
+	'carrier',
+	'carrier_address',
+	'inspection_address',
+	'make',
+	'model',
+	'odometer',
+	'truck_plate',
+	'trailer_plate_a',
+	'trailer_plate_b',
+]
+
 const SAVED = {
 	bytes: Buffer.from('png'),
 	type: 'image/png',
@@ -74,16 +86,25 @@ describe('tripView', () => {
 			signed: false,
 			signed_at: null,
 			can_update: true,
+			can_edit_details: true,
+			locked_fields: [],
 		})
 		expect(
 			tripView(recent({ signed_at: new Date('2026-11-12T08:01:00Z') })),
-		).toMatchObject({ signed: true, signed_at: '2026-11-12T08:01:00.000Z' })
+		).toMatchObject({
+			signed: true,
+			signed_at: '2026-11-12T08:01:00.000Z',
+			can_update: true,
+			can_edit_details: false,
+			locked_fields: LOCKED,
+		})
 		expect(
 			tripView(old({ truckplate: undefined, trailerplatea: undefined })),
 		).toMatchObject({
 			truck_plate: null,
 			trailer_plate_a: null,
 			can_update: false,
+			can_edit_details: false,
 		})
 	})
 })
@@ -405,11 +426,161 @@ describe('updateTrip', () => {
 			truckPlate: undefined,
 			trailerPlateA: undefined,
 			trailerPlateB: undefined,
-			defects: 'Cab, Tires',
+			addDefects: 'Tires',
 			addRemarks: 'Flat on route',
 		})
 		expect(mocks.getLatestTripForPlateDb).not.toHaveBeenCalled()
 		expect(result.summary).toBe('Updated trip 1.')
+	})
+
+	describe('on a signed trip', () => {
+		const signedTrip = (over = {}) =>
+			recent({ signed_at: new Date('2026-11-12T08:01:00Z'), ...over })
+
+		it('refuses to change a core field, changing nothing', async () => {
+			mocks.getTripDb.mockResolvedValue(signedTrip())
+			const result = await updateTrip(caller, {
+				trip_id: 1,
+				odometer: 1200,
+				truck_plate: 'NEW',
+				make: 'Volvo',
+				add_defects: ['Lights'],
+			})
+			expect(result).toMatchObject({
+				isError: true,
+				data: {
+					status: 'signed_locked',
+					locked_fields: LOCKED,
+					attempted_fields: ['odometer', 'truck_plate'],
+					trip: { signed: true, can_edit_details: false },
+				},
+			})
+			expect(result.summary).toBe(
+				`Trip 1 is signed, so odometer, truck_plate can't be changed and nothing was saved. On a signed trip ${LOCKED.join(', ')} are locked; only defects (add_defects) and remarks (add_remarks) can still be added, within 24 hours of the trip. If the signed details are wrong, the driver should start a new trip with the right ones (start_trip).`,
+			)
+			expect(mocks.updateTripDb).not.toHaveBeenCalled()
+			expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+		})
+
+		it.each([
+			['carrier', 'Other', 'carrier'],
+			['carrier_address', '2 Main St', 'carrier_address'],
+			['inspection_address', '9 South St', 'inspection_address'],
+			['model', 'VNR', 'model'],
+			['trailer_plate_a', 'TRL9', 'trailer_plate_a'],
+			['trailer_plate_b', 'TRL8', 'trailer_plate_b'],
+		])('locks %s', async (field, value, name) => {
+			mocks.getTripDb.mockResolvedValue(signedTrip())
+			const result = await updateTrip(caller, {
+				trip_id: 1,
+				[field]: value,
+			})
+			expect(result.data).toMatchObject({
+				status: 'signed_locked',
+				attempted_fields: [name],
+			})
+			expect(mocks.updateTripDb).not.toHaveBeenCalled()
+		})
+
+		it('refuses a core change even when asked to sign too', async () => {
+			mocks.getTripDb.mockResolvedValue(signedTrip())
+			const result = await updateTrip(caller, {
+				trip_id: 1,
+				make: 'Mack',
+				sign: true,
+			})
+			expect(result.data.status).toBe('signed_locked')
+			expect(mocks.updateTripDb).not.toHaveBeenCalled()
+			expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+		})
+
+		it('still adds defects and remarks', async () => {
+			mocks.getTripDb.mockResolvedValue(signedTrip({ defects: 'Cab' }))
+			mocks.updateTripDb.mockResolvedValue(
+				signedTrip({ defects: 'Cab, Lights' }),
+			)
+			const result = await updateTrip(caller, {
+				trip_id: 1,
+				add_defects: ['lights'],
+				add_remarks: 'Light out on route',
+			})
+			expect(mocks.updateTripDb).toHaveBeenCalledWith(
+				1,
+				'pat@x.com',
+				expect.objectContaining({
+					addDefects: 'Lights',
+					addRemarks: 'Light out on route',
+					odometer: undefined,
+					make: undefined,
+				}),
+			)
+			expect(result.isError).toBeUndefined()
+			expect(result.summary).toBe('Updated trip 1.')
+			expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+		})
+
+		it('ignores core fields resent with their signed values', async () => {
+			mocks.getTripDb.mockResolvedValue(signedTrip())
+			mocks.updateTripDb.mockResolvedValue(signedTrip())
+			const same = {
+				trip_id: 1,
+				carrier: 'Acme',
+				carrier_address: '1 Main St',
+				inspection_address: '123 North St',
+				make: 'Volvo',
+				model: 'VNL',
+				odometer: 1000,
+				truck_plate: 'TRK1',
+				trailer_plate_a: 'TRL1',
+			}
+			const result = await updateTrip(caller, {
+				...same,
+				add_remarks: 'Checked again',
+			})
+			expect(result.isError).toBeUndefined()
+			const [, , changes] = mocks.updateTripDb.mock.calls[0]
+			expect(changes).toEqual({
+				carrier: undefined,
+				carrierAddress: undefined,
+				inspectionAddress: undefined,
+				make: undefined,
+				model: undefined,
+				odometer: undefined,
+				truckPlate: undefined,
+				trailerPlateA: undefined,
+				trailerPlateB: undefined,
+				addDefects: undefined,
+				addRemarks: 'Checked again',
+			})
+			// No new odometer, so no check against the truck's other trips.
+			expect(mocks.getLatestTripForPlateDb).not.toHaveBeenCalled()
+
+			mocks.updateTripDb.mockClear()
+			const nothing = await updateTrip(caller, same)
+			expect(nothing.data.status).toBe('no_changes')
+			expect(mocks.updateTripDb).not.toHaveBeenCalled()
+		})
+
+		it('refuses when the database finds the trip was signed meanwhile', async () => {
+			// Read as unsigned, signed before the update reached the database.
+			mocks.getTripDb.mockResolvedValue(recent())
+			mocks.updateTripDb.mockResolvedValue('signed_locked')
+			const result = await updateTrip(caller, {
+				trip_id: 1,
+				make: 'Mack',
+				sign: true,
+			})
+			expect(result).toMatchObject({
+				isError: true,
+				data: { status: 'signed_locked', locked_fields: LOCKED },
+			})
+			expect(result.data).not.toHaveProperty('trip')
+			expect(result.data).not.toHaveProperty('attempted_fields')
+			expect(result.summary).toContain(
+				'Trip 1 is signed, so its details can no longer be changed and nothing was saved.',
+			)
+			expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+		})
 	})
 
 	it("checks a new odometer against the truck's other trips", async () => {

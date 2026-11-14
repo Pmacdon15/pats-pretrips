@@ -2,11 +2,13 @@ import { z } from 'zod'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
+	type CoreTripField,
 	createTripDb,
 	getLatestTripDb,
 	getLatestTripForPlateDb,
 	getTripDb,
 	listTripsDb,
+	type TripChanges,
 	updateTripDb,
 } from '@/lib/db/trips'
 import { appUrl } from '@/lib/email/config'
@@ -57,8 +59,47 @@ const defectList = z
 		'Defect categories from list_defect_categories, e.g. ["Tires", "Lights"]. Empty or left out for no defects.',
 	)
 
+/** Each core trip field by the name the assistant uses for it. */
+const CORE_FIELD_NAMES: Record<CoreTripField, string> = {
+	carrier: 'carrier',
+	carrierAddress: 'carrier_address',
+	inspectionAddress: 'inspection_address',
+	make: 'make',
+	model: 'model',
+	odometer: 'odometer',
+	truckPlate: 'truck_plate',
+	trailerPlateA: 'trailer_plate_a',
+	trailerPlateB: 'trailer_plate_b',
+}
+
+/**
+ * The core fields (every one of CORE_TRIP_FIELDS in src/lib/db/trips.ts: the
+ * Record type above makes sure none is missing).
+ */
+const CORE_FIELDS = Object.keys(CORE_FIELD_NAMES) as CoreTripField[]
+
+/** The core details the driver signed; locked once the trip is signed. */
+const LOCKED_FIELDS = CORE_FIELDS.map((f) => CORE_FIELD_NAMES[f])
+
+/** A core field's stored value, to tell a real change from a resent value. */
+const storedValue = (trip: Trip, field: CoreTripField) =>
+	({
+		carrier: trip.carrier,
+		carrierAddress: trip.carrieraddress,
+		inspectionAddress: trip.inspectionaddress,
+		make: trip.make,
+		model: trip.model,
+		odometer: trip.odometer,
+		truckPlate: trip.truckplate,
+		trailerPlateA: trip.trailerplatea,
+		trailerPlateB: trip.trailerplateb,
+	})[field]
+
 /** The trip as the assistant sees it: plain names, ISO date, defects as a list. */
 export function tripView(trip: Trip) {
+	const canUpdate =
+		Date.now() - new Date(trip.date).getTime() < 24 * 60 * 60 * 1000
+	const signed = Boolean(trip.signed_at)
 	return {
 		trip_id: trip.tripid,
 		date: new Date(trip.date).toISOString(),
@@ -73,13 +114,19 @@ export function tripView(trip: Trip) {
 		trailer_plate_b: trip.trailerplateb || null,
 		defects: parseDefects(trip.defects),
 		remarks: trip.remarks,
-		signed: Boolean(trip.signed_at),
+		signed,
 		signed_at: trip.signed_at
 			? new Date(trip.signed_at).toISOString()
 			: null,
 		/** Trips can only be changed for 24 hours, like in the web app. */
-		can_update:
-			Date.now() - new Date(trip.date).getTime() < 24 * 60 * 60 * 1000,
+		can_update: canUpdate,
+		/**
+		 * Whether the core details can still be changed: not once the trip is
+		 * signed, when only defects and remarks can still be added.
+		 */
+		can_edit_details: canUpdate && !signed,
+		/** The fields that can't change because the trip is signed. */
+		locked_fields: signed ? LOCKED_FIELDS : [],
 	}
 }
 
@@ -346,8 +393,35 @@ export const updateTripInputSchema = z.object({
 })
 
 /**
+ * The answer when a change would touch a signed trip's core details: nothing
+ * changed. `attempted` names the fields asked for (null when the database
+ * refused because the trip was signed meanwhile).
+ */
+function signedLocked(
+	tripId: number,
+	attempted: string[] | null,
+	trip: Trip | null,
+): ToolResult {
+	const what = attempted?.length
+		? `${attempted.join(', ')} can't be changed`
+		: 'its details can no longer be changed'
+	return {
+		summary: `Trip ${tripId} is signed, so ${what} and nothing was saved. On a signed trip ${LOCKED_FIELDS.join(', ')} are locked; only defects (add_defects) and remarks (add_remarks) can still be added, within 24 hours of the trip. If the signed details are wrong, the driver should start a new trip with the right ones (start_trip).`,
+		data: {
+			status: 'signed_locked',
+			locked_fields: LOCKED_FIELDS,
+			...(attempted ? { attempted_fields: attempted } : {}),
+			...(trip ? { trip: tripView(trip) } : {}),
+		},
+		isError: true,
+	}
+}
+
+/**
  * Changes a trip from the last 24 hours. Fields left out stay as they are;
- * defects and remarks are only added to, never removed.
+ * defects and remarks are only added to, never removed. Once the trip is
+ * signed its core details are locked (the database enforces it too); only
+ * defects and remarks can still be added.
  */
 export async function updateTrip(
 	caller: McpCaller,
@@ -374,7 +448,7 @@ export async function updateTrip(
 	const added = normalizeDefects(input.add_defects ?? []).filter(
 		(d) => !existing.some((e) => e.toLowerCase() === d.toLowerCase()),
 	)
-	const changes = {
+	const changes: TripChanges = {
 		carrier: input.carrier,
 		carrierAddress: input.carrier_address,
 		inspectionAddress: input.inspection_address,
@@ -384,8 +458,25 @@ export async function updateTrip(
 		truckPlate: input.truck_plate,
 		trailerPlateA: input.trailer_plate_a,
 		trailerPlateB: input.trailer_plate_b,
-		defects: added.length ? [...existing, ...added].join(', ') : undefined,
+		addDefects: added.length ? added.join(', ') : undefined,
 		addRemarks: input.add_remarks,
+	}
+	if (current.signed_at) {
+		// Signed: the details the driver signed are locked. A field resent
+		// with its current value isn't a change, so it's simply left out.
+		const changed = CORE_FIELDS.filter(
+			(f) =>
+				changes[f] !== undefined &&
+				changes[f] !== storedValue(current, f),
+		)
+		if (changed.length) {
+			return signedLocked(
+				input.trip_id,
+				changed.map((f) => CORE_FIELD_NAMES[f]),
+				current,
+			)
+		}
+		for (const f of CORE_FIELDS) changes[f] = undefined
 	}
 	const hasChanges = Object.values(changes).some((v) => v !== undefined)
 	const sign = Boolean(input.sign) && !current.signed_at
@@ -409,17 +500,22 @@ export async function updateTrip(
 	}
 
 	const warning =
-		input.odometer === undefined
+		changes.odometer === undefined
 			? null
 			: await odometerWarning(
 					caller.email,
 					input.truck_plate ?? current.truckplate,
-					input.odometer,
+					changes.odometer,
 					current.tripid,
 				)
-	let trip = hasChanges
+	const updated = hasChanges
 		? await updateTripDb(input.trip_id, caller.email, changes)
 		: current
+	// The database refused: the trip was signed after it was read.
+	if (updated === 'signed_locked') {
+		return signedLocked(input.trip_id, null, null)
+	}
+	let trip = updated
 	if (trip && signature) {
 		trip = await signTripDb(
 			input.trip_id,
