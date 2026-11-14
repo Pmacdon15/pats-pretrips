@@ -47,6 +47,25 @@ describe('email settings queries', () => {
 		)
 	})
 
+	it('reads at most 5 different addresses, even from a row edited by hand', async () => {
+		sql.respond(() => [
+			{
+				recipients:
+					'a@x.com,A@x.com,b@x.com,,c@x.com,d@x.com,e@x.com,f@x.com',
+				auto_send: true,
+				time_zone: null,
+			},
+		])
+		const settings = await getEmailSettingsDb('pat@x.com')
+		expect(settings.recipients).toEqual([
+			'a@x.com',
+			'b@x.com',
+			'c@x.com',
+			'd@x.com',
+			'e@x.com',
+		])
+	})
+
 	it('saves over any earlier settings', async () => {
 		const settings = {
 			recipients: ['a@x.com', 'b@x.com'],

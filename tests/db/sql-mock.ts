@@ -22,9 +22,16 @@ export function createSqlMock() {
 		if (result instanceof Error) return Promise.reject(result)
 		return Promise.resolve(result ?? [])
 	})
+	// sql.transaction([...queries]): the queries are recorded as they're
+	// built, and their results come back in order, like neon's.
+	const transaction = vi.fn((queries: Promise<unknown>[]) =>
+		Promise.all(queries),
+	)
+	Object.assign(sql, { transaction })
 
 	return {
 		sql,
+		transaction,
 		calls,
 		/** Queries only, without nested fragments (those start with WHERE). */
 		queries: () => calls.filter((c) => !c.text.startsWith('WHERE')),
@@ -35,6 +42,7 @@ export function createSqlMock() {
 			calls.length = 0
 			respond = () => undefined
 			sql.mockClear()
+			transaction.mockClear()
 		},
 	}
 }
