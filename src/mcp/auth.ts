@@ -18,9 +18,28 @@ import { touchApiKeyDb } from '@/lib/db/api-keys'
  */
 
 /**
+ * The scopes an OAuth access token must carry. Tools take the driver from
+ * their Clerk primary email, so the driver must have agreed to share their
+ * email with the app holding the token. `email` is one of the scopes every
+ * client is told to ask for (`MCP_SCOPES`, in the 401 challenge and the
+ * protected resource metadata). `profile` is advertised too but isn't
+ * required: PreTrips never reads it.
+ */
+export const REQUIRED_OAUTH_SCOPES = ['email'] as const
+
+/** The required scopes that a token's granted scopes don't include. */
+export function missingScopes(granted: readonly string[]) {
+	return REQUIRED_OAUTH_SCOPES.filter((scope) => !granted.includes(scope))
+}
+
+/**
  * The audiences a token must name, from `MCP_TOKEN_AUDIENCE` (comma or space
  * separated). Unset means the audience isn't checked: any OAuth token this
- * Clerk instance issued for the driver is accepted.
+ * Clerk instance issued for the driver is accepted, whichever app it was
+ * issued to. Clerk only puts an `aud` claim in access tokens once audience
+ * claims are on (adding an MCP server under Agents → MCP servers in the
+ * Clerk dashboard turns them on), so it can't be enforced by default without
+ * refusing every token issued before that. See docs/mcp-ai-guide.md.
  */
 export function tokenAudiences(raw = process.env.MCP_TOKEN_AUDIENCE) {
 	const list = (raw ?? '')
@@ -28,6 +47,23 @@ export function tokenAudiences(raw = process.env.MCP_TOKEN_AUDIENCE) {
 		.map((value) => value.trim())
 		.filter(Boolean)
 	return list.length > 0 ? list : undefined
+}
+
+let warnedAudienceUnchecked = false
+
+/**
+ * Says once per server instance, in production, that the audience isn't
+ * checked, with the `aud` Clerk put in the token so the owner can see what
+ * `MCP_TOKEN_AUDIENCE` should be (or that audience claims are still off).
+ */
+function warnAudienceUnchecked(aud: readonly string[] | undefined) {
+	if (warnedAudienceUnchecked || process.env.VERCEL_ENV !== 'production') {
+		return
+	}
+	warnedAudienceUnchecked = true
+	console.warn(
+		`MCP: MCP_TOKEN_AUDIENCE is unset, so the audience of OAuth access tokens is NOT checked and a token Clerk issued to any app is accepted (this token's aud: ${aud?.length ? JSON.stringify(aud) : 'none'}). See docs/mcp-ai-guide.md.`,
+	)
 }
 
 /**
@@ -47,9 +83,10 @@ async function verifyOAuthToken(token: string): Promise<AuthInfo | undefined> {
 	let accessToken: Awaited<
 		ReturnType<typeof client.idPOAuthAccessToken.verify>
 	>
+	const audience = tokenAudiences()
 	try {
 		accessToken = await client.idPOAuthAccessToken.verify(token, {
-			audience: tokenAudiences(),
+			audience,
 		})
 	} catch (error) {
 		console.warn(
@@ -61,6 +98,14 @@ async function verifyOAuthToken(token: string): Promise<AuthInfo | undefined> {
 		console.warn('MCP: refused a revoked or expired access token')
 		return undefined
 	}
+	const missing = missingScopes(accessToken.scopes)
+	if (missing.length > 0) {
+		console.warn(
+			`MCP: refused an access token for client ${accessToken.clientId} without the ${missing.join(', ')} scope (it has: ${accessToken.scopes.join(' ') || 'none'})`,
+		)
+		return undefined
+	}
+	if (!audience) warnAudienceUnchecked(accessToken.aud)
 	const user = await client.users.getUser(accessToken.subject)
 	const email = user.primaryEmailAddress?.emailAddress
 	if (!email) {
