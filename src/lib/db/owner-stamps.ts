@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless'
 import { after } from 'next/server'
+import { errorForLog } from '@/lib/log'
 
 /*
  * Recording the Clerk user ID beside the email on driver-owned rows (stage
@@ -212,7 +213,7 @@ async function stampOne(stamp: OwnerStamp, email: string, userId: string) {
 		if (!isMissingColumnOrTable(error)) {
 			console.error(
 				`Owner stamp: could not record the Clerk user on ${describe(stamp)}:`,
-				error,
+				errorForLog(error),
 			)
 		} else if (!warnedMissing) {
 			// Once per server instance, so the logs aren't flooded.

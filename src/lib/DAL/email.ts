@@ -28,6 +28,7 @@ import {
 	sendLimitMessage,
 } from '@/lib/email/send-log'
 import { sendTripEmail } from '@/lib/email/trip-email'
+import { errorForLog } from '@/lib/log'
 import type { Trip } from '@/lib/types/types'
 
 /*
@@ -92,7 +93,7 @@ export async function saveEmailSettingsDAL(data: {
 		await recordOwner(driver, { table: 'email_settings' })
 		return okAsync(settings)
 	} catch (e) {
-		console.error('Db error saving email settings: ', e)
+		console.error('Db error saving email settings: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not save your email settings. Please try again.',
 		} as const)
@@ -189,7 +190,7 @@ export async function emailTripDAL(data: {
 		await recordEmailSendOwner(driver, slot.id)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
-		console.error('Error emailing trip: ', e)
+		console.error('Error emailing trip: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not send the email. Please try again.',
 		} as const)
@@ -235,7 +236,7 @@ export async function prepareAutoEmailDAL() {
 			await recordEmailSendOwner(driver, slot.id)
 		} catch (e) {
 			await releaseEmailSend(slot.id)
-			console.error('Error auto-emailing trip: ', e)
+			console.error('Error auto-emailing trip: ', errorForLog(e))
 		}
 	}
 }

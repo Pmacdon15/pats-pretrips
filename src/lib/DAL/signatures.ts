@@ -8,6 +8,7 @@ import {
 	setAiSigningDb,
 	signTripDb,
 } from '@/lib/db/signatures'
+import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { SIGNATURES } from '@/lib/rate-limit/limits'
 import {
@@ -89,7 +90,7 @@ export async function saveSignatureDAL(dataUrl: string) {
 		} as SignatureStatus)
 	} catch (e) {
 		if (e instanceof FileError) return errAsync({ reason: e.message })
-		console.error('Error saving signature: ', e)
+		console.error('Error saving signature: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not save your signature. Please try again.',
 		} as const)
@@ -104,7 +105,7 @@ export async function deleteSignatureDAL() {
 		await deleteSavedSignatureDb(email)
 		return okAsync(NO_SIGNATURE)
 	} catch (e) {
-		console.error('Error deleting signature: ', e)
+		console.error('Error deleting signature: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not delete your signature. Please try again.',
 		} as const)
@@ -141,7 +142,7 @@ export async function setAiSigningDAL(allow: unknown) {
 				reason: "This setting isn't available yet. Please try again later.",
 			} as const)
 		}
-		console.error('Error changing AI signing: ', e)
+		console.error('Error changing AI signing: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not change the setting. Please try again.',
 		} as const)
@@ -191,7 +192,7 @@ export async function signTripDAL(data: {
 		)
 		return okAsync(trip)
 	} catch (e) {
-		console.error('Error signing trip: ', e)
+		console.error('Error signing trip: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not sign the pre-trip. Please try again.',
 		} as const)

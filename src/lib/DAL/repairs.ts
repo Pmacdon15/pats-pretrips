@@ -5,6 +5,7 @@ import {
 	listTripsWithDefectsDb,
 	type Repair,
 } from '@/lib/db/repairs'
+import { errorForLog } from '@/lib/log'
 import { buildDefectRecord, type DefectRecord } from '@/lib/repairs/status'
 
 /* The web app's repair reads, for the signed-in driver. */
@@ -15,7 +16,7 @@ export async function fetchTripRepairs(tripId: number): Promise<Repair[]> {
 	try {
 		return await listTripRepairsDb(tripId, email)
 	} catch (error) {
-		console.error('Error fetching repairs:', error)
+		console.error('Error fetching repairs:', errorForLog(error))
 		return []
 	}
 }

@@ -6,6 +6,7 @@ import {
 	releaseEmailSendDb,
 	reserveEmailSendDb,
 } from '@/lib/db/email-sends'
+import { errorForLog } from '@/lib/log'
 import {
 	BURST_SEND_LIMIT,
 	BURST_SEND_WINDOW_SECONDS,
@@ -96,7 +97,7 @@ export async function reserveEmailSend(
 		if (!isMissingTable(e)) {
 			console.error(
 				'Could not check email send limits, sending anyway: ',
-				e,
+				errorForLog(e),
 			)
 		} else if (!warnedMissingTable) {
 			// Once per server instance, so the logs aren't flooded.
@@ -116,7 +117,10 @@ export async function reserveEmailSend(
 			retryInSeconds: secondsUntilAllowed(recent, send.recipients),
 		}
 	} catch (e) {
-		console.error('Could not work out when the driver can email again: ', e)
+		console.error(
+			'Could not work out when the driver can email again: ',
+			errorForLog(e),
+		)
 		return { ok: false, retryInSeconds: null }
 	}
 }
@@ -131,7 +135,10 @@ export async function confirmEmailSend(
 		await confirmEmailSendDb(id, sesMessageId)
 	} catch (e) {
 		// The row stays 'reserved', which still counts towards the limits.
-		console.error('Could not mark the email as sent in the log: ', e)
+		console.error(
+			'Could not mark the email as sent in the log: ',
+			errorForLog(e),
+		)
 	}
 }
 
@@ -142,6 +149,9 @@ export async function releaseEmailSend(id: string | null) {
 		await releaseEmailSendDb(id)
 	} catch (e) {
 		// The row stays 'reserved' and counts: erring towards the limit.
-		console.error('Could not release a failed email in the log: ', e)
+		console.error(
+			'Could not release a failed email in the log: ',
+			errorForLog(e),
+		)
 	}
 }

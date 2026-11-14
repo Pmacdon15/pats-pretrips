@@ -4,6 +4,7 @@ import { after } from 'next/server'
 import type { z } from 'zod'
 import { getDriverEmail } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
+import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { GEOCODE } from '@/lib/rate-limit/limits'
 import type { GeocodingResponse } from '@/lib/types/types'
@@ -40,7 +41,7 @@ export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 		// turned that on. It's sent after the response, so saving stays fast.
 		const trip = result.value
 		const send = await prepareAutoEmailDAL().catch((e) => {
-			console.error('Could not check auto-email: ', e)
+			console.error('Could not check auto-email: ', errorForLog(e))
 			return null
 		})
 		if (send) after(() => send(trip))
@@ -88,58 +89,65 @@ export async function getAddress(
 	}
 	lat = coords.data.lat
 	lng = coords.data.lng
-	console.log(`getAddress called with lat: ${lat}, lng: ${lng}`)
 
+	// Nothing here logs the driver's position or the address it resolves to.
 	const apiKey = process.env.REVERSE_GEOCODING_API_KEY
 	if (!apiKey) {
-		console.error(
-			'GOOGLE_MAPS_API_KEY is not defined in environment variables',
-		)
+		console.error('getAddress: REVERSE_GEOCODING_API_KEY is not set')
 		return { data: undefined }
 	}
 
 	try {
 		const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
-		console.log(`Fetching from Google Maps API (key hidden)`)
-
 		const response = await fetch(url, {
 			cache: 'no-cache',
 		})
 
 		if (!response.ok) {
-			const errorText = await response.text()
-			console.error(
-				`Google Maps API fetch error: ${response.status} ${response.statusText}`,
-				errorText,
-			)
+			// Only the status: an error page can repeat the request URL.
+			console.error(`getAddress: Google answered HTTP ${response.status}`)
 			return { data: undefined }
 		}
 
 		const data: GeocodingResponse = await response.json()
-		console.log(`Google Maps API Status: ${data.status}`)
 
 		if (data.status !== 'OK') {
 			console.error(
-				`Google Maps API returned non-OK status: ${data.status}`,
-				data.error_message || '',
+				`getAddress: Google returned ${data.status}`,
+				withoutRequest(data.error_message ?? '', apiKey),
 			)
 			return { data }
 		}
 
-		if (data.results && data.results.length > 0) {
-			console.log(
-				`Successfully found address: ${data.results[0].formatted_address}`,
-			)
-		} else {
-			console.warn('Google Maps API returned OK but no results found.')
+		if (!data.results?.length) {
+			console.warn('getAddress: Google returned OK with no results')
 		}
 
 		return { data }
 	} catch (error) {
 		console.error(
-			'Exception in getAddress during Google Maps API call:',
-			error instanceof Error ? error.message : error,
+			'getAddress: the Google request failed:',
+			withoutRequest(
+				error instanceof Error ? error.message : String(error),
+				apiKey,
+			),
 		)
 		return { data: undefined }
 	}
+}
+
+/**
+ * Google's text for the logs, without what the request URL held: the API
+ * key and the driver's position (a JSON parse error quotes the body).
+ */
+function withoutRequest(text: string, apiKey: string) {
+	return text
+		.split(apiKey)
+		.join('[key]')
+		.replace(/latlng=[^&\s"'<]*/gi, 'latlng=[position]')
+		.replace(
+			/-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?|-?\d+\.\d{3,}/g,
+			'[position]',
+		)
+		.slice(0, 300)
 }

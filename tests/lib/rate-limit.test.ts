@@ -124,7 +124,7 @@ describe('rateLimit', () => {
 			expect(error).toHaveBeenCalledTimes(1)
 			expect(error).toHaveBeenCalledWith(
 				expect.stringContaining('could not count'),
-				failure,
+				expect.stringContaining(failure.message),
 			)
 		})
 

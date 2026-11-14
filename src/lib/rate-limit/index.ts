@@ -1,4 +1,5 @@
 import { countHitDb } from '@/lib/db/rate-limits'
+import { errorForLog } from '@/lib/log'
 import type { Limit } from './limits'
 
 /*
@@ -58,7 +59,7 @@ function logFailure(error: unknown) {
 		missingTable
 			? 'Rate limits: the pt_rate_limits table is missing; run src/lib/sql/2026-11-16-rate-limits.sql. Requests are allowed until then.'
 			: 'Rate limits: could not count in the database; requests are allowed.',
-		missingTable ? '' : error,
+		missingTable ? '' : errorForLog(error),
 	)
 }
 

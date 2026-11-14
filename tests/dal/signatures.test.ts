@@ -274,7 +274,7 @@ describe('setAiSigningDAL', () => {
 		})
 		expect(console.error).toHaveBeenCalledWith(
 			'Error changing AI signing: ',
-			expect.any(Error),
+			expect.stringContaining('Error: down'),
 		)
 	})
 
