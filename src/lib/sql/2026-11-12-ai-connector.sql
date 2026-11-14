@@ -1,5 +1,5 @@
 -- AI connector (the MCP server at /api/mcp). Run once against the database;
--- it's safe to run again. makeDb.sql drops PTTrips, so don't re-run that.
+-- it's safe to run again. Needs PTTrips (makeDb.sql) first.
 
 -- API key support was removed: see 2026-11-18-revoke-api-keys.sql.
 -- pt_api_keys: personal keys for AI apps that can't sign in with OAuth. Only
