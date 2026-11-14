@@ -7,9 +7,15 @@ import { TRIP_WRITES } from '@/lib/rate-limit/limits'
 import {
 	createTripDb,
 	getTripDefectsDb,
-	updateTripDefectsDb,
+	type TripUpdateRefusal,
+	updateTripDb,
 } from '../db/trips'
 import { resolveSignature } from '../signatures/signatures'
+import {
+	formatLimit as n,
+	STORED_DEFECTS_MAX,
+	STORED_REMARKS_MAX,
+} from '../trip-limits'
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
@@ -85,10 +91,11 @@ export async function addOnRouteDefectsDAL(
 		} as const)
 	}
 
+	const { trip_id: tripId, defects, remarks } = validatedFields.data
 	try {
-		const currentDefects = await getTripDefectsDb(data.trip_id, driverEmail)
+		const currentDefects = await getTripDefectsDb(tripId, driverEmail)
 
-		const defectsArray = data.defects
+		const defectsArray = defects
 			.split(',')
 			.map((d: string) => d.trim())
 			.filter((d) => d !== '')
@@ -107,18 +114,32 @@ export async function addOnRouteDefectsDAL(
 
 		const cleanDefectsToAdd = defectsArray.join(', ')
 
-		const trip = await updateTripDefectsDb(
-			data.trip_id,
-			driverEmail,
-			cleanDefectsToAdd,
-			data.remarks,
-		)
-		await recordOwner(driver, { table: 'trip', tripId: data.trip_id })
+		// Appended to the trip's defects and remarks; refused, changing
+		// nothing, if either would pass its limit (src/lib/trip-limits.ts).
+		const trip = await updateTripDb(tripId, driverEmail, {
+			addDefects: cleanDefectsToAdd || undefined,
+			addRemarks: remarks,
+		})
+		if (trip === undefined) {
+			return errAsync({ reason: TOO_OLD } as const)
+		}
+		if (typeof trip === 'string') {
+			return errAsync({ reason: REFUSED[trip] } as const)
+		}
+		await recordOwner(driver, { table: 'trip', tripId })
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error updating trip:', e)
-		return errAsync({
-			reason: 'Could not update this trip. It may be older than 24 hours.',
-		} as const)
+		return errAsync({ reason: TOO_OLD } as const)
 	}
+}
+
+const TOO_OLD = 'Could not update this trip. It may be older than 24 hours.'
+
+/** Why an on-route update changed nothing, as the driver reads it. */
+const REFUSED: Record<TripUpdateRefusal, string> = {
+	defects_too_long: `This trip's defect list is full (${n(STORED_DEFECTS_MAX)} characters at most), so nothing was saved. Start a new trip to record more defects.`,
+	remarks_too_long: `This trip's remarks are full (${n(STORED_REMARKS_MAX)} characters at most), so nothing was saved. Shorten your remark, or start a new trip to add more.`,
+	// Not expected here: on-route updates change none of the signed details.
+	signed_locked: "This trip is signed, so its details can't be changed.",
 }

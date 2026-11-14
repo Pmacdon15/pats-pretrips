@@ -164,6 +164,41 @@ describe('AddTripForm', () => {
 		expect(screen.getByLabelText('Odometer')).toHaveValue(null)
 	})
 
+	it.each([
+		['Carrier', '255'],
+		['Carrier address', '255'],
+		['Inspection address', '255'],
+		['Make', '100'],
+		['Model', '100'],
+		[/^Truck plate/, '20'],
+		[/^Trailer plate/, '20'],
+		[/^Trailer B plate/, '20'],
+		['Remarks', '2000'],
+	])('stops %s at the length the server takes', (label, max) => {
+		setup()
+		expect(screen.getByLabelText(label)).toHaveAttribute('maxlength', max)
+	})
+
+	it('explains an odometer reading that is too high or not whole', async () => {
+		const { user } = setup()
+		const odometer = screen.getByLabelText('Odometer')
+		await user.type(odometer, '10000001')
+		await user.tab()
+		expect(
+			await screen.findByText(
+				'Odometer reading is too high (10,000,000 km at most)',
+			),
+		).toBeInTheDocument()
+		await user.clear(odometer)
+		await user.type(odometer, '1000.5')
+		await user.tab()
+		expect(
+			await screen.findByText(
+				'Odometer reading must be whole kilometres',
+			),
+		).toBeInTheDocument()
+	})
+
 	it('shows a field error after leaving it invalid', async () => {
 		const { user } = setup()
 		await user.click(screen.getByLabelText('Carrier'))
@@ -446,6 +481,14 @@ describe('AddDefectForm', () => {
 	it('disables defects the trip already has', () => {
 		render(<AddDefectForm trip={trip()} updateOptimisticTrip={() => {}} />)
 		expect(chip('Cab')).toBeDisabled()
+	})
+
+	it('stops a remark at the length the server takes', () => {
+		render(<AddDefectForm trip={trip()} updateOptimisticTrip={() => {}} />)
+		expect(screen.getByLabelText('Remarks')).toHaveAttribute(
+			'maxlength',
+			'2000',
+		)
 	})
 
 	it('asks for a defect and a remark', async () => {

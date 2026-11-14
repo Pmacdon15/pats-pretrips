@@ -7,6 +7,13 @@ import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { DriverSignatureField } from '@/components/signature/driver-signature-field'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
+import {
+	ADDRESS_MAX,
+	CARRIER_MAX,
+	MAKE_MODEL_MAX,
+	PLATE_MAX,
+	REMARKS_MAX,
+} from '@/lib/trip-limits'
 import type { Trip, TripsAction } from '@/lib/types/types'
 import { schemaAddTripForm } from '@/lib/ZOD/schemas'
 import { Button } from '../ui/button'
@@ -123,12 +130,14 @@ export default function AddTripForm({
 					<ControlledTextInput
 						form={form}
 						label="Carrier"
+						maxLength={CARRIER_MAX}
 						name="carrier"
 						placeholder="Company name"
 					/>
 					<ControlledTextInput
 						form={form}
 						label="Carrier address"
+						maxLength={ADDRESS_MAX}
 						name="carrierAddress"
 						placeholder="123 North N St, Calgary AB"
 					/>
@@ -137,6 +146,7 @@ export default function AddTripForm({
 					<ControlledTextInput
 						form={form}
 						label="Inspection address"
+						maxLength={ADDRESS_MAX}
 						name="inspectionAddress"
 						placeholder="Where are you doing the inspection?"
 						showCopyButton
@@ -155,12 +165,14 @@ export default function AddTripForm({
 					<ControlledTextInput
 						form={form}
 						label="Make"
+						maxLength={MAKE_MODEL_MAX}
 						name="make"
 						placeholder="e.g. Freightliner"
 					/>
 					<ControlledTextInput
 						form={form}
 						label="Model"
+						maxLength={MAKE_MODEL_MAX}
 						name="model"
 						placeholder="e.g. Cascadia"
 					/>
@@ -177,6 +189,7 @@ export default function AddTripForm({
 						autoCapitalize="characters"
 						form={form}
 						label="Truck plate"
+						maxLength={PLATE_MAX}
 						name="truckPlate"
 						optional
 					/>
@@ -184,6 +197,7 @@ export default function AddTripForm({
 						autoCapitalize="characters"
 						form={form}
 						label="Trailer plate"
+						maxLength={PLATE_MAX}
 						name="trailerPlateA"
 						optional
 					/>
@@ -191,6 +205,7 @@ export default function AddTripForm({
 						autoCapitalize="characters"
 						form={form}
 						label="Trailer B plate"
+						maxLength={PLATE_MAX}
 						name="trailerPlateB"
 						optional
 					/>
@@ -209,6 +224,7 @@ export default function AddTripForm({
 				<ControlledTextArea
 					form={form}
 					label="Remarks"
+					maxLength={REMARKS_MAX}
 					name="remarks"
 					placeholder="Anything worth noting about the inspection"
 				/>

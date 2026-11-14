@@ -12,11 +12,7 @@ vi.mock('next/cache', () => ({
 	cacheLife: mocks.cacheLife,
 }))
 
-import {
-	createTripDb,
-	getTripDefectsDb,
-	updateTripDefectsDb,
-} from '@/lib/db/trips'
+import { createTripDb, getTripDefectsDb } from '@/lib/db/trips'
 
 const sql = createSqlMock()
 
@@ -117,35 +113,6 @@ describe('getTripDefectsDb', () => {
 	})
 })
 
-describe('updateTripDefectsDb', () => {
-	it('appends the defects and remarks and returns the updated row', async () => {
-		const row = { tripid: 3, defects: 'Cab, Horn' }
-		sql.respond(() => [row])
-
-		await expect(
-			updateTripDefectsDb(3, 'pat@x.com', 'Horn', 'Loud'),
-		).resolves.toEqual(row)
-		const [query] = sql.queries()
-		expect(query.text).toContain('UPDATE PTTrips')
-		expect(query.values).toEqual([
-			'Horn',
-			'Horn',
-			'Horn',
-			'Loud',
-			'Loud',
-			'Loud',
-			3,
-			'pat@x.com',
-		])
-	})
-
-	it('throws when no recent trip matches', async () => {
-		await expect(
-			updateTripDefectsDb(3, 'pat@x.com', 'Horn', 'Loud'),
-		).rejects.toThrow('Failed to update trip or trip not found')
-	})
-})
-
 describe('connector queries', () => {
 	it('reads the latest trip', async () => {
 		const { getLatestTripDb } = await import('@/lib/db/trips')
@@ -193,7 +160,15 @@ describe('connector queries', () => {
 
 	it('updates only the fields passed, for trips in the last 24 hours', async () => {
 		const { updateTripDb } = await import('@/lib/db/trips')
-		sql.respond(() => [{ tripid: 4, make: 'Mack', target_trip_id: 4 }])
+		sql.respond(() => [
+			{
+				tripid: 4,
+				make: 'Mack',
+				target_trip_id: 4,
+				defects_too_long: false,
+				remarks_too_long: false,
+			},
+		])
 		await expect(
 			updateTripDb(4, 'pat@x.com', {
 				odometer: 5,
@@ -206,7 +181,14 @@ describe('connector queries', () => {
 		expect(query.text).toContain("date >= NOW() - INTERVAL '24 hours'")
 		const core = [null, null, null, 'Mack', null, 5, null, null, null]
 		expect(query.values).toEqual([
-			// The trip being changed, found whether or not it's locked.
+			// The trip being changed, found and locked whether or not it can
+			// change, with whether the added defects and remarks are too long.
+			'Cab',
+			'Cab',
+			2000,
+			'Late',
+			'Late',
+			10_000,
 			4,
 			'pat@x.com',
 			// SET: the core fields, then defects and remarks, both appended.
@@ -217,13 +199,19 @@ describe('connector queries', () => {
 			'Late',
 			'Late',
 			'Late',
-			4,
 			'pat@x.com',
 			// The lock: each core field twice, for "left out or unchanged".
 			...core.flatMap((v) => [v, v]),
+			// The limits: defects, then remarks.
+			'Cab',
+			'Cab',
+			2000,
+			'Late',
+			'Late',
+			10_000,
 		])
 		await updateTripDb(4, 'pat@x.com', {})
-		expect(sql.queries()[1].values.slice(2, 17)).toEqual(
+		expect(sql.queries()[1].values.slice(8, 23)).toEqual(
 			Array(15).fill(null),
 		)
 	})
@@ -255,17 +243,73 @@ describe('connector queries', () => {
 			)
 		}
 		expect(text).toContain(
-			'SELECT updated.*, target.tripId AS target_trip_id FROM target LEFT JOIN updated ON true',
+			'SELECT updated.*, target.tripId AS target_trip_id, target.defects_too_long, target.remarks_too_long FROM target LEFT JOIN updated ON true',
 		)
+	})
+
+	it('caps the whole defects and remarks in the UPDATE itself, on the locked row', async () => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		await updateTripDb(4, 'pat@x.com', { addRemarks: 'Late' })
+		const { text } = sql.queries()[0]
+		// The row is locked first, so the reason is read from the row the
+		// update sees, even when another change was saved meanwhile.
+		expect(text).toContain('WITH target AS MATERIALIZED ( SELECT tripId,')
+		expect(text).toContain(
+			"AND date >= NOW() - INTERVAL '24 hours' FOR UPDATE )",
+		)
+		// The new length: the old one plus ", " (none when empty), plus the
+		// added text.
+		for (const field of ['defects', 'remarks']) {
+			expect(text).toContain(
+				`(?::text IS NOT NULL AND COALESCE(char_length(NULLIF(${field}, '')) + 2, 0) + char_length(?::text) > ?::int ) AS ${field}_too_long`,
+			)
+			expect(text).toContain(
+				`AND (?::text IS NULL OR COALESCE(char_length(NULLIF(${field}, '')) + 2, 0) + char_length(?::text) <= ?::int)`,
+			)
+		}
+		expect(text).toContain(
+			'FROM target WHERE PTTrips.tripId = target.tripId',
+		)
+		expect(text).toContain('RETURNING PTTrips.*')
 	})
 
 	it('says when a signed trip refused a core change', async () => {
 		const { updateTripDb } = await import('@/lib/db/trips')
 		// The trip was found, but the update matched nothing.
-		sql.respond(() => [{ tripid: null, target_trip_id: 4 }])
+		sql.respond(() => [
+			{
+				tripid: null,
+				target_trip_id: 4,
+				defects_too_long: false,
+				remarks_too_long: false,
+			},
+		])
 		await expect(
 			updateTripDb(4, 'pat@x.com', { odometer: 5 }),
 		).resolves.toBe('signed_locked')
+	})
+
+	it.each([
+		[true, false, 'defects_too_long'],
+		[false, true, 'remarks_too_long'],
+		// Both: the defects are named.
+		[true, true, 'defects_too_long'],
+	])('says when added text would pass a limit (defects %s, remarks %s)', async (defects, remarks, refusal) => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		sql.respond(() => [
+			{
+				tripid: null,
+				target_trip_id: 4,
+				defects_too_long: defects,
+				remarks_too_long: remarks,
+			},
+		])
+		await expect(
+			updateTripDb(4, 'pat@x.com', {
+				addDefects: 'Tires',
+				addRemarks: 'Flat',
+			}),
+		).resolves.toBe(refusal)
 	})
 
 	it("is undefined when the trip isn't the driver's or is too old", async () => {

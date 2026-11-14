@@ -2,6 +2,7 @@ import { neon } from '@neondatabase/serverless'
 import { cacheLife, cacheTag } from 'next/cache'
 import type z from 'zod'
 import { CACHE_TAGS } from '../cache/tags'
+import { STORED_DEFECTS_MAX, STORED_REMARKS_MAX } from '../trip-limits'
 import type { Trip } from '../types/types'
 import type { schemaTripFields } from '../ZOD/schemas'
 import type { StoredFile } from './repairs'
@@ -80,34 +81,6 @@ export async function getTripDefectsDb(
             AND date >= NOW() - INTERVAL '24 hour'            
     `
 	return result?.defects || ''
-}
-
-// Update the trip with new defects and remarks
-export async function updateTripDefectsDb(
-	tripId: number,
-	driverEmail: string,
-	newDefects: string,
-	newRemarks: string,
-): Promise<Trip> {
-	const sql = neon(`${process.env.DATABASE_URL}`)
-	const [result] = await sql`         
-        UPDATE PTTrips
-        SET defects = CASE 
-                        WHEN COALESCE(defects, '') = '' THEN ${newDefects}
-                        ELSE COALESCE(defects || ', ' || ${newDefects}, ${newDefects})
-                      END,
-            remarks = CASE 
-                        WHEN COALESCE(remarks, '') = '' THEN ${newRemarks}::text
-                        ELSE COALESCE(remarks || ', ' || ${newRemarks}::text, ${newRemarks}::text)
-                      END
-        WHERE tripId = ${tripId} 
-        AND driverEmail = ${driverEmail}
-        AND date >= NOW() - INTERVAL '24 hour'
-        RETURNING *;
-    `
-
-	if (!result) throw new Error('Failed to update trip or trip not found')
-	return result as Trip
 }
 
 /** The driver's most recent trip, if they have one. */
@@ -248,6 +221,18 @@ export type TripChanges = {
 }
 
 /**
+ * Why updateTripDb changed nothing although the trip was found:
+ * - 'signed_locked': the trip is signed and a core field would have changed.
+ * - 'defects_too_long' / 'remarks_too_long': appending would take the trip's
+ *   defects past STORED_DEFECTS_MAX or its remarks past STORED_REMARKS_MAX
+ *   characters (src/lib/trip-limits.ts).
+ */
+export type TripUpdateRefusal =
+	| 'signed_locked'
+	| 'defects_too_long'
+	| 'remarks_too_long'
+
+/**
  * Changes a trip from the last 24 hours, the same window the web app allows
  * for on-route defects. Fields left out keep their value; defects and remarks
  * are only ever added to.
@@ -255,24 +240,46 @@ export type TripChanges = {
  * Once the trip is signed its core details (CORE_TRIP_FIELDS) are locked: an
  * update that would change one of them is refused, changing nothing, and
  * answers 'signed_locked' (passing a field's current value is not a change).
- * The check is in the UPDATE's own WHERE clause, so it holds even when the
- * trip is signed at the same moment. Undefined when the trip isn't the
- * driver's or is older than 24 hours.
+ *
+ * Added defects and remarks may not take the trip's whole defects or remarks
+ * past STORED_DEFECTS_MAX / STORED_REMARKS_MAX characters: such an update is
+ * refused, changing nothing, and answers 'defects_too_long' or
+ * 'remarks_too_long' (defects first when both are). A trip already past a
+ * limit (saved before it existed) keeps its text; only adding to it is
+ * refused.
+ *
+ * Both checks are in the UPDATE's own WHERE clause, so they hold even when
+ * the trip is signed or added to at the same moment. The trip's row is locked
+ * (FOR UPDATE) before the update, so the reason given is read from the row as
+ * the update saw it. Undefined when the trip isn't the driver's or is older
+ * than 24 hours.
  */
 export async function updateTripDb(
 	tripId: number,
 	driverEmail: string,
 	changes: TripChanges,
-): Promise<Trip | 'signed_locked' | undefined> {
+): Promise<Trip | TripUpdateRefusal | undefined> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const c = (value: string | undefined) => value ?? null
 	const odometer = changes.odometer ?? null
+	const addDefects = c(changes.addDefects)
+	const addRemarks = c(changes.addRemarks)
+	// Appending makes "old, added", or just "added" when there was nothing:
+	// the old length plus 2 (or 0 when empty), plus the added length.
 	const [row] = await sql`
-        WITH target AS (
-            SELECT tripId FROM PTTrips
+        WITH target AS MATERIALIZED (
+            SELECT tripId,
+                (${addDefects}::text IS NOT NULL
+                    AND COALESCE(char_length(NULLIF(defects, '')) + 2, 0) + char_length(${addDefects}::text) > ${STORED_DEFECTS_MAX}::int
+                ) AS defects_too_long,
+                (${addRemarks}::text IS NOT NULL
+                    AND COALESCE(char_length(NULLIF(remarks, '')) + 2, 0) + char_length(${addRemarks}::text) > ${STORED_REMARKS_MAX}::int
+                ) AS remarks_too_long
+            FROM PTTrips
             WHERE tripId = ${tripId}
             AND driverEmail = ${driverEmail}
             AND date >= NOW() - INTERVAL '24 hours'
+            FOR UPDATE
         ), updated AS (
             UPDATE PTTrips
             SET carrier = COALESCE(${c(changes.carrier)}::text, carrier),
@@ -285,16 +292,17 @@ export async function updateTripDb(
                 trailerPlateA = COALESCE(${c(changes.trailerPlateA)}::text, trailerPlateA),
                 trailerPlateB = COALESCE(${c(changes.trailerPlateB)}::text, trailerPlateB),
                 defects = CASE
-                            WHEN ${c(changes.addDefects)}::text IS NULL THEN defects
-                            WHEN COALESCE(defects, '') = '' THEN ${c(changes.addDefects)}::text
-                            ELSE defects || ', ' || ${c(changes.addDefects)}::text
+                            WHEN ${addDefects}::text IS NULL THEN defects
+                            WHEN COALESCE(defects, '') = '' THEN ${addDefects}::text
+                            ELSE defects || ', ' || ${addDefects}::text
                           END,
                 remarks = CASE
-                            WHEN ${c(changes.addRemarks)}::text IS NULL THEN remarks
-                            WHEN COALESCE(remarks, '') = '' THEN ${c(changes.addRemarks)}::text
-                            ELSE remarks || ', ' || ${c(changes.addRemarks)}::text
+                            WHEN ${addRemarks}::text IS NULL THEN remarks
+                            WHEN COALESCE(remarks, '') = '' THEN ${addRemarks}::text
+                            ELSE remarks || ', ' || ${addRemarks}::text
                           END
-            WHERE tripId = ${tripId}
+            FROM target
+            WHERE PTTrips.tripId = target.tripId
             AND driverEmail = ${driverEmail}
             AND date >= NOW() - INTERVAL '24 hours'
             AND (
@@ -311,15 +319,30 @@ export async function updateTripDb(
                     AND (${c(changes.trailerPlateB)}::text IS NULL OR ${c(changes.trailerPlateB)}::text IS NOT DISTINCT FROM trailerPlateB)
                 )
             )
-            RETURNING *
+            AND (${addDefects}::text IS NULL
+                OR COALESCE(char_length(NULLIF(defects, '')) + 2, 0) + char_length(${addDefects}::text) <= ${STORED_DEFECTS_MAX}::int)
+            AND (${addRemarks}::text IS NULL
+                OR COALESCE(char_length(NULLIF(remarks, '')) + 2, 0) + char_length(${addRemarks}::text) <= ${STORED_REMARKS_MAX}::int)
+            RETURNING PTTrips.*
         )
-        SELECT updated.*, target.tripId AS target_trip_id
+        SELECT updated.*, target.tripId AS target_trip_id,
+            target.defects_too_long, target.remarks_too_long
         FROM target LEFT JOIN updated ON true
     `
 	// No row: not the driver's trip, or older than 24 hours. The trip but not
-	// the update: it's signed and a core field would have changed.
+	// the update: added text would be too long, or it's signed and a core
+	// field would have changed.
 	if (!row) return undefined
-	if (row.tripid == null) return 'signed_locked'
-	const { target_trip_id: _, ...trip } = row
+	if (row.tripid == null) {
+		if (row.defects_too_long) return 'defects_too_long'
+		if (row.remarks_too_long) return 'remarks_too_long'
+		return 'signed_locked'
+	}
+	const {
+		target_trip_id: _,
+		defects_too_long: _defects,
+		remarks_too_long: _remarks,
+		...trip
+	} = row
 	return trip as Trip
 }
