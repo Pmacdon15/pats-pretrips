@@ -5,49 +5,142 @@ on:
   # Lets you re-run the fixer by hand from the Actions tab.
   workflow_dispatch:
 
-permissions:
-  contents: write
+# Each job asks for what it needs; nothing gets write access by default.
+permissions: {}
 
 concurrency:
   group: biome-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Three jobs so that code chosen by the PR never runs next to a credential that can write:
+#   fix    runs the PR's code (install, Biome, its config) with a read-only token and no
+#          secrets, and hands its fixes on as a patch artifact.
+#   push   runs nothing from the PR: on a fresh runner it applies that patch and pushes it.
+#          It is the only place the write token (AUTOFIX_TOKEN or the default) exists.
+#   biome  reports the result under the required check name.
 jobs:
-  biome:
-    # Must match the required status check name in the branch ruleset.
-    name: Biome
+  fix:
+    name: Biome fixes
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Check out the PR branch itself (not the merge commit) so fixes can be pushed back.
-          ref: ${{ github.head_ref || github.ref_name }}
+          # The PR's head commit itself (not the merge commit), so the patch applies to it.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          # Pushes made with the default token don't trigger other workflows, so required
-          # checks would never run on the fix commit. Set an AUTOFIX_TOKEN secret (a PAT with
-          # contents: write) to have them run; without it this falls back to the default token.
-          token: ${{ secrets.AUTOFIX_TOKEN || github.token }}
+          # Keep the token out of .git/config, where the PR's code could read it.
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - run: bun install --frozen-lockfile
+      # No install or postinstall scripts: this job only needs Biome, whose binary comes from
+      # an optional platform package rather than a script.
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       # Formats, lints, organizes imports and sorts Tailwind classes, applying unsafe fixes too.
       - run: bunx biome check --write --unsafe .
 
-      - name: Push fixes to the PR
-        # A fork's branch can't be pushed to with this token; the check below fails instead.
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+      - name: Save fixes as a patch
+        id: diff
         run: |
-          if git diff --quiet; then
+          git diff --binary > "$RUNNER_TEMP/biome.patch"
+          if [ -s "$RUNNER_TEMP/biome.patch" ]; then
+            echo "Biome changed these files:"
+            git diff --stat
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
             echo "No Biome changes."
-            exit 0
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ steps.diff.outputs.changed == 'true' }}
+        with:
+          name: biome-fixes
+          path: ${{ runner.temp }}/biome.patch
+          retention-days: 1
+
+      # Runs on the fixed tree, so it fails only on what Biome can't fix itself.
+      - run: bunx biome ci .
+
+  push:
+    name: Push Biome fixes
+    needs: fix
+    # Same-repository PRs, and manual runs on a branch. A fork's branch can't be pushed to,
+    # so fork PRs that need fixes fail in the Biome job below instead. Runs even when `fix`
+    # failed on something unfixable, so the fixable part still lands, as before.
+    if: >-
+      ${{ !cancelled() && needs.fix.outputs.changed == 'true' && (
+        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'workflow_dispatch' && github.ref_type == 'branch')
+      ) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # Nothing from the PR is installed or run here: only git, on files the patch touches.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: biome-fixes
+          path: ${{ runner.temp }}/biome-fixes
+      - name: Apply fixes
+        env:
+          PATCH: ${{ runner.temp }}/biome-fixes/biome.patch
+        run: |
+          # The patch was made where the PR's code ran, so don't let it touch CI config.
+          if git apply --numstat "$PATCH" | cut -f3- | grep -E '(^|[ {])\.github/'; then
+            echo "::error::The Biome patch changes files under .github/; refusing to push it."
+            exit 1
+          fi
+          git apply --index "$PATCH"
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git commit -am "style: apply Biome format and lint fixes"
-          git push
+          git commit -m "style: apply Biome format and lint fixes"
+      - name: Push fixes
+        env:
+          # Pushes made with the default token don't trigger other workflows, so required
+          # checks would never run on the fix commit. Set an AUTOFIX_TOKEN secret (a
+          # fine-grained PAT for this repository with contents read and write) to have them
+          # run; without it this falls back to the default token.
+          TOKEN: ${{ secrets.AUTOFIX_TOKEN || github.token }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          # The token goes only to this one git command, as a header (never in the remote URL
+          # or the git config, and never echoed). A plain push, so it fails rather than
+          # overwrite commits pushed to the branch since the fix job checked it out.
+          auth="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
+            push origin "HEAD:refs/heads/$BRANCH"
 
-      # Fails on fixes left unpushed (fork PRs) and on anything Biome can't fix itself.
-      - run: git diff --exit-code && bunx biome ci .
+  biome:
+    # Must match the required status check name in the branch ruleset.
+    name: Biome
+    needs: [fix, push]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          FIX_RESULT: ${{ needs.fix.result }}
+          CHANGED: ${{ needs.fix.outputs.changed }}
+          PUSH_RESULT: ${{ needs.push.result }}
+        run: |
+          if [ "$FIX_RESULT" != "success" ]; then
+            echo "::error::Biome found problems it can't fix (or the Biome fixes job failed); see that job's log."
+            exit 1
+          fi
+          if [ "$CHANGED" = "true" ] && [ "$PUSH_RESULT" != "success" ]; then
+            echo "::error::Files need Biome fixes that weren't pushed (fork PRs can't be pushed to; otherwise see the push job). Run 'bunx biome check --write --unsafe .' and commit the result."
+            exit 1
+          fi
+          echo "Biome is happy."
