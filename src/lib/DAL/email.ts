@@ -20,6 +20,12 @@ import {
 	emailTripSchema,
 	recipientsSchema,
 } from '@/lib/email/recipients'
+import {
+	confirmEmailSend,
+	releaseEmailSend,
+	reserveEmailSend,
+	sendLimitMessage,
+} from '@/lib/email/send-log'
 import { sendTripEmail } from '@/lib/email/trip-email'
 import type { Trip } from '@/lib/types/types'
 
@@ -147,14 +153,30 @@ export async function emailTripDAL(data: {
 			tripRepairs(parsed.data.tripId, driver.email),
 			tripSignature(trip, driver.email),
 		])
-		await sendTripEmail(
-			trip,
-			pdfDriver(driver),
-			parsed.data.recipients,
-			parsed.data.timeZone,
-			repairs,
-			signature,
-		)
+		// Within the driver's send limits, or nothing is sent.
+		const slot = await reserveEmailSend(driver.email, {
+			tripId: parsed.data.tripId,
+			recipients: parsed.data.recipients.length,
+			kind: 'manual',
+		})
+		if (!slot.ok) {
+			return errAsync({ reason: sendLimitMessage(slot.retryInSeconds) })
+		}
+		let messageId: string | null
+		try {
+			messageId = await sendTripEmail(
+				trip,
+				pdfDriver(driver),
+				parsed.data.recipients,
+				parsed.data.timeZone,
+				repairs,
+				signature,
+			)
+		} catch (e) {
+			await releaseEmailSend(slot.id)
+			throw e
+		}
+		await confirmEmailSend(slot.id, messageId)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
 		console.error('Error emailing trip: ', e)
@@ -178,8 +200,20 @@ export async function prepareAutoEmailDAL() {
 	if (!settings.autoSend || settings.recipients.length === 0) return null
 
 	return async (trip: Trip) => {
+		// Over the send limits, the trip is saved but not emailed.
+		const slot = await reserveEmailSend(driver.email, {
+			tripId: trip.tripid ?? null,
+			recipients: settings.recipients.length,
+			kind: 'auto',
+		})
+		if (!slot.ok) {
+			console.warn(
+				`Not auto-emailing trip ${trip.tripid}: the driver is over the email send limit`,
+			)
+			return
+		}
 		try {
-			await sendTripEmail(
+			const messageId = await sendTripEmail(
 				trip,
 				pdfDriver(driver),
 				settings.recipients,
@@ -187,7 +221,9 @@ export async function prepareAutoEmailDAL() {
 				[],
 				await tripSignature(trip, driver.email),
 			)
+			await confirmEmailSend(slot.id, messageId)
 		} catch (e) {
+			await releaseEmailSend(slot.id)
 			console.error('Error auto-emailing trip: ', e)
 		}
 	}

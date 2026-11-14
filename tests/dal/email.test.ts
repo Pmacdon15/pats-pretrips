@@ -11,6 +11,15 @@ const mocks = vi.hoisted(() => ({
 	listTripRepairsDb: vi.fn(),
 	getRepairFileDb: vi.fn(),
 	getTripSignatureDb: vi.fn(),
+	reserveEmailSend: vi.fn(),
+	confirmEmailSend: vi.fn(),
+	releaseEmailSend: vi.fn(),
+}))
+vi.mock('@/lib/email/send-log', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/lib/email/send-log')>()),
+	reserveEmailSend: mocks.reserveEmailSend,
+	confirmEmailSend: mocks.confirmEmailSend,
+	releaseEmailSend: mocks.releaseEmailSend,
 }))
 vi.mock('@/lib/db/signatures', () => ({
 	getTripSignatureDb: mocks.getTripSignatureDb,
@@ -58,6 +67,9 @@ beforeEach(() => {
 	mocks.listTripRepairsDb.mockResolvedValue([])
 	mocks.getRepairFileDb.mockResolvedValue(undefined)
 	mocks.getTripSignatureDb.mockResolvedValue(undefined)
+	mocks.reserveEmailSend.mockResolvedValue({ ok: true, id: '41' })
+	mocks.confirmEmailSend.mockResolvedValue(undefined)
+	mocks.releaseEmailSend.mockResolvedValue(undefined)
 	vi.stubEnv('SES_FROM_EMAIL', 'trips@x.com')
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -230,9 +242,40 @@ describe('emailTripDAL', () => {
 		expect(await reason(emailTripDAL(data))).toBe('Trip not found')
 	})
 
-	it('reports a failed send', async () => {
+	it('reports a failed send, and frees its place in the log', async () => {
 		mocks.sendTripEmail.mockRejectedValue(new Error('SES'))
 		expect(await reason(emailTripDAL(data))).toMatch(/Could not send/)
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.confirmEmailSend).not.toHaveBeenCalled()
+	})
+
+	it('logs the send, with its SES message id', async () => {
+		await emailTripDAL({ ...data, recipients: 'a@x.com, b@x.com' })
+		expect(mocks.reserveEmailSend).toHaveBeenCalledWith('pat@x.com', {
+			tripId: 1,
+			recipients: 2,
+			kind: 'manual',
+		})
+		expect(mocks.confirmEmailSend).toHaveBeenCalledWith('41', 'msg-1')
+		expect(mocks.releaseEmailSend).not.toHaveBeenCalled()
+	})
+
+	it('sends nothing over the send limit, and says when to try again', async () => {
+		mocks.reserveEmailSend.mockResolvedValue({
+			ok: false,
+			retryInSeconds: 2 * 3600,
+		})
+		expect(await reason(emailTripDAL(data))).toBe(
+			'You’ve reached the limit for emailing pre-trips (60 addresses a day, 25 in 10 minutes; each address counts). You can send this one in about 2 hours.',
+		)
+		expect(mocks.sendTripEmail).not.toHaveBeenCalled()
+		expect(mocks.confirmEmailSend).not.toHaveBeenCalled()
+	})
+
+	it("doesn't use up the limit on a trip that isn't found", async () => {
+		mocks.getTripDb.mockResolvedValue(undefined)
+		await emailTripDAL(data)
+		expect(mocks.reserveEmailSend).not.toHaveBeenCalled()
 	})
 })
 
@@ -248,6 +291,32 @@ describe('prepareAutoEmailDAL', () => {
 			[],
 			null,
 		)
+		expect(mocks.reserveEmailSend).toHaveBeenCalledWith('pat@x.com', {
+			tripId: trip().tripid,
+			recipients: 1,
+			kind: 'auto',
+		})
+		expect(mocks.confirmEmailSend).toHaveBeenCalledWith('41', 'msg-1')
+	})
+
+	it('logs a trip with no id without one', async () => {
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip({ tripid: undefined }))
+		expect(mocks.reserveEmailSend.mock.calls[0][1].tripId).toBeNull()
+	})
+
+	it('skips the email, quietly, over the send limit', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {})
+		mocks.reserveEmailSend.mockResolvedValue({
+			ok: false,
+			retryInSeconds: 60,
+		})
+		const send = await prepareAutoEmailDAL()
+		await expect(send?.(trip())).resolves.toBeUndefined()
+		expect(mocks.sendTripEmail).not.toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			expect.stringMatching(/over the email send limit/),
+		)
 	})
 
 	it('logs a failed send instead of throwing', async () => {
@@ -260,6 +329,8 @@ describe('prepareAutoEmailDAL', () => {
 		await expect(send?.(trip())).resolves.toBeUndefined()
 		expect(mocks.sendTripEmail.mock.calls[0][3]).toBeUndefined()
 		expect(console.error).toHaveBeenCalled()
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.confirmEmailSend).not.toHaveBeenCalled()
 	})
 
 	it('does nothing when it is off, has no one to send to, or is not allowed', async () => {
