@@ -66,7 +66,8 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
    ```
  
 4. Set up the database
-   Run the SQL script in `sql/makeDb.sql` to create the necessary tables.
+   Run `src/lib/sql/makeDb.sql` (the trips table), then every dated file in
+   `src/lib/sql/` in date order, oldest first. All of them are safe to run again.
  
 5. Start the development server
    ```bash
@@ -82,7 +83,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 The application uses a Neon PostgreSQL database with the following main table:
  
 - **PTTrips**: Stores pre-trip inspection data including driver information, vehicle details, defects, and remarks.
-- **DB Schema** found at \lib\sql\makeDb.sql
+- **DB Schema** found at `src/lib/sql/makeDb.sql` (trips) and the dated files beside it (everything else)
  
 ## O Auth Providers
 
