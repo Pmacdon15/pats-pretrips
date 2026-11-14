@@ -16,6 +16,22 @@ export const MAX_STORED_BYTES = 3 * 1024 * 1024
 const INVOICE_PX = 1600
 const SIGNATURE_PX = 800
 
+/**
+ * Largest image (width x height) sharp will decode. A 48 or 50 MP phone
+ * photo (up to 8160 x 6144) fits; a small file that claims a huge canvas
+ * (a decompression bomb) is refused before it is decoded.
+ */
+export const MAX_INPUT_PIXELS = 64_000_000
+
+/*
+ * Every upload is untrusted, so sharp refuses images that are too large,
+ * and truncated or corrupt data ("warning" is the strictest level).
+ */
+const SHARP_INPUT = {
+	limitInputPixels: MAX_INPUT_PIXELS,
+	failOn: 'warning',
+} as const
+
 export type FileKind = 'pdf' | 'jpeg' | 'png' | 'webp' | 'heic'
 
 /** What the file really is, from its first bytes (never the name or type sent). */
@@ -76,7 +92,7 @@ export async function compressInvoice(
 	} else {
 		const sharp = await loadSharp()
 		try {
-			const bytes = await sharp(input)
+			const bytes = await sharp(input, SHARP_INPUT)
 				.rotate()
 				.resize(INVOICE_PX, INVOICE_PX, {
 					fit: 'inside',
@@ -134,7 +150,7 @@ export async function compressSignature(
 	}
 	const sharp = await loadSharp()
 	try {
-		const bytes = await sharp(input)
+		const bytes = await sharp(input, SHARP_INPUT)
 			.rotate()
 			.resize(SIGNATURE_PX, SIGNATURE_PX, {
 				fit: 'inside',

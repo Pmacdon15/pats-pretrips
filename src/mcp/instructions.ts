@@ -17,6 +17,7 @@ Starting a trip from photos:
 Updating a trip: drivers can change a trip for 24 hours after starting it, as in the web app.
 - Find the trip with list_trips (when: "current"), or the trip_id from start_trip.
 - Call update_trip with only the fields that change. A new odometer or plate photo goes in odometer or truck_plate. Defects found on route go in add_defects with a short add_remarks; defects and remarks are only ever added to, never removed.
+- Once a trip is signed, its details (carrier, addresses, make, model, odometer and plates) are locked: only add_defects and add_remarks still work, within the same 24 hours. Check can_edit_details on the trip first. A locked change answers status "signed_locked" and changes nothing; if the signed details are wrong, tell the driver and offer to start a new trip with the right ones.
 - Only change a trip when the driver asks or agrees, and say what you changed.
 
 Defects and repairs: the trip keeps the defects found; a repair is recorded beside it, at any time (repairs often happen days later).

@@ -193,37 +193,85 @@ describe('connector queries', () => {
 
 	it('updates only the fields passed, for trips in the last 24 hours', async () => {
 		const { updateTripDb } = await import('@/lib/db/trips')
-		sql.respond(() => [{ tripid: 4 }])
+		sql.respond(() => [{ tripid: 4, make: 'Mack', target_trip_id: 4 }])
 		await expect(
 			updateTripDb(4, 'pat@x.com', {
 				odometer: 5,
 				make: 'Mack',
-				defects: 'Cab',
+				addDefects: 'Cab',
 				addRemarks: 'Late',
 			}),
-		).resolves.toEqual({ tripid: 4 })
+		).resolves.toEqual({ tripid: 4, make: 'Mack' })
 		const [query] = sql.queries()
 		expect(query.text).toContain("date >= NOW() - INTERVAL '24 hours'")
+		const core = [null, null, null, 'Mack', null, 5, null, null, null]
 		expect(query.values).toEqual([
-			null,
-			null,
-			null,
-			'Mack',
-			null,
-			5,
-			null,
-			null,
-			null,
+			// The trip being changed, found whether or not it's locked.
+			4,
+			'pat@x.com',
+			// SET: the core fields, then defects and remarks, both appended.
+			...core,
+			'Cab',
+			'Cab',
 			'Cab',
 			'Late',
 			'Late',
 			'Late',
 			4,
 			'pat@x.com',
+			// The lock: each core field twice, for "left out or unchanged".
+			...core.flatMap((v) => [v, v]),
 		])
 		await updateTripDb(4, 'pat@x.com', {})
-		expect(sql.queries()[1].values.slice(0, 11)).toEqual(
-			Array(11).fill(null),
+		expect(sql.queries()[1].values.slice(2, 17)).toEqual(
+			Array(15).fill(null),
 		)
+	})
+
+	it('appends defects and never replaces the list', async () => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		await updateTripDb(4, 'pat@x.com', { addDefects: 'Tires' })
+		const { text } = sql.queries()[0]
+		expect(text).toContain(
+			"defects = CASE WHEN ?::text IS NULL THEN defects WHEN COALESCE(defects, '') = '' THEN ?::text ELSE defects || ', ' || ?::text END",
+		)
+		expect(text).toContain(
+			"remarks = CASE WHEN ?::text IS NULL THEN remarks WHEN COALESCE(remarks, '') = '' THEN ?::text ELSE remarks || ', ' || ?::text END",
+		)
+	})
+
+	it("locks a signed trip's core fields in the UPDATE itself", async () => {
+		const { CORE_TRIP_FIELDS, updateTripDb } = await import(
+			'@/lib/db/trips'
+		)
+		await updateTripDb(4, 'pat@x.com', { odometer: 5 })
+		const { text } = sql.queries()[0]
+		// Unsigned, or every core field left out or unchanged.
+		expect(text).toContain('AND ( signed_at IS NULL OR ( (')
+		for (const field of CORE_TRIP_FIELDS) {
+			const type = field === 'odometer' ? 'int' : 'text'
+			expect(text).toContain(
+				`(?::${type} IS NULL OR ?::${type} IS NOT DISTINCT FROM ${field})`,
+			)
+		}
+		expect(text).toContain(
+			'SELECT updated.*, target.tripId AS target_trip_id FROM target LEFT JOIN updated ON true',
+		)
+	})
+
+	it('says when a signed trip refused a core change', async () => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		// The trip was found, but the update matched nothing.
+		sql.respond(() => [{ tripid: null, target_trip_id: 4 }])
+		await expect(
+			updateTripDb(4, 'pat@x.com', { odometer: 5 }),
+		).resolves.toBe('signed_locked')
+	})
+
+	it("is undefined when the trip isn't the driver's or is too old", async () => {
+		const { updateTripDb } = await import('@/lib/db/trips')
+		await expect(
+			updateTripDb(4, 'pat@x.com', { odometer: 5 }),
+		).resolves.toBeUndefined()
 	})
 })

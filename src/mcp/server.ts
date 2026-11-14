@@ -238,7 +238,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Update a trip',
 			description:
-				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. sign: true signs an unsigned trip with the driver\'s saved signature, only if they turned on "Allow AI apps to sign for me" in the app (otherwise it is refused with status "ai_signing_off" and nothing changes). Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
+				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. Once a trip is signed its details (carrier, addresses, make, model, odometer, plates) are locked and only add_defects and add_remarks still work: a change to a locked field answers status "signed_locked" and changes nothing (the driver starts a new trip if the signed details are wrong). Each trip shows can_edit_details and locked_fields. sign: true signs an unsigned trip with the driver\'s saved signature, only if they turned on "Allow AI apps to sign for me" in the app (otherwise it is refused with status "ai_signing_off" and nothing changes). Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
 			inputSchema: portable(updateTripInputSchema),
 			annotations: {
 				readOnlyHint: false,
