@@ -11,7 +11,8 @@ import {
 	type TripChanges,
 	updateTripDb,
 } from '@/lib/db/trips'
-import { appUrl } from '@/lib/email/config'
+import { appUrl, tripUrl } from '@/lib/email/config'
+import { aiSigningAllowed } from '@/lib/signatures/signatures'
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
@@ -177,17 +178,20 @@ export async function getTripDefaults(
 	args: z.infer<typeof getTripDefaultsInputSchema>,
 ): Promise<ToolResult> {
 	const input = getTripDefaultsInputSchema.parse(args)
-	const [latest, truck, signature] = await Promise.all([
+	const [latest, truck, signing] = await Promise.all([
 		getLatestTripDb(caller.email),
 		input.truck_plate
 			? getLatestTripForPlateDb(caller.email, input.truck_plate)
 			: undefined,
-		getSavedSignatureDb(caller.email),
+		signatureForAi(caller.email),
 	])
-	const savedSignature = Boolean(signature)
-	const signatureNote = savedSignature
-		? "The trip will be signed with the driver's saved signature."
-		: `The driver has no saved signature, so the trip will be unsigned until they save one at ${signaturePage()} and sign it.`
+	const savedSignature = signing.status !== 'no_saved_signature'
+	const aiSigningAllowedNow = signing.status === 'allowed'
+	const signatureNote = aiSigningAllowedNow
+		? "The trip will be signed with the driver's saved signature (they allow AI apps to sign for them): confirming the trip with you is their sign-off."
+		: savedSignature
+			? `The driver hasn't turned on "${AI_SIGNING_SETTING}", so the trip will be saved unsigned. They can sign it in the app, or turn that on at ${signaturePage()} to let you sign.`
+			: `The driver has no saved signature, so the trip will be saved unsigned. They can sign it in the app; to let you sign, they save a signature and turn on "${AI_SIGNING_SETTING}" at ${signaturePage()}.`
 
 	if (!latest) {
 		return {
@@ -196,6 +200,7 @@ export async function getTripDefaults(
 				last_trip: null,
 				truck: null,
 				saved_signature: savedSignature,
+				ai_signing_allowed: aiSigningAllowedNow,
 			},
 		}
 	}
@@ -242,12 +247,39 @@ export async function getTripDefaults(
 			},
 			truck: truckInfo,
 			saved_signature: savedSignature,
+			ai_signing_allowed: aiSigningAllowedNow,
 		},
 	}
 }
 
 /** Where the driver saves their signature in the web app. */
 const signaturePage = () => `${appUrl()}/signature`
+
+/** The Signature page's switch that lets AI apps sign, as the driver sees it. */
+const AI_SIGNING_SETTING = 'Allow AI apps to sign for me'
+
+type AiSigning =
+	| { status: 'allowed'; file: { bytes: Buffer; type: string } }
+	| { status: 'no_saved_signature' | 'ai_signing_off' }
+
+/**
+ * The signature an AI app may sign with: the driver's saved one, only when
+ * they turned on "Allow AI apps to sign for me". This is what stops a
+ * connector token alone from signing inspection reports.
+ */
+async function signatureForAi(email: string): Promise<AiSigning> {
+	const [saved, allowed] = await Promise.all([
+		getSavedSignatureDb(email),
+		aiSigningAllowed(email),
+	])
+	if (!saved) return { status: 'no_saved_signature' }
+	if (!allowed) return { status: 'ai_signing_off' }
+	return { status: 'allowed', file: { bytes: saved.bytes, type: saved.type } }
+}
+
+/** What the driver can do when AI apps aren't allowed to sign for them. */
+const aiSigningOffHelp = (tripId: number | undefined) =>
+	`They can sign it themselves in the app at ${tripUrl(tripId)}, or turn on "${AI_SIGNING_SETTING}" on the Signature page (${signaturePage()}) and then ask you to sign it (update_trip with sign: true).`
 
 /** Who signed, for the stored signature: the AI app's name when it sent one. */
 const signatureSource = (caller: McpCaller) =>
@@ -281,7 +313,7 @@ export const startTripInputSchema = z.object({
 		.boolean()
 		.default(true)
 		.describe(
-			"Sign the trip with the driver's saved signature (the default). The driver confirming the trip is their sign-off; pass false only if they ask not to sign it.",
+			'Sign the trip with the driver\'s saved signature (the default). That only happens if they turned on "Allow AI apps to sign for me" in the app; otherwise the trip is saved unsigned and the answer says why. The driver confirming the trip is their sign-off; pass false only if they ask not to sign it.',
 		),
 })
 
@@ -312,9 +344,8 @@ export async function startTrip(
 		input.odometer,
 	)
 	const defects = normalizeDefects(input.defects ?? [])
-	const signature = input.sign
-		? await getSavedSignatureDb(caller.email)
-		: undefined
+	const signing = input.sign ? await signatureForAi(caller.email) : undefined
+	const signature = signing?.status === 'allowed' ? signing.file : undefined
 	const trip = await createTripDb(
 		{
 			carrier: input.carrier,
@@ -350,14 +381,23 @@ export async function startTrip(
 				]
 			: []),
 	)
-	const signed = signature
-		? "Signed with the driver's saved signature."
-		: input.sign
-			? `Not signed: the driver has no saved signature. They can save one at ${signaturePage()}, then sign this trip in the app or ask you to (update_trip with sign: true).`
-			: 'Not signed, as the driver asked.'
+	const status = signing ? signing.status : 'not_requested'
+	const signed =
+		status === 'allowed'
+			? "Signed with the driver's saved signature."
+			: status === 'ai_signing_off'
+				? `Not signed: the driver hasn't allowed AI apps to sign for them. ${aiSigningOffHelp(trip.tripid)}`
+				: status === 'no_saved_signature'
+					? `Not signed: the driver has no saved signature. They can sign this trip in the app at ${tripUrl(trip.tripid)}, or save a signature and turn on "${AI_SIGNING_SETTING}" at ${signaturePage()}, then ask you to sign it (update_trip with sign: true).`
+					: 'Not signed, as the driver asked.'
 	return {
 		summary: `Started trip ${trip.tripid}: ${input.make} ${input.model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${warning ? ` ${warning}` : ''}`,
-		data: { trip: tripView(trip), ...(warning ? { warning } : {}) },
+		data: {
+			trip: tripView(trip),
+			signing: status === 'allowed' ? 'signed' : status,
+			...(status === 'allowed' ? {} : { trip_url: tripUrl(trip.tripid) }),
+			...(warning ? { warning } : {}),
+		},
 	}
 }
 
@@ -388,7 +428,7 @@ export const updateTripInputSchema = z.object({
 		.boolean()
 		.optional()
 		.describe(
-			"true signs an unsigned trip with the driver's saved signature, e.g. one started before they saved it. Only when the driver asks or agrees.",
+			'true signs an unsigned trip with the driver\'s saved signature, e.g. one started before they saved it. Only when the driver asks or agrees. Refused (status "ai_signing_off", nothing changed) unless the driver turned on "Allow AI apps to sign for me" in the app.',
 		),
 })
 
@@ -489,15 +529,31 @@ export async function updateTrip(
 			isError: true,
 		}
 	}
-	// Checked before anything changes, so a failed signing changes nothing.
-	const signature = sign ? await getSavedSignatureDb(caller.email) : undefined
-	if (sign && !signature) {
+	// Checked before anything changes, so a refused signing changes nothing.
+	const signing = sign ? await signatureForAi(caller.email) : undefined
+	if (signing?.status === 'no_saved_signature') {
 		return {
-			summary: `The driver has no saved signature. They can save one at ${signaturePage()}; then sign the trip again.`,
-			data: { status: 'no_saved_signature', trip: tripView(current) },
+			summary: `The driver has no saved signature, so trip ${input.trip_id} wasn't signed and nothing was changed. They can sign it in the app at ${tripUrl(input.trip_id)}, or save a signature and turn on "${AI_SIGNING_SETTING}" at ${signaturePage()}, then ask you again.`,
+			data: {
+				status: 'no_saved_signature',
+				trip: tripView(current),
+				trip_url: tripUrl(input.trip_id),
+			},
 			isError: true,
 		}
 	}
+	if (signing?.status === 'ai_signing_off') {
+		return {
+			summary: `The driver hasn't allowed AI apps to sign for them, so trip ${input.trip_id} wasn't signed and nothing was changed. ${aiSigningOffHelp(input.trip_id)}`,
+			data: {
+				status: 'ai_signing_off',
+				trip: tripView(current),
+				trip_url: tripUrl(input.trip_id),
+			},
+			isError: true,
+		}
+	}
+	const signature = signing?.status === 'allowed' ? signing.file : undefined
 
 	const warning =
 		changes.odometer === undefined

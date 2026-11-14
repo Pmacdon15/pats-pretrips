@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+	getAiSigningAllowedDb: vi.fn(),
 	getSavedSignatureDb: vi.fn(),
 	saveSignatureDb: vi.fn(),
 	compressSignature: vi.fn(),
@@ -8,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/signatures', () => ({
+	getAiSigningAllowedDb: mocks.getAiSigningAllowedDb,
 	getSavedSignatureDb: mocks.getSavedSignatureDb,
 	saveSignatureDb: mocks.saveSignatureDb,
 }))
@@ -20,6 +22,8 @@ import { FileError } from '@/lib/repairs/compress'
 import { SAVED_SIGNATURE_PATH, tripSignaturePath } from '@/lib/signatures/paths'
 import { signatureResponse } from '@/lib/signatures/response'
 import {
+	aiSigningAllowed,
+	isMissingAiSigningColumn,
 	NO_SAVED_SIGNATURE,
 	resolveSignature,
 } from '@/lib/signatures/signatures'
@@ -82,6 +86,53 @@ describe('resolveSignature', () => {
 		await expect(resolveSignature('pat@x.com', DRAWN)).rejects.toThrow(
 			'sharp',
 		)
+	})
+})
+
+describe('aiSigningAllowed', () => {
+	it("reads the driver's setting", async () => {
+		mocks.getAiSigningAllowedDb.mockResolvedValueOnce(true)
+		await expect(aiSigningAllowed('pat@x.com')).resolves.toBe(true)
+		mocks.getAiSigningAllowedDb.mockResolvedValueOnce(false)
+		await expect(aiSigningAllowed('pat@x.com')).resolves.toBe(false)
+		expect(mocks.getAiSigningAllowedDb).toHaveBeenCalledWith('pat@x.com')
+	})
+
+	it('is off before the migration, and logs that once', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		mocks.getAiSigningAllowedDb.mockRejectedValue(
+			Object.assign(new Error('column does not exist'), {
+				code: '42703',
+			}),
+		)
+		await expect(aiSigningAllowed('pat@x.com')).resolves.toBe(false)
+		mocks.getAiSigningAllowedDb.mockRejectedValue(
+			Object.assign(new Error('relation does not exist'), {
+				code: '42P01',
+			}),
+		)
+		await expect(aiSigningAllowed('pat@x.com')).resolves.toBe(false)
+		expect(error).toHaveBeenCalledTimes(1)
+		expect(error.mock.calls[0][0]).toMatch(
+			/allow_ai_signing column is missing.*2026-11-17-ai-signing-setting\.sql/,
+		)
+		error.mockRestore()
+	})
+
+	it('throws any other database error', async () => {
+		mocks.getAiSigningAllowedDb.mockRejectedValueOnce(new Error('down'))
+		await expect(aiSigningAllowed('pat@x.com')).rejects.toThrow('down')
+	})
+})
+
+describe('isMissingAiSigningColumn', () => {
+	it('knows the missing column and missing table codes', () => {
+		expect(isMissingAiSigningColumn({ code: '42703' })).toBe(true)
+		expect(isMissingAiSigningColumn({ code: '42P01' })).toBe(true)
+		expect(isMissingAiSigningColumn({ code: '23505' })).toBe(false)
+		expect(isMissingAiSigningColumn(new Error('x'))).toBe(false)
+		expect(isMissingAiSigningColumn(null)).toBe(false)
+		expect(isMissingAiSigningColumn('42703')).toBe(false)
 	})
 })
 

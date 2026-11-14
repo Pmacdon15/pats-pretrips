@@ -67,14 +67,10 @@ export function callerFrom(
 ): McpCaller | null {
 	const email = authInfo?.extra?.email
 	if (typeof email !== 'string' || !email) return null
-	const fromAuth = authInfo?.extra?.client
 	const userId = authInfo?.extra?.userId
 	return {
 		email,
-		client:
-			clientName ||
-			(typeof fromAuth === 'string' ? fromAuth : null) ||
-			null,
+		client: clientName || null,
 		userId: typeof userId === 'string' && userId ? userId : null,
 	}
 }
@@ -202,7 +198,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Get suggestions for a new trip',
 			description:
-				"What to suggest for a new pre-trip: the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer, and whether the driver has a saved signature to sign the trip with. Call it before start_trip, then confirm everything with the driver.",
+				"What to suggest for a new pre-trip: the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer, whether the driver has a saved signature (saved_signature) and whether they allow AI apps to sign with it (ai_signing_allowed). Call it before start_trip, then confirm everything with the driver.",
 			inputSchema: portable(getTripDefaultsInputSchema),
 			annotations: READ_ONLY,
 		},
@@ -220,7 +216,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Start a pre-trip',
 			description:
-				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults, and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The trip is signed with the driver's saved signature when they have one. The answer warns when the odometer is lower than the truck's last reading.",
+				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults, and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The trip is signed with the driver's saved signature only if they turned on \"Allow AI apps to sign for me\" in the app; otherwise it is saved unsigned, and the answer (signing) says why and how the driver can sign it. The answer warns when the odometer is lower than the truck's last reading.",
 			inputSchema: portable(startTripInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -240,7 +236,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Update a trip',
 			description:
-				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. Once a trip is signed its details (carrier, addresses, make, model, odometer, plates) are locked and only add_defects and add_remarks still work: a change to a locked field answers status "signed_locked" and changes nothing (the driver starts a new trip if the signed details are wrong). Each trip shows can_edit_details and locked_fields. sign: true signs an unsigned trip with the driver\'s saved signature. Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
+				'Changes one of the driver\'s trips from the last 24 hours: pass trip_id and only the fields that change (e.g. odometer or truck_plate from a new photo). add_defects and add_remarks add on-route defects; nothing is ever removed. Once a trip is signed its details (carrier, addresses, make, model, odometer, plates) are locked and only add_defects and add_remarks still work: a change to a locked field answers status "signed_locked" and changes nothing (the driver starts a new trip if the signed details are wrong). Each trip shows can_edit_details and locked_fields. sign: true signs an unsigned trip with the driver\'s saved signature, only if they turned on "Allow AI apps to sign for me" in the app (otherwise it is refused with status "ai_signing_off" and nothing changes). Only use it when the driver asks or agrees. Trips older than 24 hours answer status "too_old".',
 			inputSchema: portable(updateTripInputSchema),
 			annotations: {
 				readOnlyHint: false,

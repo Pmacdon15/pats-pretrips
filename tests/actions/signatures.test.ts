@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	getSignatureStatusDAL: vi.fn(),
 	saveSignatureDAL: vi.fn(),
 	deleteSignatureDAL: vi.fn(),
+	setAiSigningDAL: vi.fn(),
 	signTripDAL: vi.fn(),
 }))
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
@@ -14,6 +15,7 @@ vi.mock('@/lib/DAL/signatures', () => ({
 	getSignatureStatusDAL: mocks.getSignatureStatusDAL,
 	saveSignatureDAL: mocks.saveSignatureDAL,
 	deleteSignatureDAL: mocks.deleteSignatureDAL,
+	setAiSigningDAL: mocks.setAiSigningDAL,
 	signTripDAL: mocks.signTripDAL,
 }))
 
@@ -21,10 +23,15 @@ import {
 	deleteSignature,
 	getSignatureStatus,
 	saveSignature,
+	setAiSigning,
 	signTrip,
 } from '@/lib/actions/signatures'
 
-const status = { saved: true, updatedAt: '2026-11-15T10:00:00.000Z' }
+const status = {
+	saved: true,
+	updatedAt: '2026-11-15T10:00:00.000Z',
+	allowAiSigning: false,
+}
 
 beforeEach(() => {
 	mocks.getSignatureStatusDAL.mockResolvedValue(status)
@@ -42,11 +49,18 @@ describe('signature actions', () => {
 			mocks.saveSignatureDAL,
 		],
 		['deleteSignature', () => deleteSignature(), mocks.deleteSignatureDAL],
+		['setAiSigning', () => setAiSigning(true), mocks.setAiSigningDAL],
 	])('%s answers a value or an error message', async (_name, call, dal) => {
 		dal.mockResolvedValue(okAsync(status))
 		await expect(call()).resolves.toEqual({ value: status })
 		dal.mockResolvedValue(errAsync({ reason: 'Nope' }))
 		await expect(call()).resolves.toEqual({ errorMessage: 'Nope' })
+	})
+
+	it('passes the AI signing choice on', async () => {
+		mocks.setAiSigningDAL.mockResolvedValue(okAsync(status))
+		await setAiSigning(false)
+		expect(mocks.setAiSigningDAL).toHaveBeenCalledWith(false)
 	})
 
 	it("signs a trip and refreshes the driver's trips", async () => {

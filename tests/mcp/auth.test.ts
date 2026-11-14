@@ -2,11 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-	touchApiKeyDb: vi.fn(),
 	verify: vi.fn(),
 	getUser: vi.fn(),
 }))
-vi.mock('@/lib/db/api-keys', () => ({ touchApiKeyDb: mocks.touchApiKeyDb }))
 vi.mock('@clerk/nextjs/server', () => ({
 	clerkClient: async () => ({
 		idPOAuthAccessToken: { verify: mocks.verify },
@@ -14,7 +12,6 @@ vi.mock('@clerk/nextjs/server', () => ({
 	}),
 }))
 
-import { generateApiKey, hashApiKey } from '@/lib/api-keys'
 import {
 	looksLikeOAuthToken,
 	missingScopes,
@@ -45,28 +42,21 @@ beforeEach(() => {
 	})
 })
 
-describe('API keys', () => {
-	it("signs in as the key's driver", async () => {
-		const key = generateApiKey()
-		mocks.touchApiKeyDb.mockResolvedValue({
-			id: 3,
-			driverEmail: 'pat@x.com',
-			name: 'Muse',
-		})
-		await expect(verifyMcpToken(req, key)).resolves.toEqual({
-			token: key,
-			clientId: 'api-key:3',
-			scopes: [],
-			extra: { email: 'pat@x.com', client: 'Muse', via: 'api_key' },
-		})
-		expect(mocks.touchApiKeyDb).toHaveBeenCalledWith(hashApiKey(key))
-	})
-
-	it('refuses revoked or unknown keys', async () => {
-		mocks.touchApiKeyDb.mockResolvedValue(null)
-		await expect(
-			verifyMcpToken(req, generateApiKey()),
-		).resolves.toBeUndefined()
+describe('personal API keys', () => {
+	it('refuses a ppt_ key without a database or Clerk call, and says keys are no longer accepted', async () => {
+		const key = `ppt_${'a'.repeat(43)}`
+		await expect(verifyMcpToken(req, key)).resolves.toBeUndefined()
+		await expect(verifyMcpToken(req, 'ppt_short')).resolves.toBeUndefined()
+		expect(mocks.verify).not.toHaveBeenCalled()
+		expect(mocks.getUser).not.toHaveBeenCalled()
+		expect(vi.mocked(console.warn).mock.calls).toEqual([
+			[
+				'MCP: refused a personal API key: API keys are no longer accepted, only OAuth sign-in',
+			],
+			[
+				'MCP: refused a personal API key: API keys are no longer accepted, only OAuth sign-in',
+			],
+		])
 	})
 })
 
@@ -75,6 +65,9 @@ describe('Clerk OAuth access tokens', () => {
 		await expect(verifyMcpToken(req, undefined)).resolves.toBeUndefined()
 		await expect(verifyMcpToken(req, 'junk token')).resolves.toBeUndefined()
 		expect(mocks.verify).not.toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			"MCP: refused a bearer token that isn't an OAuth token",
+		)
 	})
 
 	it("verifies with Clerk and takes the user's primary email", async () => {

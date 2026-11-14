@@ -79,6 +79,46 @@ export async function deleteSavedSignatureDb(
 	return rows.length > 0
 }
 
+/*
+ * "Allow AI apps to sign for me" (src/lib/sql/2026-11-17-ai-signing-setting.sql),
+ * kept on the saved signature's row: replacing the signature keeps it,
+ * deleting the signature deletes it. Both throw while the column doesn't
+ * exist yet (Postgres code 42703); src/lib/signatures/signatures.ts turns that
+ * into "off".
+ */
+
+/** Whether the driver lets AI apps sign with their saved signature. */
+export async function getAiSigningAllowedDb(
+	driverEmail: string,
+): Promise<boolean> {
+	const [row] = await sql()`
+        SELECT allow_ai_signing FROM pt_driver_signatures
+        WHERE driver_email = ${driverEmail}
+    `
+	return row?.allow_ai_signing === true
+}
+
+/**
+ * Turns AI signing on or off for the driver's saved signature. Undefined when
+ * they have no saved signature (nothing is changed).
+ */
+export async function setAiSigningDb(
+	driverEmail: string,
+	allow: boolean,
+): Promise<{ allowAiSigning: boolean; updatedAt: string } | undefined> {
+	const [row] = await sql()`
+        UPDATE pt_driver_signatures SET allow_ai_signing = ${allow}
+        WHERE driver_email = ${driverEmail}
+        RETURNING allow_ai_signing, updated_at
+    `
+	return (
+		row && {
+			allowAiSigning: row.allow_ai_signing === true,
+			updatedAt: iso(row.updated_at),
+		}
+	)
+}
+
 /** The signature on one of the driver's trips, if it was signed. */
 export async function getTripSignatureDb(
 	tripId: number,

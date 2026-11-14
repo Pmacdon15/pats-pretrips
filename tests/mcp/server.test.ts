@@ -74,11 +74,12 @@ describe('callerFrom', () => {
 	it('takes the driver only from verified auth', () => {
 		expect(callerFrom(undefined)).toBeNull()
 		expect(callerFrom(auth({ email: '' }))).toBeNull()
+		// The client name comes only from the MCP client, never from auth.
 		expect(
 			callerFrom(auth({ email: 'pat@x.com', client: 'Muse' })),
 		).toEqual({
 			email: 'pat@x.com',
-			client: 'Muse',
+			client: null,
 			userId: null,
 		})
 		expect(callerFrom(auth({ email: 'pat@x.com' }), 'claude-ai')).toEqual({
@@ -86,7 +87,7 @@ describe('callerFrom', () => {
 			client: 'claude-ai',
 			userId: null,
 		})
-		expect(callerFrom(auth({ email: 'pat@x.com', client: 5 }))).toEqual({
+		expect(callerFrom(auth({ email: 'pat@x.com' }), null)).toEqual({
 			email: 'pat@x.com',
 			client: null,
 			userId: null,
