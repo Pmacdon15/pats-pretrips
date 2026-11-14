@@ -209,6 +209,24 @@ export async function getTripDb(
 	return result as Trip | undefined
 }
 
+/**
+ * The trip's core details: what the driver signs. Once a trip is signed they
+ * are locked; only defects and remarks can still be added.
+ */
+export const CORE_TRIP_FIELDS = [
+	'carrier',
+	'carrierAddress',
+	'inspectionAddress',
+	'make',
+	'model',
+	'odometer',
+	'truckPlate',
+	'trailerPlateA',
+	'trailerPlateB',
+] as const
+
+export type CoreTripField = (typeof CORE_TRIP_FIELDS)[number]
+
 export type TripChanges = {
 	carrier?: string
 	carrierAddress?: string
@@ -219,46 +237,89 @@ export type TripChanges = {
 	truckPlate?: string
 	trailerPlateA?: string
 	trailerPlateB?: string
-	/** The trip's whole defects list, comma separated (callers merge it). */
-	defects?: string
+	/**
+	 * Defects to add, comma separated. The database appends them to the
+	 * trip's list (callers leave out ones already listed), so defects are
+	 * never removed or rewritten.
+	 */
+	addDefects?: string
 	/** Appended to the trip's remarks. */
 	addRemarks?: string
 }
 
 /**
  * Changes a trip from the last 24 hours, the same window the web app allows
- * for on-route defects. Fields left out keep their value; remarks are
- * only ever added to. Undefined when the trip isn't the
+ * for on-route defects. Fields left out keep their value; defects and remarks
+ * are only ever added to.
+ *
+ * Once the trip is signed its core details (CORE_TRIP_FIELDS) are locked: an
+ * update that would change one of them is refused, changing nothing, and
+ * answers 'signed_locked' (passing a field's current value is not a change).
+ * The check is in the UPDATE's own WHERE clause, so it holds even when the
+ * trip is signed at the same moment. Undefined when the trip isn't the
  * driver's or is older than 24 hours.
  */
 export async function updateTripDb(
 	tripId: number,
 	driverEmail: string,
 	changes: TripChanges,
-): Promise<Trip | undefined> {
+): Promise<Trip | 'signed_locked' | undefined> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const c = (value: string | undefined) => value ?? null
-	const [result] = await sql`
-        UPDATE PTTrips
-        SET carrier = COALESCE(${c(changes.carrier)}::text, carrier),
-            carrierAddress = COALESCE(${c(changes.carrierAddress)}::text, carrierAddress),
-            inspectionAddress = COALESCE(${c(changes.inspectionAddress)}::text, inspectionAddress),
-            make = COALESCE(${c(changes.make)}::text, make),
-            model = COALESCE(${c(changes.model)}::text, model),
-            odometer = COALESCE(${changes.odometer ?? null}::int, odometer),
-            truckPlate = COALESCE(${c(changes.truckPlate)}::text, truckPlate),
-            trailerPlateA = COALESCE(${c(changes.trailerPlateA)}::text, trailerPlateA),
-            trailerPlateB = COALESCE(${c(changes.trailerPlateB)}::text, trailerPlateB),
-            defects = COALESCE(${c(changes.defects)}::text, defects),
-            remarks = CASE
-                        WHEN ${c(changes.addRemarks)}::text IS NULL THEN remarks
-                        WHEN COALESCE(remarks, '') = '' THEN ${c(changes.addRemarks)}::text
-                        ELSE remarks || ', ' || ${c(changes.addRemarks)}::text
-                      END
-        WHERE tripId = ${tripId}
-        AND driverEmail = ${driverEmail}
-        AND date >= NOW() - INTERVAL '24 hours'
-        RETURNING *
+	const odometer = changes.odometer ?? null
+	const [row] = await sql`
+        WITH target AS (
+            SELECT tripId FROM PTTrips
+            WHERE tripId = ${tripId}
+            AND driverEmail = ${driverEmail}
+            AND date >= NOW() - INTERVAL '24 hours'
+        ), updated AS (
+            UPDATE PTTrips
+            SET carrier = COALESCE(${c(changes.carrier)}::text, carrier),
+                carrierAddress = COALESCE(${c(changes.carrierAddress)}::text, carrierAddress),
+                inspectionAddress = COALESCE(${c(changes.inspectionAddress)}::text, inspectionAddress),
+                make = COALESCE(${c(changes.make)}::text, make),
+                model = COALESCE(${c(changes.model)}::text, model),
+                odometer = COALESCE(${odometer}::int, odometer),
+                truckPlate = COALESCE(${c(changes.truckPlate)}::text, truckPlate),
+                trailerPlateA = COALESCE(${c(changes.trailerPlateA)}::text, trailerPlateA),
+                trailerPlateB = COALESCE(${c(changes.trailerPlateB)}::text, trailerPlateB),
+                defects = CASE
+                            WHEN ${c(changes.addDefects)}::text IS NULL THEN defects
+                            WHEN COALESCE(defects, '') = '' THEN ${c(changes.addDefects)}::text
+                            ELSE defects || ', ' || ${c(changes.addDefects)}::text
+                          END,
+                remarks = CASE
+                            WHEN ${c(changes.addRemarks)}::text IS NULL THEN remarks
+                            WHEN COALESCE(remarks, '') = '' THEN ${c(changes.addRemarks)}::text
+                            ELSE remarks || ', ' || ${c(changes.addRemarks)}::text
+                          END
+            WHERE tripId = ${tripId}
+            AND driverEmail = ${driverEmail}
+            AND date >= NOW() - INTERVAL '24 hours'
+            AND (
+                signed_at IS NULL
+                OR (
+                    (${c(changes.carrier)}::text IS NULL OR ${c(changes.carrier)}::text IS NOT DISTINCT FROM carrier)
+                    AND (${c(changes.carrierAddress)}::text IS NULL OR ${c(changes.carrierAddress)}::text IS NOT DISTINCT FROM carrierAddress)
+                    AND (${c(changes.inspectionAddress)}::text IS NULL OR ${c(changes.inspectionAddress)}::text IS NOT DISTINCT FROM inspectionAddress)
+                    AND (${c(changes.make)}::text IS NULL OR ${c(changes.make)}::text IS NOT DISTINCT FROM make)
+                    AND (${c(changes.model)}::text IS NULL OR ${c(changes.model)}::text IS NOT DISTINCT FROM model)
+                    AND (${odometer}::int IS NULL OR ${odometer}::int IS NOT DISTINCT FROM odometer)
+                    AND (${c(changes.truckPlate)}::text IS NULL OR ${c(changes.truckPlate)}::text IS NOT DISTINCT FROM truckPlate)
+                    AND (${c(changes.trailerPlateA)}::text IS NULL OR ${c(changes.trailerPlateA)}::text IS NOT DISTINCT FROM trailerPlateA)
+                    AND (${c(changes.trailerPlateB)}::text IS NULL OR ${c(changes.trailerPlateB)}::text IS NOT DISTINCT FROM trailerPlateB)
+                )
+            )
+            RETURNING *
+        )
+        SELECT updated.*, target.tripId AS target_trip_id
+        FROM target LEFT JOIN updated ON true
     `
-	return result as Trip | undefined
+	// No row: not the driver's trip, or older than 24 hours. The trip but not
+	// the update: it's signed and a core field would have changed.
+	if (!row) return undefined
+	if (row.tripid == null) return 'signed_locked'
+	const { target_trip_id: _, ...trip } = row
+	return trip as Trip
 }
