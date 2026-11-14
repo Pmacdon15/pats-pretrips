@@ -1,5 +1,7 @@
 import type { AuthInfo } from '@modelcontextprotocol/server'
 import { getPublicOrigin } from 'mcp-handler'
+import { peekRateLimit, rateLimit } from '@/lib/rate-limit'
+import { MCP_AUTH_FAILURES } from '@/lib/rate-limit/limits'
 import { MCP_SCOPES } from '@/mcp/oauth-config'
 
 /*
@@ -63,7 +65,7 @@ export const MCP_CORS_HEADERS: Record<string, string> = {
 	'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 	'Access-Control-Allow-Headers': ALLOWED_HEADERS,
 	'Access-Control-Expose-Headers':
-		'WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version',
+		'WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version, Retry-After',
 	'Access-Control-Max-Age': '86400',
 }
 
@@ -128,6 +130,29 @@ export function unauthorized(req: Request, invalidTokenReason?: string) {
 			status: 401,
 			headers: { 'WWW-Authenticate': `Bearer ${params.join(', ')}` },
 		},
+	)
+}
+
+/**
+ * The caller's IP, for limiting failed sign-ins. Vercel sets both headers
+ * itself (overwriting what the client sent), so the first hop of
+ * x-forwarded-for is the client. Without either header (a local run), every
+ * caller shares one bucket.
+ */
+export function clientIp(req: Request) {
+	const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+	const ip = forwarded || req.headers.get('x-real-ip')?.trim()
+	return ip ? ip.slice(0, 64) : 'unknown'
+}
+
+/** A 429 for a client that failed to sign in too often. */
+export function tooManyFailedSignIns(retryAfter: number) {
+	return Response.json(
+		{
+			error: 'rate_limited',
+			error_description: `Too many failed sign-in attempts. Try again in ${retryAfter} seconds.`,
+		},
+		{ status: 429, headers: { 'Retry-After': String(retryAfter) } },
 	)
 }
 
@@ -208,7 +233,8 @@ export function callerLabel(req: Request) {
 }
 
 /**
- * The MCP route: CORS, bearer auth, then the MCP handler with the verified
+ * The MCP route: CORS, bearer auth (failed sign-ins limited per client IP,
+ * see src/lib/rate-limit/limits.ts), then the MCP handler with the verified
  * auth on `req.auth`, where mcp-handler reads it.
  */
 export function mcpRoute(handler: McpHandler, verifyToken: VerifyToken) {
@@ -223,6 +249,14 @@ export function mcpRoute(handler: McpHandler, verifyToken: VerifyToken) {
 			return withCors(unauthorized(req))
 		}
 
+		// An IP that has failed to sign in too often is refused before its
+		// token reaches the database or Clerk.
+		const ip = clientIp(req)
+		const early = peekRateLimit(MCP_AUTH_FAILURES, ip)
+		if (!early.ok) {
+			return withCors(tooManyFailedSignIns(early.retryAfter))
+		}
+
 		let authInfo: AuthInfo | undefined
 		try {
 			authInfo = await verifyToken(req, token)
@@ -231,6 +265,11 @@ export function mcpRoute(handler: McpHandler, verifyToken: VerifyToken) {
 		}
 		if (!authInfo) {
 			console.warn(`MCP: access token refused (${callerLabel(req)})`)
+			const failures = await rateLimit(MCP_AUTH_FAILURES, ip)
+			if (!failures.ok) {
+				console.warn(`MCP: too many failed sign-ins from ${ip}`)
+				return withCors(tooManyFailedSignIns(failures.retryAfter))
+			}
 			return withCors(
 				unauthorized(
 					req,

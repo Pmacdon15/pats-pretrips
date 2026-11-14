@@ -18,8 +18,10 @@ const mocks = vi.hoisted(() => ({
 	listTripsDb: vi.fn(),
 	updateTripDb: vi.fn(),
 	revalidateTag: vi.fn(),
+	countHitDb: vi.fn(),
 }))
 vi.mock('@/lib/db/api-keys', () => ({ touchApiKeyDb: mocks.touchApiKeyDb }))
+vi.mock('@/lib/db/rate-limits', () => ({ countHitDb: mocks.countHitDb }))
 vi.mock('@/lib/db/trips', () => ({
 	createTripDb: mocks.createTripDb,
 	getLatestTripDb: mocks.getLatestTripDb,
@@ -47,6 +49,7 @@ vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
 import { DELETE, GET, OPTIONS, POST } from '@/app/api/mcp/route'
 import { generateApiKey } from '@/lib/api-keys'
+import { resetRateLimiter } from '@/lib/rate-limit'
 import { messagesFromEventStream } from '@/mcp/http'
 
 const URL_ = 'https://patspretrips.ca/api/mcp'
@@ -56,6 +59,8 @@ const SCOPES = 'profile email offline_access'
 const KEY = generateApiKey()
 
 beforeEach(() => {
+	resetRateLimiter()
+	mocks.countHitDb.mockResolvedValue({ hits: 1, retryAfter: 60 })
 	mocks.touchApiKeyDb.mockResolvedValue({
 		id: 3,
 		driverEmail: 'pat@x.com',
@@ -366,5 +371,60 @@ describe('tools over HTTP', () => {
 		const res = await callTool('get_trip', { trip_id: -1 })
 		expect(res.body.result.isError).toBe(true)
 		expect(JSON.stringify(res.body.result)).toMatch(/trip_id/)
+	})
+
+	it('counts tool calls per driver, and repair uploads on their own', async () => {
+		await callTool('list_defects', {})
+		expect(mocks.countHitDb.mock.calls).toEqual([
+			['mcp-tools:pat@x.com', 300],
+		])
+		mocks.countHitDb.mockClear()
+		await callTool('mark_defect_repaired', {
+			trip_id: 1,
+			defect: 'Cab',
+			mechanic_name: 'Sam',
+		})
+		expect(mocks.countHitDb.mock.calls).toEqual([
+			['mcp-tools:pat@x.com', 300],
+			['repair-uploads:pat@x.com', 3600],
+		])
+	})
+
+	it('answers a tool error once the driver is over the limit', async () => {
+		mocks.countHitDb.mockResolvedValue({ hits: 10_000, retryAfter: 90 })
+		const res = await callTool('list_trips', {})
+		expect(res.status).toBe(200)
+		expect(res.body.result.isError).toBe(true)
+		expect(res.body.result.content[0].text).toContain('Too many requests')
+		expect(mocks.listTripsDb).not.toHaveBeenCalled()
+	})
+
+	it('keeps serving tools when the rate limit table is missing', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		mocks.countHitDb.mockRejectedValue(
+			Object.assign(new Error('relation does not exist'), {
+				code: '42P01',
+			}),
+		)
+		mocks.listTripsDb.mockResolvedValue({ trips: [], hasMore: false })
+		const res = await callTool('list_trips', {})
+		expect(res.body.result.content[0].text).not.toContain('Too many')
+		expect(mocks.listTripsDb).toHaveBeenCalled()
+	})
+})
+
+describe('failed sign-ins over HTTP', () => {
+	it('answers 429 with Retry-After and CORS once an IP is over the limit, and stops checking keys', async () => {
+		mocks.touchApiKeyDb.mockResolvedValue(null)
+		mocks.countHitDb.mockResolvedValue({ hits: 31, retryAfter: 120 })
+		const first = await initialize(KEY)
+		expect(first.status).toBe(429)
+		expect(first.headers.get('retry-after')).toBe('120')
+		expect(first.headers.get('access-control-allow-origin')).toBe('*')
+		expect(first.body.error).toBe('rate_limited')
+		mocks.touchApiKeyDb.mockClear()
+		const second = await initialize(KEY)
+		expect(second.status).toBe(429)
+		expect(mocks.touchApiKeyDb).not.toHaveBeenCalled()
 	})
 })

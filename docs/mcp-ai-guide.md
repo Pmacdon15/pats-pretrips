@@ -18,9 +18,22 @@ PreTrips signs in with Clerk, like Budget and Clock Out. Clerk registers AI apps
 
 - **Claude, ChatGPT and other apps that register themselves**: in the Clerk dashboard for PreTrips, go to **Configure → OAuth applications** and turn on **Dynamic client registration**. That's all: the AI app finds Clerk through `/.well-known/oauth-protected-resource/api/mcp`, registers, and sends the driver to sign in.
 - **Apps that ask for a Client ID (Muse, sometimes Gemini)**: in **OAuth applications**, add an application for that app, add its callback URL (Gemini's looks like `https://oauth-redirect.googleusercontent.com/r/...`), turn on PKCE (public client) or keep the secret for apps that ask for one, and give the app the Client ID with `https://patspretrips.ca/api/mcp` as the server URL.
-- **Optional:** set `MCP_TOKEN_AUDIENCE` to only accept tokens issued for that audience.
+- **Default scopes:** some clients (Clerk names Claude and ChatGPT) may leave out `scope` when they send the driver to sign in, and then Clerk gives the token the instance's default scopes. In **OAuth applications → Settings → Client onboarding**, set **Default scopes for dynamic clients** to `profile email offline_access`. The server refuses OAuth tokens without `email` (see below).
+- **Token audience (recommended):** see [Binding tokens to PreTrips](#binding-tokens-to-pretrips).
 
 The issuer AI apps are told about is the Clerk Frontend API from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (e.g. `https://clerk.patspretrips.ca`); set `MCP_OAUTH_ISSUER` to override it. Access tokens are checked with Clerk's Backend API (`CLERK_SECRET_KEY`), and the driver's email is their Clerk primary email. Ask for the scopes `profile email offline_access` (not `openid`: Clerk rejects a dynamic client registration that asks for it, as Muse found); `offline_access` gets the refresh token that keeps the connector signed in (Gemini needs it).
+
+**Scopes the server requires.** An OAuth access token must carry the `email` scope (`REQUIRED_OAUTH_SCOPES` in `src/mcp/auth.ts`), because tools act as the driver's email and the driver has to have agreed to share it with that app. A token without it gets the normal `401 invalid_token`, so the client signs in again asking for the advertised scopes; the log line `MCP: refused an access token for client … without the email scope (it has: …)` shows which app and what it was granted. `profile` isn't required. Personal API keys (`ppt_…`) have no scopes and aren't affected.
+
+### Binding tokens to PreTrips
+
+Without an audience check, any OAuth access token Clerk issued for the driver is accepted, whichever app it was issued to, and with dynamic client registration on anyone can register an app. To bind tokens to this server:
+
+1. In the Clerk dashboard (production instance), open **Agents → MCP servers**, select **Add MCP server** (or **Get started**), enter `https://patspretrips.ca/api/mcp` as the **MCP URL** exactly (no trailing slash) and save. Per Clerk's docs, adding the first MCP server turns on audience claims (`aud`) in access tokens, and Clerk's own MCP guide then checks that `aud` includes that URL. Fix anything the dashboard's connection test reports.
+2. Reconnect one AI app (or wait for one to refresh its token), then look in the Vercel logs for the line `MCP: MCP_TOKEN_AUDIENCE is unset, … (this token's aud: …)`. It appears once per server instance in production. When it shows `["https://patspretrips.ca/api/mcp"]`, the value is confirmed. If it still says `none`, audience claims aren't on yet: don't set the variable.
+3. In Vercel → Project → Settings → Environment Variables, set `MCP_TOKEN_AUDIENCE=https://patspretrips.ca/api/mcp` for Production and redeploy. From then on a token whose `aud` doesn't include that URL, or that has no `aud`, is refused with `401 invalid_token`, so apps holding tokens from before step 1 have to sign in again.
+
+What isn't confirmed: whether Clerk takes `aud` from the `resource` parameter clients send (RFC 8707) or from the MCP servers list, and whether refresh tokens issued before step 1 come back with an `aud`. That's why the server doesn't enforce the audience until `MCP_TOKEN_AUDIENCE` is set, and why step 2 checks the real value first.
 
 ### Production instance
 
@@ -35,7 +48,7 @@ Clerk also lists three email records (`clkmail`, `clk._domainkey`, `clk2._domain
 
 ### Database
 
-Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). (Don't run `makeDb.sql`: it drops the trips table.)
+Run `src/lib/sql/2026-11-12-ai-connector.sql` once against the database. It adds the `pt_api_keys` table and an index; it's safe to run again. For defect repairs, also run `src/lib/sql/2026-11-13-defect-repairs.sql` (the `pt_defect_repairs` table), then `src/lib/sql/2026-11-14-repair-shop-or-mechanic.sql`. For signed pre-trips, run `src/lib/sql/2026-11-15-pretrip-signatures.sql` (the `pt_driver_signatures` and `pt_trip_signatures` tables and `PTTrips.signed_at`). For rate limits, run `src/lib/sql/2026-11-16-rate-limits.sql` (the `pt_rate_limits` table; see [rate-limits.md](rate-limits.md)). (Don't run `makeDb.sql`: it drops the trips table.)
 
 ## The rules
 

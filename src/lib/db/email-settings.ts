@@ -1,4 +1,6 @@
 import { neon } from '@neondatabase/serverless'
+import { MAX_RECIPIENTS } from '@/lib/email/config'
+import { splitRecipients } from '@/lib/email/recipients'
 
 /* The pt_email_settings table (src/lib/sql/2026-11-13-email.sql). */
 
@@ -24,7 +26,12 @@ export async function getEmailSettingsDb(
 	`
 	if (!row) return NO_EMAIL_SETTINGS
 	return {
-		recipients: String(row.recipients).split(',').filter(Boolean),
+		// Saving already cleans the list; this also holds a row edited by hand
+		// to at most MAX_RECIPIENTS different addresses.
+		recipients: splitRecipients(String(row.recipients)).slice(
+			0,
+			MAX_RECIPIENTS,
+		),
 		autoSend: Boolean(row.auto_send),
 		timeZone: row.time_zone ?? null,
 	}
