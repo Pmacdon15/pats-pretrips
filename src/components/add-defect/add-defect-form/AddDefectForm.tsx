@@ -6,6 +6,7 @@ import type { z } from 'zod'
 import { ControlledTextArea } from '@/components/forms/controlled-text-area'
 import { Button } from '@/components/ui/button'
 import { useAddDefectOnRoute } from '@/lib/mutations/mutations'
+import { REMARKS_MAX } from '@/lib/trip-limits'
 import type { Trip } from '@/lib/types/types'
 import { joinDefects, parseDefects } from '@/lib/utils-defects'
 import { schemaAddDefects } from '@/lib/ZOD/schemas'
@@ -84,6 +85,7 @@ export function AddDefectForm({
 			<ControlledTextArea
 				form={form}
 				label="Remarks"
+				maxLength={REMARKS_MAX}
 				name="remarks"
 				placeholder="Where and when did you notice it?"
 			/>

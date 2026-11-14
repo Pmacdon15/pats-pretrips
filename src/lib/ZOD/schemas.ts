@@ -1,18 +1,104 @@
 import { z } from 'zod'
+import {
+	ADDRESS_MAX,
+	CARRIER_MAX,
+	DEFECT_COUNT_MAX,
+	DEFECT_NAME_MAX,
+	DEFECTS_TEXT_MAX,
+	MAKE_MODEL_MAX,
+	formatLimit as n,
+	ODOMETER_MAX,
+	PLATE_MAX,
+	REMARKS_MAX,
+} from '@/lib/trip-limits'
+import { parseDefects } from '@/lib/utils-defects'
+
+const plate = (name: string) =>
+	z
+		.string()
+		.trim()
+		.max(
+			PLATE_MAX,
+			`${name} is too long (${n(PLATE_MAX)} characters at most)`,
+		)
+		.optional()
+
+const tooManyDefects = `Too many defects listed (${DEFECT_COUNT_MAX} at most, each up to ${DEFECT_NAME_MAX} characters)`
+
+/**
+ * Defects as the web form sends them: the picked categories, comma
+ * separated. At most as many as the AI connector may add at once.
+ */
+const defectsText = (base: z.ZodString) =>
+	base.max(DEFECTS_TEXT_MAX, tooManyDefects).refine((value) => {
+		const list = parseDefects(value)
+		return (
+			list.length <= DEFECT_COUNT_MAX &&
+			list.every((d) => d.length <= DEFECT_NAME_MAX)
+		)
+	}, tooManyDefects)
+
+const remarksTooLong = `Remarks are too long (${n(REMARKS_MAX)} characters at most)`
 
 /** A trip's own fields, as saved. */
 export const schemaTripFields = z.object({
-	carrier: z.string().min(1, 'Carrier name is required'),
-	carrierAddress: z.string().min(1, 'Carrier address is required'),
-	inspectionAddress: z.string().min(4, 'Inspection address is required'),
-	make: z.string().min(1, 'Vehicle make is required'),
-	model: z.string().min(1, 'Vehicle model is required'),
-	odometer: z.number().positive('Odometer reading must be a positive number'),
-	truckPlate: z.string().optional(),
-	trailerPlateA: z.string().optional(),
-	trailerPlateB: z.string().optional(),
-	defects: z.string(),
-	remarks: z.string().min(4, 'Remarks are required'),
+	carrier: z
+		.string()
+		.trim()
+		.min(1, 'Carrier name is required')
+		.max(
+			CARRIER_MAX,
+			`Carrier name is too long (${n(CARRIER_MAX)} characters at most)`,
+		),
+	carrierAddress: z
+		.string()
+		.trim()
+		.min(1, 'Carrier address is required')
+		.max(
+			ADDRESS_MAX,
+			`Carrier address is too long (${n(ADDRESS_MAX)} characters at most)`,
+		),
+	inspectionAddress: z
+		.string()
+		.trim()
+		.min(4, 'Inspection address is required')
+		.max(
+			ADDRESS_MAX,
+			`Inspection address is too long (${n(ADDRESS_MAX)} characters at most)`,
+		),
+	make: z
+		.string()
+		.trim()
+		.min(1, 'Vehicle make is required')
+		.max(
+			MAKE_MODEL_MAX,
+			`Vehicle make is too long (${n(MAKE_MODEL_MAX)} characters at most)`,
+		),
+	model: z
+		.string()
+		.trim()
+		.min(1, 'Vehicle model is required')
+		.max(
+			MAKE_MODEL_MAX,
+			`Vehicle model is too long (${n(MAKE_MODEL_MAX)} characters at most)`,
+		),
+	odometer: z
+		.number()
+		.int('Odometer reading must be whole kilometres')
+		.positive('Odometer reading must be a positive number')
+		.max(
+			ODOMETER_MAX,
+			`Odometer reading is too high (${n(ODOMETER_MAX)} km at most)`,
+		),
+	truckPlate: plate('Truck plate'),
+	trailerPlateA: plate('Trailer plate'),
+	trailerPlateB: plate('Trailer B plate'),
+	defects: defectsText(z.string()),
+	remarks: z
+		.string()
+		.trim()
+		.min(4, 'Remarks are required')
+		.max(REMARKS_MAX, remarksTooLong),
 })
 
 /**
@@ -46,10 +132,15 @@ export const schemaAllowAiSigning = z.boolean({
 	error: 'Choose whether AI apps can sign for you.',
 })
 
+/** On-route defects and remarks, added to a trip from the last 24 hours. */
 export const schemaAddDefects = z.object({
-	defects: z.string().min(3, 'Must Add Defect'),
-	remarks: z.string().min(3, 'Must Add Remark'),
-	trip_id: z.number().min(1, 'Must have trip id'),
+	defects: defectsText(z.string().min(3, 'Must Add Defect')),
+	remarks: z
+		.string()
+		.trim()
+		.min(3, 'Must Add Remark')
+		.max(REMARKS_MAX, remarksTooLong),
+	trip_id: z.number().int('Must have trip id').min(1, 'Must have trip id'),
 })
 
 export const schemaCoordinates = z.object({

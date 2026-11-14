@@ -739,6 +739,67 @@ describe('updateTrip', () => {
 		expect(result.data.warning).toBeUndefined()
 	})
 
+	it.each([
+		[
+			'defects_too_long',
+			{ add_defects: ['Tires'] },
+			2000,
+			"Trip 1's defect list can hold at most 2,000 characters in all, and adding this would pass that, so nothing was saved. Send a shorter add_defects, or start a new trip (start_trip) to record more.",
+		],
+		[
+			'remarks_too_long',
+			{ add_remarks: 'Flat on route' },
+			10_000,
+			"Trip 1's remarks can hold at most 10,000 characters in all, and adding this would pass that, so nothing was saved. Send a shorter add_remarks, or start a new trip (start_trip) to record more.",
+		],
+	])('refuses, changing nothing, when the database finds %s', async (status, add, max, summary) => {
+		mocks.getTripDb.mockResolvedValue(recent({ signed_at: null }))
+		mocks.updateTripDb.mockResolvedValue(status)
+		const result = await updateTrip(caller, {
+			trip_id: 1,
+			...add,
+			sign: true,
+		})
+		expect(result).toEqual({
+			summary,
+			data: {
+				status,
+				max_characters: max,
+				trip: tripView(recent({ signed_at: null })),
+			},
+			isError: true,
+		})
+		// Refused before signing: the trip isn't signed either.
+		expect(signatureMocks.signTripDb).not.toHaveBeenCalled()
+		expect(ownerMocks.recordOwner).not.toHaveBeenCalled()
+	})
+
+	it('keeps the connector limits, now shared with the web form', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		await expect(
+			updateTrip(caller, { trip_id: 1, add_remarks: 'x'.repeat(2001) }),
+		).rejects.toThrow()
+		await expect(
+			updateTrip(caller, {
+				trip_id: 1,
+				add_defects: Array.from({ length: 31 }, (_, i) => `D${i}`),
+			}),
+		).rejects.toThrow()
+		await expect(
+			updateTrip(caller, { trip_id: 1, odometer: 10_000_001 }),
+		).rejects.toThrow()
+		await expect(
+			updateTrip(caller, { trip_id: 1, truck_plate: 'x'.repeat(21) }),
+		).rejects.toThrow()
+		await expect(
+			updateTrip(caller, { trip_id: 1, make: 'x'.repeat(101) }),
+		).rejects.toThrow()
+		await expect(
+			updateTrip(caller, { trip_id: 1, carrier: 'x'.repeat(256) }),
+		).rejects.toThrow()
+		expect(mocks.updateTripDb).not.toHaveBeenCalled()
+	})
+
 	it('says when the trip passed 24 hours while saving', async () => {
 		mocks.getTripDb.mockResolvedValue(recent({ truckplate: undefined }))
 		mocks.updateTripDb.mockResolvedValue(undefined)

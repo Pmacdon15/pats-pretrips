@@ -11,6 +11,8 @@ export interface ControlledTextAreaProps {
 	label: string
 	placeholder?: string
 	readOnly?: boolean
+	/** Most characters the field takes, matching the schema's limit. */
+	maxLength?: number
 }
 
 export function ControlledTextArea({
@@ -19,6 +21,7 @@ export function ControlledTextArea({
 	label,
 	placeholder,
 	readOnly = false,
+	maxLength,
 }: ControlledTextAreaProps) {
 	const id = `form-textarea-${name}`
 
@@ -42,6 +45,7 @@ export function ControlledTextArea({
 							aria-invalid={isInvalid}
 							className="min-h-24"
 							id={id}
+							maxLength={maxLength}
 							name={field.name}
 							onBlur={() => {
 								field.handleBlur()

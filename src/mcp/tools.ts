@@ -13,6 +13,19 @@ import {
 } from '@/lib/db/trips'
 import { appUrl, tripUrl } from '@/lib/email/config'
 import { aiSigningAllowed } from '@/lib/signatures/signatures'
+import {
+	ADDRESS_MAX,
+	CARRIER_MAX,
+	DEFECT_COUNT_MAX,
+	DEFECT_NAME_MAX,
+	formatLimit,
+	MAKE_MODEL_MAX,
+	ODOMETER_MAX,
+	PLATE_MAX,
+	REMARKS_MAX,
+	STORED_DEFECTS_MAX,
+	STORED_REMARKS_MAX,
+} from '@/lib/trip-limits'
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
@@ -42,20 +55,20 @@ const plate = z
 	.string()
 	.trim()
 	.min(1)
-	.max(20)
+	.max(PLATE_MAX)
 	.describe('As written on the plate, e.g. "ABC 1234"')
 const odometer = z
 	.number()
 	.int()
 	.positive()
-	.max(10_000_000)
+	.max(ODOMETER_MAX)
 	.describe(
 		'Whole kilometres as shown on the odometer, without the tenths digit',
 	)
 
 const defectList = z
-	.array(text(60))
-	.max(30)
+	.array(text(DEFECT_NAME_MAX))
+	.max(DEFECT_COUNT_MAX)
 	.describe(
 		'Defect categories from list_defect_categories, e.g. ["Tires", "Lights"]. Empty or left out for no defects.',
 	)
@@ -290,22 +303,22 @@ export const startTripInputSchema = z.object({
 	truck_plate: plate.optional(),
 	trailer_plate_a: plate.optional(),
 	trailer_plate_b: plate.optional(),
-	make: text(100).describe('Vehicle make, e.g. "Freightliner"'),
-	model: text(100).describe('Vehicle model, e.g. "Cascadia"'),
-	carrier: text(255),
-	carrier_address: text(255),
+	make: text(MAKE_MODEL_MAX).describe('Vehicle make, e.g. "Freightliner"'),
+	model: text(MAKE_MODEL_MAX).describe('Vehicle model, e.g. "Cascadia"'),
+	carrier: text(CARRIER_MAX),
+	carrier_address: text(ADDRESS_MAX),
 	inspection_address: z
 		.string()
 		.trim()
 		.min(4)
-		.max(255)
+		.max(ADDRESS_MAX)
 		.describe('Where the driver is doing the inspection'),
 	defects: defectList.optional(),
 	remarks: z
 		.string()
 		.trim()
 		.min(4)
-		.max(2000)
+		.max(REMARKS_MAX)
 		.describe(
 			'The driver’s remarks, e.g. "No defects found" or what is wrong',
 		),
@@ -407,11 +420,11 @@ export const updateTripInputSchema = z.object({
 	truck_plate: plate.optional(),
 	trailer_plate_a: plate.optional(),
 	trailer_plate_b: plate.optional(),
-	make: text(100).optional(),
-	model: text(100).optional(),
-	carrier: text(255).optional(),
-	carrier_address: text(255).optional(),
-	inspection_address: z.string().trim().min(4).max(255).optional(),
+	make: text(MAKE_MODEL_MAX).optional(),
+	model: text(MAKE_MODEL_MAX).optional(),
+	carrier: text(CARRIER_MAX).optional(),
+	carrier_address: text(ADDRESS_MAX).optional(),
+	inspection_address: z.string().trim().min(4).max(ADDRESS_MAX).optional(),
 	add_defects: defectList
 		.optional()
 		.describe(
@@ -421,7 +434,7 @@ export const updateTripInputSchema = z.object({
 		.string()
 		.trim()
 		.min(3)
-		.max(2000)
+		.max(REMARKS_MAX)
 		.optional()
 		.describe('Added after the trip’s remarks'),
 	sign: z
@@ -453,6 +466,26 @@ function signedLocked(
 			...(attempted ? { attempted_fields: attempted } : {}),
 			...(trip ? { trip: tripView(trip) } : {}),
 		},
+		isError: true,
+	}
+}
+
+/**
+ * The answer when added defects or remarks would take the trip's whole
+ * defects or remarks past their limit: nothing changed, the trip not signed.
+ */
+function tooLong(
+	tripId: number,
+	status: 'defects_too_long' | 'remarks_too_long',
+	trip: Trip,
+): ToolResult {
+	const [what, max, field] =
+		status === 'defects_too_long'
+			? ['defect list', STORED_DEFECTS_MAX, 'add_defects']
+			: ['remarks', STORED_REMARKS_MAX, 'add_remarks']
+	return {
+		summary: `Trip ${tripId}'s ${what} can hold at most ${formatLimit(max)} characters in all, and adding this would pass that, so nothing was saved. Send a shorter ${field}, or start a new trip (start_trip) to record more.`,
+		data: { status, max_characters: max, trip: tripView(trip) },
 		isError: true,
 	}
 }
@@ -570,6 +603,10 @@ export async function updateTrip(
 	// The database refused: the trip was signed after it was read.
 	if (updated === 'signed_locked') {
 		return signedLocked(input.trip_id, null, null)
+	}
+	// Adding would take the trip's defects or remarks past their limit.
+	if (updated === 'defects_too_long' || updated === 'remarks_too_long') {
+		return tooLong(input.trip_id, updated, current)
 	}
 	let trip = updated
 	if (trip && signature) {

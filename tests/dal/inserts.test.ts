@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
 	getUser: vi.fn(),
 	createTripDb: vi.fn(),
 	getTripDefectsDb: vi.fn(),
-	updateTripDefectsDb: vi.fn(),
+	updateTripDb: vi.fn(),
 	resolveSignature: vi.fn(),
 	rateLimit: vi.fn(),
 	recordOwner: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 vi.mock('@/lib/db/trips', () => ({
 	createTripDb: mocks.createTripDb,
 	getTripDefectsDb: mocks.getTripDefectsDb,
-	updateTripDefectsDb: mocks.updateTripDefectsDb,
+	updateTripDb: mocks.updateTripDb,
 }))
 
 vi.mock('@/lib/signatures/signatures', () => ({
@@ -76,7 +76,7 @@ describe('rate limits', () => {
 			remarks: '',
 		})
 		expect(result._unsafeUnwrapErr().reason).toContain('Too many requests')
-		expect(mocks.updateTripDefectsDb).not.toHaveBeenCalled()
+		expect(mocks.updateTripDb).not.toHaveBeenCalled()
 	})
 })
 
@@ -188,18 +188,16 @@ describe('addOnRouteDefectsDAL', () => {
 	it('adds the cleaned-up defects to the trip', async () => {
 		const trip = { tripid: 3 }
 		mocks.getTripDefectsDb.mockResolvedValue('Cab')
-		mocks.updateTripDefectsDb.mockResolvedValue(trip)
+		mocks.updateTripDb.mockResolvedValue(trip)
 
 		const result = await addOnRouteDefectsDAL(defects)
 
 		expect(result._unsafeUnwrap()).toBe(trip)
 		expect(mocks.getTripDefectsDb).toHaveBeenCalledWith(3, 'pat@x.com')
-		expect(mocks.updateTripDefectsDb).toHaveBeenCalledWith(
-			3,
-			'pat@x.com',
-			'Horn, Wipers',
-			'Loud',
-		)
+		expect(mocks.updateTripDb).toHaveBeenCalledWith(3, 'pat@x.com', {
+			addDefects: 'Horn, Wipers',
+			addRemarks: 'Loud',
+		})
 		expect(mocks.recordOwner).toHaveBeenCalledWith(
 			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
 			{ table: 'trip', tripId: 3 },
@@ -228,17 +226,89 @@ describe('addOnRouteDefectsDAL', () => {
 		expect(result._unsafeUnwrapErr()).toEqual({
 			reason: '"Horn" is already listed on this trip',
 		})
-		expect(mocks.updateTripDefectsDb).not.toHaveBeenCalled()
+		expect(mocks.updateTripDb).not.toHaveBeenCalled()
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 
 	it('matches whole defects, not substrings', async () => {
 		mocks.getTripDefectsDb.mockResolvedValue('Air Horn')
-		mocks.updateTripDefectsDb.mockResolvedValue({ tripid: 3 })
+		mocks.updateTripDb.mockResolvedValue({ tripid: 3 })
 
 		const result = await addOnRouteDefectsDAL(defects)
 
 		expect(result.isOk()).toBe(true)
+	})
+
+	it('saves the trimmed remark, and no defects when none are left', async () => {
+		mocks.getTripDefectsDb.mockResolvedValue('Cab')
+		mocks.updateTripDb.mockResolvedValue({ tripid: 3 })
+
+		await addOnRouteDefectsDAL({
+			defects: ' , , ',
+			remarks: '  Loud  ',
+			trip_id: 3,
+		})
+
+		expect(mocks.updateTripDb).toHaveBeenCalledWith(3, 'pat@x.com', {
+			addDefects: undefined,
+			addRemarks: 'Loud',
+		})
+	})
+
+	it('refuses a remark longer than 2,000 characters before the database', async () => {
+		const result = await addOnRouteDefectsDAL({
+			...defects,
+			remarks: 'x'.repeat(2001),
+		})
+		expect(result._unsafeUnwrapErr()).toMatchObject({
+			reason: 'Validation failed',
+			errors: {
+				properties: {
+					remarks: {
+						errors: [
+							'Remarks are too long (2,000 characters at most)',
+						],
+					},
+				},
+			},
+		})
+		expect(mocks.getTripDefectsDb).not.toHaveBeenCalled()
+		expect(mocks.updateTripDb).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		[
+			'defects_too_long',
+			"This trip's defect list is full (2,000 characters at most), so nothing was saved. Start a new trip to record more defects.",
+		],
+		[
+			'remarks_too_long',
+			"This trip's remarks are full (10,000 characters at most), so nothing was saved. Shorten your remark, or start a new trip to add more.",
+		],
+		[
+			'signed_locked',
+			"This trip is signed, so its details can't be changed.",
+		],
+	])('says why nothing was saved: %s', async (refusal, reason) => {
+		mocks.getTripDefectsDb.mockResolvedValue('Cab')
+		mocks.updateTripDb.mockResolvedValue(refusal)
+
+		const result = await addOnRouteDefectsDAL(defects)
+
+		expect(result._unsafeUnwrapErr()).toEqual({ reason })
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
+	})
+
+	it('says when the trip is gone or too old', async () => {
+		mocks.getTripDefectsDb.mockResolvedValue('')
+		mocks.updateTripDb.mockResolvedValue(undefined)
+
+		const result = await addOnRouteDefectsDAL(defects)
+
+		expect(result._unsafeUnwrapErr()).toEqual({
+			reason: 'Could not update this trip. It may be older than 24 hours.',
+		})
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 
 	it('reports a database error', async () => {

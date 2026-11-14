@@ -14,6 +14,8 @@ interface ControlledTextInputProps {
 	showCopyButton?: boolean
 	optional?: boolean
 	autoCapitalize?: 'characters' | 'words' | 'sentences' | 'none'
+	/** Most characters the field takes, matching the schema's limit. */
+	maxLength?: number
 }
 
 export function ControlledTextInput({
@@ -25,6 +27,7 @@ export function ControlledTextInput({
 	showCopyButton,
 	optional,
 	autoCapitalize,
+	maxLength,
 }: ControlledTextInputProps) {
 	const id = `form-${name}`
 
@@ -64,6 +67,7 @@ export function ControlledTextInput({
 							inputMode={
 								type === 'number' ? 'numeric' : undefined
 							}
+							maxLength={maxLength}
 							name={field.name}
 							onBlur={() => {
 								field.handleBlur()
