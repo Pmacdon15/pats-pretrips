@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
 	signTripDb: vi.fn(),
 	compressSignature: vi.fn(),
 	resolveSignature: vi.fn(),
+	rateLimit: vi.fn(),
+}))
+vi.mock('@/lib/rate-limit', async (original) => ({
+	...(await original<typeof import('@/lib/rate-limit')>()),
+	rateLimit: mocks.rateLimit,
 }))
 vi.mock('@/lib/auth', () => ({ getDriverEmail: mocks.email }))
 vi.mock('@/lib/db/signatures', () => ({
@@ -44,7 +49,30 @@ beforeEach(() => {
 	mocks.deleteSavedSignatureDb.mockResolvedValue(true)
 	mocks.resolveSignature.mockResolvedValue({ ok: true, file: PNG })
 	mocks.signTripDb.mockResolvedValue(trip({ signed_at: WHEN }))
+	mocks.rateLimit.mockResolvedValue({ ok: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+describe('signature rate limit', () => {
+	it("counts saving and signing against the driver's limit", async () => {
+		await saveSignatureDAL(DRAWN)
+		await signTripDAL({ tripId: 1, signature: DRAWN })
+		expect(mocks.rateLimit).toHaveBeenCalledTimes(2)
+		expect(mocks.rateLimit).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'signatures' }),
+			'pat@x.com',
+		)
+	})
+
+	it('refuses over the limit, before processing the image', async () => {
+		mocks.rateLimit.mockResolvedValue({ ok: false, retryAfter: 30 })
+		const saved = await saveSignatureDAL(DRAWN)
+		expect(saved._unsafeUnwrapErr().reason).toContain('Too many requests')
+		const signed = await signTripDAL({ tripId: 1, signature: DRAWN })
+		expect(signed._unsafeUnwrapErr().reason).toContain('Too many requests')
+		expect(mocks.compressSignature).not.toHaveBeenCalled()
+		expect(mocks.resolveSignature).not.toHaveBeenCalled()
+	})
 })
 
 describe('getSignatureStatusDAL', () => {

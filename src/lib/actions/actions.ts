@@ -4,6 +4,8 @@ import { after } from 'next/server'
 import type { z } from 'zod'
 import { getDriverEmail } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
+import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
+import { GEOCODE } from '@/lib/rate-limit/limits'
 import type { GeocodingResponse } from '@/lib/types/types'
 import { prepareAutoEmailDAL } from '../DAL/email'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
@@ -60,11 +62,21 @@ export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 export async function getAddress(
 	lat: number,
 	lng: number,
-): Promise<{ data: GeocodingResponse | undefined }> {
+): Promise<{ data: GeocodingResponse | undefined; errorMessage?: string }> {
 	const driverEmail = await getDriverEmail()
 
 	if (!driverEmail) {
 		throw new Error('Must be logged in')
+	}
+
+	// Each lookup is a paid Google API call.
+	const limited = await rateLimit(GEOCODE, driverEmail)
+	if (!limited.ok) {
+		console.warn('getAddress: rate limited')
+		return {
+			data: undefined,
+			errorMessage: rateLimitMessage(limited.retryAfter),
+		}
 	}
 
 	// Server actions can be called with anything, so check the coordinates

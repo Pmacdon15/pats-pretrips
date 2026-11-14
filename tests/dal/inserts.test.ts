@@ -6,6 +6,11 @@ const mocks = vi.hoisted(() => ({
 	getTripDefectsDb: vi.fn(),
 	updateTripDefectsDb: vi.fn(),
 	resolveSignature: vi.fn(),
+	rateLimit: vi.fn(),
+}))
+vi.mock('@/lib/rate-limit', async (original) => ({
+	...(await original<typeof import('@/lib/rate-limit')>()),
+	rateLimit: mocks.rateLimit,
 }))
 
 // Stands in for Clerk's current user: `getUser` gives the user or null.
@@ -31,7 +36,37 @@ const SIGNED = { ...PNG, source: 'web' }
 beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
 	mocks.resolveSignature.mockResolvedValue({ ok: true, file: PNG })
+	mocks.rateLimit.mockResolvedValue({ ok: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+describe('rate limits', () => {
+	it("counts trip writes against the driver's limit", async () => {
+		mocks.createTripDb.mockResolvedValue({ tripid: 1 })
+		await addTripDAL(signedForm)
+		expect(mocks.rateLimit).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'trip-writes' }),
+			'pat@x.com',
+		)
+	})
+
+	it('refuses a new trip over the limit, without saving', async () => {
+		mocks.rateLimit.mockResolvedValue({ ok: false, retryAfter: 120 })
+		const result = await addTripDAL(signedForm)
+		expect(result._unsafeUnwrapErr().reason).toContain('Too many requests')
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
+	})
+
+	it('refuses on-route defects over the limit, without saving', async () => {
+		mocks.rateLimit.mockResolvedValue({ ok: false, retryAfter: 120 })
+		const result = await addOnRouteDefectsDAL({
+			trip_id: 3,
+			defects: 'Horn',
+			remarks: '',
+		})
+		expect(result._unsafeUnwrapErr().reason).toContain('Too many requests')
+		expect(mocks.updateTripDefectsDb).not.toHaveBeenCalled()
+	})
 })
 
 const form = {

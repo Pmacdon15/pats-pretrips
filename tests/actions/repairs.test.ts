@@ -6,6 +6,11 @@ const mocks = vi.hoisted(() => ({
 	updateTag: vi.fn(),
 	recordRepair: vi.fn(),
 	undoRepair: vi.fn(),
+	rateLimit: vi.fn(),
+}))
+vi.mock('@/lib/rate-limit', async (original) => ({
+	...(await original<typeof import('@/lib/rate-limit')>()),
+	rateLimit: mocks.rateLimit,
 }))
 vi.mock('@/lib/auth', () => ({ getDriverEmail: mocks.email }))
 vi.mock('next/cache', () => ({ updateTag: mocks.updateTag }))
@@ -38,6 +43,7 @@ const form = (over: Record<string, string | File> = {}) => {
 beforeEach(() => {
 	mocks.email.mockResolvedValue('pat@x.com')
 	mocks.recordRepair.mockResolvedValue({ ok: true, repair: repair() })
+	mocks.rateLimit.mockResolvedValue({ ok: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -93,6 +99,21 @@ describe('markDefectRepaired', () => {
 		f.delete('signature')
 		expect(await markDefectRepaired(f)).toMatchObject({
 			errorMessage: expect.stringContaining('Sign in'),
+		})
+		expect(mocks.recordRepair).not.toHaveBeenCalled()
+	})
+
+	it('counts the upload against the driver and refuses over the limit', async () => {
+		await markDefectRepaired(form())
+		expect(mocks.rateLimit).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'repair-uploads' }),
+			'pat@x.com',
+		)
+		mocks.recordRepair.mockClear()
+		mocks.rateLimit.mockResolvedValue({ ok: false, retryAfter: 45 })
+		expect(await markDefectRepaired(form())).toEqual({
+			errorMessage:
+				'Too many requests in a short time. Please wait a minute and try again.',
 		})
 		expect(mocks.recordRepair).not.toHaveBeenCalled()
 	})

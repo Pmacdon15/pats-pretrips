@@ -67,19 +67,38 @@ export async function revokeApiKeyDb(
 	return rows.length > 0
 }
 
+/** How often a key's last_used_at is written, at most. */
+const LAST_USED_RESOLUTION_MS = 60_000
+
 /**
  * The driver a live key belongs to, by the key's hash, noting when it was
  * used. Revoked or unknown keys answer null.
+ *
+ * Anyone can send a key-shaped token, so an unknown key costs one indexed
+ * read and never a write. A known key's last_used_at is updated at most
+ * once a minute; if that write fails, the key still works.
  */
 export async function touchApiKeyDb(
 	keyHash: string,
 ): Promise<{ id: number; driverEmail: string; name: string } | null> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const [row] = await sql`
-		UPDATE pt_api_keys SET last_used_at = NOW()
+		SELECT id, driver_email, name, last_used_at
+		FROM pt_api_keys
 		WHERE key_hash = ${keyHash} AND revoked_at IS NULL
-		RETURNING id, driver_email, name
 	`
 	if (!row) return null
+	const lastUsed = row.last_used_at ? new Date(row.last_used_at).getTime() : 0
+	if (Date.now() - lastUsed >= LAST_USED_RESOLUTION_MS) {
+		try {
+			await sql`
+				UPDATE pt_api_keys SET last_used_at = NOW()
+				WHERE id = ${row.id}
+					AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '1 minute')
+			`
+		} catch (error) {
+			console.error("Could not note an API key's last use:", error)
+		}
+	}
 	return { id: row.id, driverEmail: row.driver_email, name: row.name }
 }

@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-const mocks = vi.hoisted(() => ({ revalidateTag: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+	revalidateTag: vi.fn(),
+	rateLimitAll: vi.fn(),
+}))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
+vi.mock('@/lib/rate-limit', async (original) => ({
+	...(await original<typeof import('@/lib/rate-limit')>()),
+	rateLimitAll: mocks.rateLimitAll,
+}))
 
 import type { McpServer } from '@modelcontextprotocol/server'
+import { MCP_TOOL_CALLS, REPAIR_UPLOADS } from '@/lib/rate-limit/limits'
 import { callerFrom, run } from '@/mcp/server'
 
 const server = (name?: string) =>
@@ -20,7 +28,46 @@ const auth = (extra: Record<string, unknown>) => ({
 })
 
 beforeEach(() => {
+	mocks.rateLimitAll.mockResolvedValue({ ok: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+describe('rate limits on tool calls', () => {
+	const signedIn = auth({ email: 'pat@x.com' })
+
+	it("counts every call against the driver's limit, plus the tool's own", async () => {
+		const tool = vi.fn(() => ({ summary: 'ok', data: {} }))
+		await run(server(), signedIn, tool, { readOnly: true })
+		expect(mocks.rateLimitAll.mock.calls).toEqual([
+			['pat@x.com', [MCP_TOOL_CALLS]],
+		])
+		mocks.rateLimitAll.mockClear()
+		await run(server(), signedIn, tool, { limits: [REPAIR_UPLOADS] })
+		expect(mocks.rateLimitAll.mock.calls).toEqual([
+			['pat@x.com', [MCP_TOOL_CALLS, REPAIR_UPLOADS]],
+		])
+		expect(tool).toHaveBeenCalledTimes(2)
+	})
+
+	it('answers a readable tool error over the limit, without running the tool', async () => {
+		mocks.rateLimitAll.mockResolvedValue({ ok: false, retryAfter: 300 })
+		const tool = vi.fn()
+		const result = await run(server(), signedIn, tool, {
+			limits: [REPAIR_UPLOADS],
+		})
+		expect(tool).not.toHaveBeenCalled()
+		expect(result.isError).toBe(true)
+		expect(result.content[0].text).toBe(
+			'Too many requests in a short time. Please wait about 5 minutes and try again.',
+		)
+		expect(result.structuredContent).toEqual({ retry_after_seconds: 300 })
+		expect(mocks.revalidateTag).not.toHaveBeenCalled()
+	})
+
+	it("doesn't count calls without a signed-in driver", async () => {
+		await run(server(), undefined, vi.fn())
+		expect(mocks.rateLimitAll).not.toHaveBeenCalled()
+	})
 })
 
 describe('callerFrom', () => {
