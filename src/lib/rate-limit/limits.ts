@@ -23,9 +23,9 @@ const MINUTE = 60
 const HOUR = 60 * MINUTE
 
 /**
- * Failed sign-ins on /api/mcp per client IP (bad, revoked or expired API
- * keys and access tokens). A real app fails a few times at most, while it
- * refreshes a token. Once over, every request from the IP, even with a good
+ * Failed sign-ins on /api/mcp per client IP (bad, revoked or expired access
+ * tokens, and personal API keys, which are no longer accepted). A real app
+ * fails a few times at most, while it refreshes a token. Once over, every request from the IP, even with a good
  * token, gets a 429 until the window ends, so guessed tokens stop reaching
  * the database and Clerk.
  */

@@ -67,14 +67,7 @@ export function callerFrom(
 ): McpCaller | null {
 	const email = authInfo?.extra?.email
 	if (typeof email !== 'string' || !email) return null
-	const fromAuth = authInfo?.extra?.client
-	return {
-		email,
-		client:
-			clientName ||
-			(typeof fromAuth === 'string' ? fromAuth : null) ||
-			null,
-	}
+	return { email, client: clientName || null }
 }
 
 const text = (value: string) => ({ type: 'text' as const, text: value })

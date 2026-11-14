@@ -7,7 +7,7 @@ const isPublicRoute = createRouteMatcher([
 	'/manifest.webmanifest',
 	'/sign-in(.*)',
 	'/sign-up(.*)',
-	// The MCP server checks its own Clerk OAuth token or API key, and answers
+	// The MCP server checks its own Clerk OAuth access token, and answers
 	// 401 with a sign-in hint instead of a redirect, which MCP clients need.
 	'/api/mcp(.*)',
 	// OAuth discovery documents for MCP clients. Public by definition.
