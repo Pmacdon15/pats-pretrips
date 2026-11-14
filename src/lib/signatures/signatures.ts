@@ -1,3 +1,4 @@
+import { recordOwner } from '@/lib/db/owner-stamps'
 import type { StoredFile } from '@/lib/db/repairs'
 import { getSavedSignatureDb, saveSignatureDb } from '@/lib/db/signatures'
 import {
@@ -20,12 +21,14 @@ export type ResolvedSignature =
 
 /**
  * The signature for a trip: the saved one, or the drawn one compressed (and
- * kept as the saved signature when `save` is set).
+ * kept as the saved signature when `save` is set, recording `userId`, the
+ * driver's Clerk user ID, on it; see src/lib/db/owner-stamps.ts).
  */
 export async function resolveSignature(
 	driverEmail: string,
 	value: string,
 	save = false,
+	userId?: string | null,
 ): Promise<ResolvedSignature> {
 	if (value === 'saved') {
 		const saved = await getSavedSignatureDb(driverEmail)
@@ -42,6 +45,12 @@ export async function resolveSignature(
 		}
 		throw error
 	}
-	if (save) await saveSignatureDb(driverEmail, file)
+	if (save) {
+		await saveSignatureDb(driverEmail, file)
+		await recordOwner(
+			{ email: driverEmail, userId },
+			{ table: 'driver_signature' },
+		)
+	}
 	return { ok: true, file }
 }

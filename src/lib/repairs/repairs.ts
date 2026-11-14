@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { recordOwner } from '@/lib/db/owner-stamps'
 import {
 	createRepairDb,
 	deleteRepairDb,
@@ -72,12 +73,16 @@ export type RepairResult =
 			defects?: string[]
 	  }
 
-/** Marks one of the driver's trip defects repaired. */
+/**
+ * Marks one of the driver's trip defects repaired. `userId` (the driver's
+ * Clerk user ID) is recorded on the new repair; see src/lib/db/owner-stamps.ts.
+ */
 export async function recordRepair(
 	driverEmail: string,
 	details: RepairDetails,
 	files: RepairFiles,
 	source: string,
+	userId?: string | null,
 ): Promise<RepairResult> {
 	const parsed = repairDetailsSchema.safeParse(details)
 	if (!parsed.success) {
@@ -149,6 +154,10 @@ export async function recordRepair(
 	})
 	// Nothing saved: another request marked it repaired first.
 	if (!repair) return alreadyRepaired(defect, input.tripId)
+	await recordOwner(
+		{ email: driverEmail, userId },
+		{ table: 'repair', repairId: repair.id },
+	)
 	return { ok: true, repair }
 }
 

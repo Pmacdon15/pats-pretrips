@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { recordOwner } from '@/lib/db/owner-stamps'
 import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
 	createTripDb,
@@ -19,7 +20,12 @@ import { tripDefectStatus } from './repair-tools'
  * tool arguments.
  */
 
-export type McpCaller = { email: string; client: string | null }
+export type McpCaller = {
+	email: string
+	client: string | null
+	/** The Clerk user ID, recorded beside the email on writes; null without one. */
+	userId?: string | null
+}
 
 export type ToolResult = {
 	/** One sentence for the assistant to read first. */
@@ -285,6 +291,18 @@ export async function startTrip(
 				}
 			: null,
 	)
+	await recordOwner(
+		caller,
+		{ table: 'trip', tripId: Number(trip.tripid) },
+		...(signature
+			? [
+					{
+						table: 'trip_signature' as const,
+						tripId: Number(trip.tripid),
+					},
+				]
+			: []),
+	)
 	const signed = signature
 		? "Signed with the driver's saved signature."
 		: input.sign
@@ -417,6 +435,13 @@ export async function updateTrip(
 			isError: true,
 		}
 	}
+	await recordOwner(
+		caller,
+		{ table: 'trip', tripId: input.trip_id },
+		...(signature
+			? [{ table: 'trip_signature' as const, tripId: input.trip_id }]
+			: []),
+	)
 	return {
 		summary: `${hasChanges ? `Updated trip ${input.trip_id}.` : ''}${signature ? `${hasChanges ? ' ' : ''}Signed trip ${input.trip_id} with the driver's saved signature.` : ''}${warning ? ` ${warning}` : ''}`,
 		data: { trip: tripView(trip), ...(warning ? { warning } : {}) },

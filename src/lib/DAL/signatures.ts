@@ -1,5 +1,6 @@
 import { errAsync, okAsync } from 'neverthrow'
-import { getDriverEmail } from '@/lib/auth'
+import { getDriver, getDriverEmail } from '@/lib/auth'
+import { recordOwner } from '@/lib/db/owner-stamps'
 import {
 	deleteSavedSignatureDb,
 	getSavedSignatureDateDb,
@@ -42,8 +43,9 @@ export async function getSignatureStatusDAL(): Promise<SignatureStatus> {
 
 /** Saves the signature the driver drew (a PNG data URL) as their saved one. */
 export async function saveSignatureDAL(dataUrl: string) {
-	const email = await getDriverEmail()
-	if (!email) return errAsync(NOT_SIGNED_IN)
+	const driver = await getDriver()
+	if (!driver) return errAsync(NOT_SIGNED_IN)
+	const { email } = driver
 	const limited = await signatureLimit(email)
 	if (limited) return errAsync(limited)
 	const parsed = schemaSignature.safeParse(dataUrl)
@@ -53,6 +55,7 @@ export async function saveSignatureDAL(dataUrl: string) {
 	try {
 		const file = await compressSignature(fromBase64(parsed.data))
 		const updatedAt = await saveSignatureDb(email, file)
+		await recordOwner(driver, { table: 'driver_signature' })
 		return okAsync({ saved: true, updatedAt } as SignatureStatus)
 	} catch (e) {
 		if (e instanceof FileError) return errAsync({ reason: e.message })
@@ -83,8 +86,9 @@ export async function signTripDAL(data: {
 	signature: string
 	saveSignature?: boolean
 }) {
-	const email = await getDriverEmail()
-	if (!email) return errAsync(NOT_SIGNED_IN)
+	const driver = await getDriver()
+	if (!driver) return errAsync(NOT_SIGNED_IN)
+	const { email } = driver
 	const limited = await signatureLimit(email)
 	if (limited) return errAsync(limited)
 	const parsed = schemaSignTrip.safeParse(data)
@@ -98,6 +102,7 @@ export async function signTripDAL(data: {
 			email,
 			parsed.data.signature,
 			parsed.data.saveSignature,
+			driver.userId,
 		)
 		if (!signed.ok) return errAsync({ reason: signed.message })
 		const trip = await signTripDb(
@@ -111,6 +116,11 @@ export async function signTripDAL(data: {
 				reason: 'This pre-trip is already signed, or older than 24 hours.',
 			} as const)
 		}
+		await recordOwner(
+			driver,
+			{ table: 'trip', tripId: parsed.data.tripId },
+			{ table: 'trip_signature', tripId: parsed.data.tripId },
+		)
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error signing trip: ', e)

@@ -68,12 +68,14 @@ export function callerFrom(
 	const email = authInfo?.extra?.email
 	if (typeof email !== 'string' || !email) return null
 	const fromAuth = authInfo?.extra?.client
+	const userId = authInfo?.extra?.userId
 	return {
 		email,
 		client:
 			clientName ||
 			(typeof fromAuth === 'string' ? fromAuth : null) ||
 			null,
+		userId: typeof userId === 'string' && userId ? userId : null,
 	}
 }
 

@@ -1,6 +1,6 @@
 'use server'
 
-import { getDriverEmail } from '@/lib/auth'
+import { getDriver, getDriverEmail } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import type { Repair } from '@/lib/db/repairs'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
@@ -23,8 +23,9 @@ const field = (form: FormData, name: string) => {
 export async function markDefectRepaired(
 	form: FormData,
 ): Promise<{ value: Repair } | { errorMessage: string }> {
-	const email = await getDriverEmail()
-	if (!email) return { errorMessage: 'Must be logged in' }
+	const driver = await getDriver()
+	if (!driver) return { errorMessage: 'Must be logged in' }
+	const { email } = driver
 	const limited = await rateLimit(REPAIR_UPLOADS, email)
 	if (!limited.ok) {
 		return { errorMessage: rateLimitMessage(limited.retryAfter) }
@@ -57,6 +58,7 @@ export async function markDefectRepaired(
 			},
 			{ invoice, signature: fromBase64(signature) },
 			'web',
+			driver.userId,
 		)
 		if (!result.ok) return { errorMessage: result.message }
 		revalidateDriverTrips(email)

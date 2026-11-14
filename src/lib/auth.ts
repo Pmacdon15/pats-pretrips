@@ -3,10 +3,15 @@ import { EMAIL_FEATURE } from '@/lib/email/config'
 
 /*
  * The signed-in driver, from Clerk. Trips belong to the driver's email, so
- * that's what the app needs; the name is shown on a trip's page.
+ * that's what the app needs; the name is shown on a trip's page. userId is
+ * the Clerk user ID, which never changes: every write also records it on the
+ * row (src/lib/db/owner-stamps.ts), so reads can later move from the email to
+ * it (see docs/clerk-user-id.md).
  */
 
 export type Driver = {
+	/** The Clerk user ID (user_...). */
+	userId: string
 	email: string
 	givenName: string | null
 	familyName: string | null
@@ -16,7 +21,12 @@ export async function getDriver(): Promise<Driver | null> {
 	const user = await currentUser()
 	const email = user?.primaryEmailAddress?.emailAddress
 	if (!user || !email) return null
-	return { email, givenName: user.firstName, familyName: user.lastName }
+	return {
+		userId: user.id,
+		email,
+		givenName: user.firstName,
+		familyName: user.lastName,
+	}
 }
 
 export async function getDriverEmail() {

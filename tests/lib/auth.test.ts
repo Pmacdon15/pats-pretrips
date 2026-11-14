@@ -12,6 +12,7 @@ import {
 
 beforeEach(() => {
 	mocks.currentUser.mockResolvedValue({
+		id: 'user_1',
 		firstName: 'Pat',
 		lastName: null,
 		primaryEmailAddress: { emailAddress: 'pat@x.com' },
@@ -21,6 +22,7 @@ beforeEach(() => {
 describe('the signed-in driver', () => {
 	it("comes from Clerk's current user", async () => {
 		await expect(getDriver()).resolves.toEqual({
+			userId: 'user_1',
 			email: 'pat@x.com',
 			givenName: 'Pat',
 			familyName: null,
@@ -39,7 +41,12 @@ describe('the signed-in driver', () => {
 
 describe('emailing pre-trips', () => {
 	it('names the driver, or uses their email', () => {
-		const pat = { email: 'pat@x.com', givenName: 'Pat', familyName: 'Mac' }
+		const pat = {
+			userId: 'user_1',
+			email: 'pat@x.com',
+			givenName: 'Pat',
+			familyName: 'Mac',
+		}
 		expect(driverName(pat)).toBe('Pat Mac')
 		expect(driverName({ ...pat, givenName: null, familyName: null })).toBe(
 			'pat@x.com',
