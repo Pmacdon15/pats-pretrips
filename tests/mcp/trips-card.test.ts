@@ -125,7 +125,9 @@ describe('trips card', () => {
 		deliver({
 			jsonrpc: '2.0',
 			id: 1,
-			result: { hostContext: { containerDimensions: { maxHeight: 600 } } },
+			result: {
+				hostContext: { containerDimensions: { maxHeight: 600 } },
+			},
 		})
 		await flush()
 		expect(window.document.body.style.maxHeight).toBe('600px')
