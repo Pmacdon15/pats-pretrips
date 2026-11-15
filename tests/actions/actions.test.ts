@@ -167,13 +167,14 @@ describe('getAddress', () => {
 	})
 
 	it('reverse-geocodes the coordinates with Google Maps', async () => {
-		const body = { status: 'OK', results: [place] }
-		ok(body)
+		ok({ status: 'OK', results: [place] })
 
-		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({
+			data: { status: 'OK', results: [place] },
+		})
 		expect(fetchMock).toHaveBeenCalledWith(
-			'https://maps.googleapis.com/maps/api/geocode/json?latlng=51.04473,-114.07109&key=key123',
-			{ cache: 'no-cache' },
+			'https://maps.googleapis.com/maps/api/geocode/json?latlng=51.0447%2C-114.0711&key=key123',
+			{ cache: 'no-cache', signal: expect.any(AbortSignal) },
 		)
 		// A lookup that works logs nothing at all.
 		expect(logged()).toBe('')
@@ -181,6 +182,82 @@ describe('getAddress', () => {
 			expect.objectContaining({ name: 'geocode' }),
 			'pat@x.com',
 		)
+	})
+
+	it.each([
+		[51.04473, -114.07109, '51.0447%2C-114.0711'],
+		[51.044749999, -114.071149999, '51.0447%2C-114.0711'],
+		[51.12345678901234, 0.00004, '51.1235%2C0'],
+		[-0.00001, 179.99999, '0%2C180'],
+	])('rounds (%s, %s) to 4 decimals before asking Google', async (lat, lng, latlng) => {
+		ok({ status: 'OK', results: [place] })
+		await getAddress(lat, lng)
+		expect(String(fetchMock.mock.calls[0][0])).toContain(
+			`?latlng=${latlng}&`,
+		)
+	})
+
+	it("sends nothing of Google's answer but the status and the best address", async () => {
+		ok({
+			status: 'OK',
+			error_message: 'key123 at /geocode/json?latlng=1,2&key=key123',
+			results: [
+				{
+					...place,
+					place_id: 'abc',
+					geometry: { location: { lat: LAT, lng: LNG } },
+					address_components: [],
+				},
+				{ formatted_address: 'Calgary, AB' },
+			],
+			url: 'https://maps.googleapis.com/maps/api/geocode/json?key=key123',
+		})
+		const result = await getAddress(LAT, LNG)
+		expect(result).toEqual({ data: { status: 'OK', results: [place] } })
+		expect(JSON.stringify(result)).not.toContain('key123')
+		expect(JSON.stringify(result)).not.toContain('51.04473')
+	})
+
+	it('gives up on Google after 5 seconds', async () => {
+		// AbortSignal.timeout runs on Node's own timers, which fake timers
+		// don't reach: check it's asked for 5 s, and hand back a real signal
+		// that times out at once, so fetch fails the way it does in production.
+		const realTimeout = AbortSignal.timeout.bind(AbortSignal)
+		const timeout = vi
+			.spyOn(AbortSignal, 'timeout')
+			.mockImplementation(() => realTimeout(1))
+		// A Google that never answers: only the signal ends the request.
+		fetchMock.mockImplementation(
+			(_url: string, init: { signal: AbortSignal }) =>
+				new Promise((_resolve, reject) => {
+					init.signal.addEventListener('abort', () =>
+						reject(init.signal.reason),
+					)
+				}),
+		)
+		try {
+			await expect(getAddress(LAT, LNG)).resolves.toEqual({
+				data: undefined,
+			})
+			expect(timeout).toHaveBeenCalledWith(5000)
+			expect(fetchMock.mock.calls[0][1].signal).toBe(
+				timeout.mock.results[0].value,
+			)
+			expect(vi.mocked(console.error).mock.calls).toEqual([
+				['getAddress: Google did not answer within 5000 ms'],
+			])
+			expectNothingPrivateLogged()
+		} finally {
+			timeout.mockRestore()
+		}
+	})
+
+	it('asks Google every time: nothing is cached on the server', async () => {
+		ok({ status: 'OK', results: [place] })
+		await getAddress(LAT, LNG)
+		await getAddress(LAT, LNG)
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+		expect(mocks.rateLimit).toHaveBeenCalledTimes(2)
 	})
 
 	it("doesn't call Google once the driver is over the limit", async () => {
@@ -203,7 +280,7 @@ describe('getAddress', () => {
 		expect(fetchMock).not.toHaveBeenCalled()
 	})
 
-	it('returns an OK response with no results as is', async () => {
+	it('returns an OK response with no results', async () => {
 		ok({ status: 'OK', results: [] })
 		await expect(getAddress(LAT, LNG)).resolves.toEqual({
 			data: { status: 'OK', results: [] },
@@ -214,10 +291,25 @@ describe('getAddress', () => {
 		expectNothingPrivateLogged()
 	})
 
-	it('returns an OK response with no results field as is', async () => {
-		ok({ status: 'OK' })
+	it.each([
+		{ status: 'OK' },
+		{ status: 'OK', results: [{}] },
+		{ status: 'OK', results: [{ formatted_address: 7 }] },
+	])('returns no address when Google gives none (%j)', async (body) => {
+		ok(body)
 		await expect(getAddress(1, 2)).resolves.toEqual({
-			data: { status: 'OK' },
+			data: { status: 'OK', results: [] },
+		})
+	})
+
+	it.each([
+		'not a status: key123',
+		42,
+		undefined,
+	])("replaces a status that isn't one of Google's codes (%s)", async (status) => {
+		ok({ status, results: [place] })
+		await expect(getAddress(1, 2)).resolves.toEqual({
+			data: { status: 'UNKNOWN_ERROR', results: [] },
 		})
 	})
 
@@ -226,7 +318,10 @@ describe('getAddress', () => {
 		{ status: 'ZERO_RESULTS', results: [] },
 	])('returns a non-OK status ($status) without results', async (body) => {
 		ok(body)
-		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
+		// Only the status: Google's error_message stays on the server.
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({
+			data: { status: body.status, results: [] },
+		})
 		expect(console.error).toHaveBeenCalledWith(
 			`getAddress: Google returned ${body.status}`,
 			body.error_message ?? '',
@@ -239,9 +334,14 @@ describe('getAddress', () => {
 		`The provided API key key123 is invalid for latlng=${LAT}%2C${LNG}`,
 		`Near ${LAT} ${LNG}`,
 	])("keeps the key and position out of Google's message: %s", async (message) => {
-		const body = { status: 'INVALID_REQUEST', error_message: message }
-		ok(body)
-		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
+		ok({ status: 'INVALID_REQUEST', error_message: message })
+		const result = await getAddress(LAT, LNG)
+		expect(result).toEqual({
+			data: { status: 'INVALID_REQUEST', results: [] },
+		})
+		for (const value of PRIVATE) {
+			expect(JSON.stringify(result)).not.toContain(value)
+		}
 		expect(console.error).toHaveBeenCalledWith(
 			'getAddress: Google returned INVALID_REQUEST',
 			expect.stringContaining('[position]'),
