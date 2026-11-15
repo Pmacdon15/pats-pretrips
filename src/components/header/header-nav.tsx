@@ -12,6 +12,19 @@ import {
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 
+/**
+ * The signed-in driver's pages, shown in the header and again in Clerk's
+ * profile menu (the avatar), so every page is a tap away on a phone too.
+ */
+export const NAV_LINKS = [
+	{ href: '/pretrips', label: 'My Trips', icon: ClipboardCheck },
+	{ href: '/vehicles', label: 'Vehicles', icon: Truck },
+	{ href: '/defects', label: 'Defects', icon: Wrench },
+	{ href: '/email', label: 'Email', icon: Mail },
+	{ href: '/signature', label: 'Signature', icon: PenLine },
+	{ href: '/connect', label: 'Connect AI', icon: Bot },
+] as const
+
 /** Sign in, or the signed-in driver's links, from Clerk's client session. */
 export function HeaderNav() {
 	const { isLoaded, isSignedIn } = useAuth()
@@ -92,9 +105,18 @@ export function HeaderNav() {
 				</button>
 			</SignOutButton>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
-				<UserButton
-					appearance={{ elements: { avatarBox: 'size-8' } }}
-				/>
+				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
+					<UserButton.MenuItems>
+						{NAV_LINKS.map(({ href, label, icon: Icon }) => (
+							<UserButton.Link
+								href={href}
+								key={href}
+								label={label}
+								labelIcon={<Icon className="size-4" />}
+							/>
+						))}
+					</UserButton.MenuItems>
+				</UserButton>
 			</div>
 		</nav>
 	)
