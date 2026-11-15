@@ -84,7 +84,7 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-	padding: 12px;
+	padding: 12px 12px 24px;
 }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
