@@ -9,8 +9,10 @@ const mocks = vi.hoisted(() => ({
 	compressInvoice: vi.fn(),
 	compressSignature: vi.fn(),
 	recordOwner: vi.fn(),
+	recordEvents: vi.fn(),
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
+vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/db/trips', () => ({ getTripDb: mocks.getTripDb }))
 vi.mock('@/lib/db/repairs', () => ({
 	listTripRepairsDb: mocks.listTripRepairsDb,
@@ -92,6 +94,49 @@ describe('recordRepair', () => {
 		expect(mocks.recordOwner).toHaveBeenCalledWith(
 			{ email: 'pat@x.com', userId: undefined },
 			{ table: 'repair', repairId: repair().id },
+		)
+		// The audit trail: what was recorded, never the files.
+		expect(mocks.recordEvents).toHaveBeenCalledTimes(1)
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: undefined },
+			{
+				action: 'repair.recorded',
+				source: 'web',
+				tripId: 1,
+				repairId: 7,
+				details: {
+					defect: 'Tires',
+					repaired_on: '2026-01-05',
+					invoice_number: 'INV-1',
+					invoice_attached: true,
+					signature_attached: true,
+				},
+			},
+		)
+	})
+
+	it('records an AI app’s repair under the source it was saved with', async () => {
+		mocks.createRepairDb.mockResolvedValueOnce(
+			repair({
+				defect: 'Tires',
+				has_invoice: false,
+				has_signature: false,
+				invoice_number: null,
+				source: 'AI: Claude',
+			}),
+		)
+		await recordRepair('pat@x.com', details, {}, 'AI: Claude', 'user_1')
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: 'user_1' },
+			expect.objectContaining({
+				action: 'repair.recorded',
+				source: 'AI: Claude',
+				details: expect.objectContaining({
+					invoice_number: null,
+					invoice_attached: false,
+					signature_attached: false,
+				}),
+			}),
 		)
 	})
 
@@ -222,8 +267,9 @@ describe('recordRepair', () => {
 		expect(
 			await recordRepair('pat@x.com', details, {}, 'web', 'user_1'),
 		).toMatchObject({ ok: false, status: 'already_repaired' })
-		// Nothing saved, nothing stamped.
+		// Nothing saved, nothing stamped or recorded.
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('says what is wrong with a file, and rethrows anything else', async () => {
@@ -255,16 +301,56 @@ describe('recordRepair', () => {
 })
 
 describe('undoRepair', () => {
-	it('deletes the driver’s repair', async () => {
-		mocks.deleteRepairDb.mockResolvedValue({ id: 7 })
-		expect(await undoRepair('pat@x.com', 7)).toEqual({ id: 7 })
+	const removed = {
+		id: 7,
+		trip_id: 1,
+		defect: 'Tires',
+		repaired_on: '2026-01-05',
+		invoice_number: 'INV-1',
+		has_signature: true,
+		has_invoice: true,
+		source: 'AI: Claude',
+	}
+
+	it('deletes the driver’s repair, and records what was removed', async () => {
+		mocks.deleteRepairDb.mockResolvedValue(removed)
+		// Callers get what they always did; the rest is for the audit trail.
+		expect(await undoRepair('pat@x.com', 7, 'web', 'user_1')).toEqual({
+			id: 7,
+			trip_id: 1,
+			defect: 'Tires',
+		})
 		expect(mocks.deleteRepairDb).toHaveBeenCalledWith(7, 'pat@x.com')
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: 'user_1' },
+			{
+				action: 'repair.deleted',
+				source: 'web',
+				tripId: 1,
+				repairId: 7,
+				details: {
+					defect: 'Tires',
+					repaired_on: '2026-01-05',
+					invoice_number: 'INV-1',
+					invoice_attached: true,
+					signature_attached: true,
+					recorded_by: 'AI: Claude',
+				},
+			},
+		)
+	})
+
+	it('records nothing when there was nothing to delete', async () => {
+		mocks.deleteRepairDb.mockResolvedValue(undefined)
+		expect(await undoRepair('pat@x.com', 7, 'web')).toBeUndefined()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('ignores ids that cannot exist', async () => {
-		expect(await undoRepair('pat@x.com', 0)).toBeUndefined()
-		expect(await undoRepair('pat@x.com', 1.5)).toBeUndefined()
+		expect(await undoRepair('pat@x.com', 0, 'web')).toBeUndefined()
+		expect(await undoRepair('pat@x.com', 1.5, 'web')).toBeUndefined()
 		expect(mocks.deleteRepairDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 })
 

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	resolveSignature: vi.fn(),
 	rateLimit: vi.fn(),
 	recordOwner: vi.fn(),
+	recordEvents: vi.fn(),
 }))
 vi.mock('@/lib/rate-limit', async (original) => ({
 	...(await original<typeof import('@/lib/rate-limit')>()),
@@ -29,7 +30,14 @@ vi.mock('@/lib/auth', () => ({
 	},
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
-vi.mock('@/lib/db/trips', () => ({
+// The real event builder, with the insert itself mocked.
+vi.mock('@/lib/db/audit-events', async (original) => ({
+	...(await original<typeof import('@/lib/db/audit-events')>()),
+	recordEvents: mocks.recordEvents,
+}))
+vi.mock('@/lib/db/trips', async (original) => ({
+	CORE_TRIP_FIELDS: (await original<typeof import('@/lib/db/trips')>())
+		.CORE_TRIP_FIELDS,
 	createTripDb: mocks.createTripDb,
 	getTripDefectsDb: mocks.getTripDefectsDb,
 	updateTripDb: mocks.updateTripDb,
@@ -117,6 +125,47 @@ describe('addTripDAL', () => {
 			{ table: 'trip', tripId: 1 },
 			{ table: 'trip_signature', tripId: 1 },
 		)
+		// The audit trail: the new trip, and its signing, from the web app.
+		expect(mocks.recordEvents).toHaveBeenCalledTimes(1)
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{
+				action: 'trip.created',
+				source: 'web',
+				tripId: 1,
+				details: { signed: true, defects: [], remarks_length: 8 },
+			},
+			{
+				action: 'trip.signed',
+				source: 'web',
+				tripId: 1,
+				details: { signature: 'saved' },
+			},
+		)
+	})
+
+	it('records the defects found and a drawn signature', async () => {
+		mocks.createTripDb.mockResolvedValue({ tripid: 2 })
+		await addTripDAL({
+			...form,
+			defects: 'Tires, Lights',
+			signature: 'data:image/png;base64,aGk=',
+		})
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				action: 'trip.created',
+				details: {
+					signed: true,
+					defects: ['Tires', 'Lights'],
+					remarks_length: 8,
+				},
+			}),
+			expect.objectContaining({
+				action: 'trip.signed',
+				details: { signature: 'drawn' },
+			}),
+		)
 	})
 
 	it('saves only the validated fields', async () => {
@@ -150,6 +199,7 @@ describe('addTripDAL', () => {
 		})
 		expect(mocks.createTripDb).not.toHaveBeenCalled()
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('requires a signed-in driver', async () => {
@@ -179,6 +229,7 @@ describe('addTripDAL', () => {
 		expect(result._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not save your trip. Please try again.',
 		})
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 })
 
@@ -188,7 +239,7 @@ describe('addOnRouteDefectsDAL', () => {
 	it('adds the cleaned-up defects to the trip', async () => {
 		const trip = { tripid: 3 }
 		mocks.getTripDefectsDb.mockResolvedValue('Cab')
-		mocks.updateTripDb.mockResolvedValue(trip)
+		mocks.updateTripDb.mockResolvedValue({ trip, before: {} })
 
 		const result = await addOnRouteDefectsDAL(defects)
 
@@ -201,6 +252,19 @@ describe('addOnRouteDefectsDAL', () => {
 		expect(mocks.recordOwner).toHaveBeenCalledWith(
 			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
 			{ table: 'trip', tripId: 3 },
+		)
+		// The defects' names, and the remark only by its length.
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
+			{
+				action: 'trip.defects_added',
+				source: 'web',
+				tripId: 3,
+				details: {
+					defects_added: ['Horn', 'Wipers'],
+					remarks_added_length: 4,
+				},
+			},
 		)
 	})
 
@@ -228,11 +292,15 @@ describe('addOnRouteDefectsDAL', () => {
 		})
 		expect(mocks.updateTripDb).not.toHaveBeenCalled()
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('matches whole defects, not substrings', async () => {
 		mocks.getTripDefectsDb.mockResolvedValue('Air Horn')
-		mocks.updateTripDb.mockResolvedValue({ tripid: 3 })
+		mocks.updateTripDb.mockResolvedValue({
+			trip: { tripid: 3 },
+			before: {},
+		})
 
 		const result = await addOnRouteDefectsDAL(defects)
 
@@ -241,7 +309,10 @@ describe('addOnRouteDefectsDAL', () => {
 
 	it('saves the trimmed remark, and no defects when none are left', async () => {
 		mocks.getTripDefectsDb.mockResolvedValue('Cab')
-		mocks.updateTripDb.mockResolvedValue({ tripid: 3 })
+		mocks.updateTripDb.mockResolvedValue({
+			trip: { tripid: 3 },
+			before: {},
+		})
 
 		await addOnRouteDefectsDAL({
 			defects: ' , , ',
@@ -252,6 +323,12 @@ describe('addOnRouteDefectsDAL', () => {
 		expect(mocks.updateTripDb).toHaveBeenCalledWith(3, 'pat@x.com', {
 			addDefects: undefined,
 			addRemarks: 'Loud',
+		})
+		expect(mocks.recordEvents).toHaveBeenCalledWith(expect.anything(), {
+			action: 'trip.remarks_added',
+			source: 'web',
+			tripId: 3,
+			details: { remarks_added_length: 4 },
 		})
 	})
 
@@ -297,6 +374,7 @@ describe('addOnRouteDefectsDAL', () => {
 
 		expect(result._unsafeUnwrapErr()).toEqual({ reason })
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('says when the trip is gone or too old', async () => {
@@ -309,6 +387,7 @@ describe('addOnRouteDefectsDAL', () => {
 			reason: 'Could not update this trip. It may be older than 24 hours.',
 		})
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('reports a database error', async () => {

@@ -239,21 +239,45 @@ export async function getRepairFileDb(
 		: undefined
 }
 
-/** Removes a repair, so the defect shows as open again. */
+/** What deleteRepairDb removed: the repair's details, never its files. */
+export type DeletedRepair = {
+	id: number
+	trip_id: number
+	defect: string
+	/** YYYY-MM-DD */
+	repaired_on: string
+	invoice_number: string | null
+	has_signature: boolean
+	has_invoice: boolean
+	source: string
+}
+
+/**
+ * Removes a repair, so the defect shows as open again. The invoice and the
+ * mechanic's signature go with it, for good; the answer says what was there
+ * (for the audit trail), not the files themselves.
+ */
 export async function deleteRepairDb(
 	repairId: number,
 	driverEmail: string,
-): Promise<{ id: number; trip_id: number; defect: string } | undefined> {
+): Promise<DeletedRepair | undefined> {
 	const [row] = await sql()`
         DELETE FROM pt_defect_repairs
         WHERE id = ${repairId} AND driver_email = ${driverEmail}
-        RETURNING id, trip_id, defect
+        RETURNING id, trip_id, defect, repaired_on, invoice_number, source,
+            signature IS NOT NULL AS has_signature,
+            invoice IS NOT NULL AS has_invoice
     `
 	return row
 		? {
 				id: Number(row.id),
 				trip_id: Number(row.trip_id),
 				defect: String(row.defect),
+				repaired_on: date(row.repaired_on),
+				invoice_number: (row.invoice_number as string | null) ?? null,
+				has_signature: Boolean(row.has_signature),
+				has_invoice: Boolean(row.has_invoice),
+				source: String(row.source ?? 'web'),
 			}
 		: undefined
 }

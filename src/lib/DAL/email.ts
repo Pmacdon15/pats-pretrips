@@ -5,6 +5,8 @@ import {
 	driverName,
 	getDriver,
 } from '@/lib/auth'
+import { recordEvents } from '@/lib/db/audit-events'
+import type { EmailSendKind } from '@/lib/db/email-sends'
 import {
 	type EmailSettings,
 	getEmailSettingsDb,
@@ -91,6 +93,16 @@ export async function saveEmailSettingsDAL(data: {
 			timeZone: parsed.data.timeZone ?? null,
 		})
 		await recordOwner(driver, { table: 'email_settings' })
+		// How many recipients, never their addresses.
+		await recordEvents(driver, {
+			action: 'email.settings_saved',
+			source: 'web',
+			details: {
+				recipient_count: settings.recipients.length,
+				auto_send: settings.autoSend,
+				time_zone: settings.timeZone,
+			},
+		})
 		return okAsync(settings)
 	} catch (e) {
 		console.error('Db error saving email settings: ', errorForLog(e))
@@ -100,11 +112,29 @@ export async function saveEmailSettingsDAL(data: {
 	}
 }
 
-/** Records the driver's Clerk user ID on a logged send (none without a log). */
-async function recordEmailSendOwner(driver: Driver, sendId: string | null) {
+/**
+ * After an email went out: records the driver's Clerk user ID on the logged
+ * send (none without a log), and the send in the audit trail, which also
+ * keeps sends the log couldn't (and outlives the log's pruning).
+ */
+async function recordEmailSent(
+	driver: Driver,
+	sendId: string | null,
+	send: { tripId: number | null; recipients: number; kind: EmailSendKind },
+) {
 	if (sendId !== null) {
 		await recordOwner(driver, { table: 'email_send', sendId })
 	}
+	await recordEvents(driver, {
+		action: 'email.sent',
+		source: 'web',
+		tripId: send.tripId,
+		details: {
+			kind: send.kind,
+			recipient_count: send.recipients,
+			send_id: sendId,
+		},
+	})
 }
 
 const pdfDriver = (driver: Driver) => ({
@@ -187,7 +217,11 @@ export async function emailTripDAL(data: {
 			throw e
 		}
 		await confirmEmailSend(slot.id, messageId)
-		await recordEmailSendOwner(driver, slot.id)
+		await recordEmailSent(driver, slot.id, {
+			tripId: parsed.data.tripId,
+			recipients: parsed.data.recipients.length,
+			kind: 'manual',
+		})
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
 		console.error('Error emailing trip: ', errorForLog(e))
@@ -211,12 +245,13 @@ export async function prepareAutoEmailDAL() {
 	if (!settings.autoSend || settings.recipients.length === 0) return null
 
 	return async (trip: Trip) => {
-		// Over the send limits, the trip is saved but not emailed.
-		const slot = await reserveEmailSend(driver.email, {
+		const send = {
 			tripId: trip.tripid ?? null,
 			recipients: settings.recipients.length,
-			kind: 'auto',
-		})
+			kind: 'auto' as const,
+		}
+		// Over the send limits, the trip is saved but not emailed.
+		const slot = await reserveEmailSend(driver.email, send)
 		if (!slot.ok) {
 			console.warn(
 				`Not auto-emailing trip ${trip.tripid}: the driver is over the email send limit`,
@@ -233,7 +268,7 @@ export async function prepareAutoEmailDAL() {
 				await tripSignature(trip, driver.email),
 			)
 			await confirmEmailSend(slot.id, messageId)
-			await recordEmailSendOwner(driver, slot.id)
+			await recordEmailSent(driver, slot.id, send)
 		} catch (e) {
 			await releaseEmailSend(slot.id)
 			console.error('Error auto-emailing trip: ', errorForLog(e))

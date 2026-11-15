@@ -6,8 +6,10 @@ const mocks = vi.hoisted(() => ({
 	saveSignatureDb: vi.fn(),
 	compressSignature: vi.fn(),
 	recordOwner: vi.fn(),
+	recordEvents: vi.fn(),
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
+vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/db/signatures', () => ({
 	getAiSigningAllowedDb: mocks.getAiSigningAllowedDb,
 	getSavedSignatureDb: mocks.getSavedSignatureDb,
@@ -64,6 +66,7 @@ describe('resolveSignature', () => {
 		expect(mocks.saveSignatureDb).not.toHaveBeenCalled()
 
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 
 		await resolveSignature('pat@x.com', DRAWN, true, 'user_1')
 		expect(mocks.saveSignatureDb).toHaveBeenCalledWith('pat@x.com', PNG)
@@ -72,6 +75,24 @@ describe('resolveSignature', () => {
 			{ email: 'pat@x.com', userId: 'user_1' },
 			{ table: 'driver_signature' },
 		)
+		// And the save is in the audit trail (not the image).
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			{ email: 'pat@x.com', userId: 'user_1' },
+			{
+				action: 'signature.saved',
+				source: 'web',
+				details: { while_signing: true },
+			},
+		)
+	})
+
+	it('records nothing for the saved signature, or a bad image', async () => {
+		mocks.getSavedSignatureDb.mockResolvedValue({ ...PNG, updatedAt: 'x' })
+		await resolveSignature('pat@x.com', 'saved', true)
+		mocks.compressSignature.mockRejectedValueOnce(new FileError('bad'))
+		await resolveSignature('pat@x.com', DRAWN, true)
+		expect(mocks.saveSignatureDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it("says what's wrong with a bad image, and rethrows anything else", async () => {

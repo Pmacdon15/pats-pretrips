@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { recordEvents, tripUpdateEvent } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
@@ -395,6 +396,31 @@ export async function startTrip(
 			: []),
 	)
 	const status = signing ? signing.status : 'not_requested'
+	const source = signatureSource(caller)
+	const tripId = Number(trip.tripid)
+	await recordEvents(
+		caller,
+		{
+			action: 'trip.created',
+			source,
+			tripId,
+			details: {
+				signed: Boolean(signature),
+				signing: status,
+				defects,
+				remarks_length: input.remarks.length,
+			},
+		},
+		// AI apps only ever sign with the driver's saved signature.
+		signature
+			? {
+					action: 'trip.signed',
+					source,
+					tripId,
+					details: { signature: 'saved' },
+				}
+			: null,
+	)
 	const signed =
 		status === 'allowed'
 			? "Signed with the driver's saved signature."
@@ -599,7 +625,7 @@ export async function updateTrip(
 				)
 	const updated = hasChanges
 		? await updateTripDb(input.trip_id, caller.email, changes)
-		: current
+		: undefined
 	// The database refused: the trip was signed after it was read.
 	if (updated === 'signed_locked') {
 		return signedLocked(input.trip_id, null, null)
@@ -608,16 +634,24 @@ export async function updateTrip(
 	if (updated === 'defects_too_long' || updated === 'remarks_too_long') {
 		return tooLong(input.trip_id, updated, current)
 	}
-	let trip = updated
+	const source = signatureSource(caller)
+	// What the update changed, from the row as the database overwrote it
+	// (not `current`, which is cached and could be out of date).
+	const edit = updated
+		? tripUpdateEvent(
+				updated.before,
+				updated.trip,
+				{ defects: added, remarks: changes.addRemarks },
+				source,
+			)
+		: null
+	let trip = hasChanges ? updated?.trip : current
 	if (trip && signature) {
-		trip = await signTripDb(
-			input.trip_id,
-			caller.email,
-			signature,
-			signatureSource(caller),
-		)
+		trip = await signTripDb(input.trip_id, caller.email, signature, source)
 	}
 	if (!trip) {
+		// The update may have been saved before signing found the trip too old.
+		await recordEvents(caller, edit)
 		return {
 			summary: `Trip ${input.trip_id} can no longer be changed (it just passed 24 hours).`,
 			data: { status: 'too_old' },
@@ -630,6 +664,18 @@ export async function updateTrip(
 		...(signature
 			? [{ table: 'trip_signature' as const, tripId: input.trip_id }]
 			: []),
+	)
+	await recordEvents(
+		caller,
+		edit,
+		signature
+			? {
+					action: 'trip.signed',
+					source,
+					tripId: input.trip_id,
+					details: { signature: 'saved' },
+				}
+			: null,
 	)
 	return {
 		summary: `${hasChanges ? `Updated trip ${input.trip_id}.` : ''}${signature ? `${hasChanges ? ' ' : ''}Signed trip ${input.trip_id} with the driver's saved signature.` : ''}${warning ? ` ${warning}` : ''}`,

@@ -25,7 +25,8 @@ import { errorForLog } from '@/lib/log'
  * - runs after the response where Next.js allows it (`after()`), so it adds
  *   no time to the driver's action; elsewhere it's awaited.
  *
- * Remove this module once reads and writes use clerk_user_id directly.
+ * Remove this module once reads and writes use clerk_user_id directly
+ * (moving afterResponse, which the audit trail uses too).
  */
 
 export const OWNER_MIGRATION = 'src/lib/sql/2026-11-18-clerk-user-id.sql'
@@ -236,14 +237,22 @@ export async function recordOwner(
 ): Promise<void> {
 	const { email, userId } = owner
 	if (!userId || stamps.length === 0) return
-	const task = async () => {
+	await afterResponse(async () => {
 		await Promise.all(stamps.map((stamp) => stampOne(stamp, email, userId)))
-	}
+	})
+}
+
+/**
+ * Runs `task` after the response when called in a server action or route
+ * handler (Vercel keeps the function alive until `after` callbacks finish),
+ * otherwise now, awaited. Shared with src/lib/db/audit-events.ts. `task`
+ * must not throw.
+ */
+export async function afterResponse(task: () => Promise<void>) {
 	try {
-		// Vercel keeps the function alive until `after` callbacks finish.
 		after(task)
 	} catch {
-		// Outside a request (or where `after` isn't allowed): stamp now.
+		// Outside a request (or where `after` isn't allowed): run it now.
 		await task()
 	}
 }

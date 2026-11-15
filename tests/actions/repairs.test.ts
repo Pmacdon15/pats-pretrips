@@ -149,7 +149,13 @@ describe('undoDefectRepair', () => {
 	it('removes the repair and refreshes the driver’s trips', async () => {
 		mocks.undoRepair.mockResolvedValue({ id: 7, trip_id: 1, defect: 'Cab' })
 		expect(await undoDefectRepair(7)).toEqual({ value: { id: 7 } })
-		expect(mocks.undoRepair).toHaveBeenCalledWith('pat@x.com', 7)
+		// From the web app, by the signed-in driver (for the audit trail).
+		expect(mocks.undoRepair).toHaveBeenCalledWith(
+			'pat@x.com',
+			7,
+			'web',
+			'user_1',
+		)
 		expect(mocks.updateTag).toHaveBeenCalledWith('trips:pat@x.com')
 	})
 

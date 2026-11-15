@@ -226,14 +226,58 @@ describe('getRepairFileDb', () => {
 
 describe('deleteRepairDb', () => {
 	it('deletes only the driver’s repair', async () => {
-		sql.respond(() => [{ id: '7', trip_id: '1', defect: 'Cab' }])
+		sql.respond(() => [
+			{
+				id: '7',
+				trip_id: '1',
+				defect: 'Cab',
+				repaired_on: '2026-01-05',
+				invoice_number: 'INV-1',
+				source: 'AI: Claude',
+				has_signature: true,
+				has_invoice: true,
+			},
+		])
 		expect(await deleteRepairDb(7, 'pat@x.com')).toEqual({
 			id: 7,
 			trip_id: 1,
 			defect: 'Cab',
+			repaired_on: '2026-01-05',
+			invoice_number: 'INV-1',
+			has_signature: true,
+			has_invoice: true,
+			source: 'AI: Claude',
 		})
 		expect(sql.queries()[0].values).toEqual([7, 'pat@x.com'])
 		sql.respond(() => [])
 		expect(await deleteRepairDb(7, 'pat@x.com')).toBeUndefined()
+	})
+
+	it('answers what it removed, never the files themselves', async () => {
+		sql.respond(() => [
+			{
+				id: 8,
+				trip_id: 2,
+				defect: 'Lights',
+				repaired_on: new Date('2026-01-06T00:00:00Z'),
+				invoice_number: null,
+				has_signature: false,
+				has_invoice: false,
+			},
+		])
+		expect(await deleteRepairDb(8, 'pat@x.com')).toEqual({
+			id: 8,
+			trip_id: 2,
+			defect: 'Lights',
+			repaired_on: '2026-01-06',
+			invoice_number: null,
+			has_signature: false,
+			has_invoice: false,
+			source: 'web',
+		})
+		const { text } = sql.queries()[0]
+		expect(text).toBe(
+			'DELETE FROM pt_defect_repairs WHERE id = ? AND driver_email = ? RETURNING id, trip_id, defect, repaired_on, invoice_number, source, signature IS NOT NULL AS has_signature, invoice IS NOT NULL AS has_invoice',
+		)
 	})
 })

@@ -1,6 +1,7 @@
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
 import { getDriver } from '@/lib/auth'
+import { recordEvents, tripUpdateEvent } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
@@ -17,6 +18,7 @@ import {
 	STORED_DEFECTS_MAX,
 	STORED_REMARKS_MAX,
 } from '../trip-limits'
+import { parseDefects } from '../utils-defects'
 import { schemaAddDefects, schemaAddTripForm } from '../ZOD/schemas'
 
 export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
@@ -60,6 +62,26 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 			driver,
 			{ table: 'trip', tripId },
 			{ table: 'trip_signature', tripId },
+		)
+		const kind = signature === 'saved' ? 'saved' : 'drawn'
+		await recordEvents(
+			driver,
+			{
+				action: 'trip.created',
+				source: 'web',
+				tripId,
+				details: {
+					signed: true,
+					defects: parseDefects(fields.defects),
+					remarks_length: fields.remarks.length,
+				},
+			},
+			{
+				action: 'trip.signed',
+				source: 'web',
+				tripId,
+				details: { signature: kind },
+			},
 		)
 		return okAsync(trip)
 	} catch (e) {
@@ -117,17 +139,25 @@ export async function addOnRouteDefectsDAL(
 
 		// Appended to the trip's defects and remarks; refused, changing
 		// nothing, if either would pass its limit (src/lib/trip-limits.ts).
-		const trip = await updateTripDb(tripId, driverEmail, {
+		const updated = await updateTripDb(tripId, driverEmail, {
 			addDefects: cleanDefectsToAdd || undefined,
 			addRemarks: remarks,
 		})
-		if (trip === undefined) {
+		if (updated === undefined) {
 			return errAsync({ reason: TOO_OLD } as const)
 		}
-		if (typeof trip === 'string') {
-			return errAsync({ reason: REFUSED[trip] } as const)
+		if (typeof updated === 'string') {
+			return errAsync({ reason: REFUSED[updated] } as const)
 		}
+		const { trip, before } = updated
 		await recordOwner(driver, { table: 'trip', tripId })
+		const event = tripUpdateEvent(
+			before,
+			trip,
+			{ defects: defectsArray, remarks },
+			'web',
+		)
+		await recordEvents(driver, event)
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error updating trip:', errorForLog(e))

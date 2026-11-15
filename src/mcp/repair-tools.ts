@@ -188,6 +188,10 @@ export const markDefectRepairedInputSchema = z.object({
 		),
 })
 
+/** Who recorded a repair, as pt_defect_repairs.source keeps it for AI apps. */
+export const repairSource = (caller: McpCaller) =>
+	caller.client ? `AI: ${caller.client}`.slice(0, 60) : 'AI assistant'
+
 export async function markDefectRepaired(
 	caller: McpCaller,
 	args: z.infer<typeof markDefectRepairedInputSchema>,
@@ -229,7 +233,7 @@ export async function markDefectRepaired(
 			notes: input.notes,
 		},
 		files,
-		caller.client ? `AI: ${caller.client}`.slice(0, 60) : 'AI assistant',
+		repairSource(caller),
 		caller.userId,
 	)
 	if (!result.ok) {
@@ -269,7 +273,12 @@ export async function undoDefectRepair(
 	args: z.infer<typeof undoDefectRepairInputSchema>,
 ): Promise<ToolResult> {
 	const input = undoDefectRepairInputSchema.parse(args)
-	const removed = await undoRepair(caller.email, input.repair_id)
+	const removed = await undoRepair(
+		caller.email,
+		input.repair_id,
+		repairSource(caller),
+		caller.userId,
+	)
 	if (!removed) {
 		return {
 			summary: `Repair ${input.repair_id} wasn't found. Use list_defects with status "repaired" to find it.`,

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 	resolveSignature: vi.fn(),
 	rateLimit: vi.fn(),
 	recordOwner: vi.fn(),
+	recordEvents: vi.fn(),
 	setAiSigningDb: vi.fn(),
 	aiSigningAllowed: vi.fn(),
 	warnMissingAiSigningColumn: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('@/lib/auth', () => ({
 	},
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
+vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/db/signatures', () => ({
 	getSavedSignatureDateDb: mocks.getSavedSignatureDateDb,
 	saveSignatureDb: mocks.saveSignatureDb,
@@ -58,6 +60,10 @@ import {
 import { FileError } from '@/lib/repairs/compress'
 
 const PNG = { bytes: Buffer.from('png'), type: 'image/png' }
+const DRIVER = expect.objectContaining({
+	email: 'pat@x.com',
+	userId: 'user_1',
+})
 const DRAWN = 'data:image/png;base64,aGk='
 const WHEN = '2026-11-15T10:00:00.000Z'
 
@@ -150,6 +156,10 @@ describe('saveSignatureDAL', () => {
 			expect.objectContaining({ email: 'pat@x.com', userId: 'user_1' }),
 			{ table: 'driver_signature' },
 		)
+		expect(mocks.recordEvents).toHaveBeenCalledWith(DRIVER, {
+			action: 'signature.saved',
+			source: 'web',
+		})
 	})
 
 	it("keeps the driver's AI signing choice when replacing it", async () => {
@@ -180,6 +190,7 @@ describe('saveSignatureDAL', () => {
 		expect((await saveSignatureDAL(DRAWN))._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not save your signature. Please try again.',
 		})
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('requires a signed-in driver', async () => {
@@ -198,6 +209,16 @@ describe('deleteSignatureDAL', () => {
 			allowAiSigning: false,
 		})
 		expect(mocks.deleteSavedSignatureDb).toHaveBeenCalledWith('pat@x.com')
+		expect(mocks.recordEvents).toHaveBeenCalledWith(DRIVER, {
+			action: 'signature.deleted',
+			source: 'web',
+		})
+	})
+
+	it('records nothing when there was no saved signature to delete', async () => {
+		mocks.deleteSavedSignatureDb.mockResolvedValueOnce(false)
+		expect((await deleteSignatureDAL()).isOk()).toBe(true)
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('reports a failure, and needs a signed-in driver', async () => {
@@ -205,6 +226,7 @@ describe('deleteSignatureDAL', () => {
 		expect((await deleteSignatureDAL())._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not delete your signature. Please try again.',
 		})
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 		mocks.email.mockResolvedValue(null)
 		expect((await deleteSignatureDAL())._unsafeUnwrapErr()).toEqual({
 			reason: 'Must be logged in',
@@ -232,6 +254,24 @@ describe('setAiSigningDAL', () => {
 			'pat@x.com',
 			false,
 		)
+		expect(mocks.recordEvents.mock.calls).toEqual([
+			[
+				DRIVER,
+				{
+					action: 'signature.ai_signing_changed',
+					source: 'web',
+					details: { allow_ai_signing: true },
+				},
+			],
+			[
+				DRIVER,
+				{
+					action: 'signature.ai_signing_changed',
+					source: 'web',
+					details: { allow_ai_signing: false },
+				},
+			],
+		])
 	})
 
 	it.each([
@@ -252,6 +292,7 @@ describe('setAiSigningDAL', () => {
 		expect((await setAiSigningDAL(true))._unsafeUnwrapErr()).toEqual({
 			reason: 'Save a signature first, then choose whether AI apps can sign with it.',
 		})
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it.each([
@@ -265,6 +306,7 @@ describe('setAiSigningDAL', () => {
 			reason: "This setting isn't available yet. Please try again later.",
 		})
 		expect(mocks.warnMissingAiSigningColumn).toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it('reports any other failure', async () => {
@@ -310,6 +352,23 @@ describe('signTripDAL', () => {
 			{ table: 'trip', tripId: 1 },
 			{ table: 'trip_signature', tripId: 1 },
 		)
+		expect(mocks.recordEvents).toHaveBeenCalledWith(DRIVER, {
+			action: 'trip.signed',
+			source: 'web',
+			tripId: 1,
+			details: { signature: 'saved' },
+		})
+	})
+
+	it('records a drawn signature as drawn', async () => {
+		await signTripDAL({ tripId: 1, signature: DRAWN })
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			DRIVER,
+			expect.objectContaining({
+				action: 'trip.signed',
+				details: { signature: 'drawn' },
+			}),
+		)
 	})
 
 	it('checks the input and the signature', async () => {
@@ -328,6 +387,7 @@ describe('signTripDAL', () => {
 			reason: 'No saved signature',
 		})
 		expect(mocks.signTripDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 
 	it("says when the trip can't be signed, or signing failed", async () => {
@@ -336,6 +396,7 @@ describe('signTripDAL', () => {
 			reason: 'This pre-trip is already signed, or older than 24 hours.',
 		})
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 		mocks.signTripDb.mockRejectedValueOnce(new Error('down'))
 		expect((await signTripDAL(data))._unsafeUnwrapErr()).toEqual({
 			reason: 'Could not sign the pre-trip. Please try again.',

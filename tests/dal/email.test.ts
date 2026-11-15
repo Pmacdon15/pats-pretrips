@@ -15,8 +15,10 @@ const mocks = vi.hoisted(() => ({
 	confirmEmailSend: vi.fn(),
 	releaseEmailSend: vi.fn(),
 	recordOwner: vi.fn(),
+	recordEvents: vi.fn(),
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
+vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/email/send-log', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@/lib/email/send-log')>()),
 	reserveEmailSend: mocks.reserveEmailSend,
@@ -406,5 +408,85 @@ describe('recording the Clerk user on writes', () => {
 		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
 		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
+	})
+})
+
+describe('the audit trail', () => {
+	it('records saved email settings: how many recipients, not who', async () => {
+		await saveEmailSettingsDAL({
+			recipients: 'a@x.com, b@x.com',
+			autoSend: true,
+			timeZone: 'America/Toronto',
+		})
+		expect(mocks.recordEvents).toHaveBeenCalledWith(pat, {
+			action: 'email.settings_saved',
+			source: 'web',
+			details: {
+				recipient_count: 2,
+				auto_send: true,
+				time_zone: 'America/Toronto',
+			},
+		})
+		expect(JSON.stringify(mocks.recordEvents.mock.calls)).not.toContain(
+			'a@x.com',
+		)
+	})
+
+	it('records nothing when the settings were refused or not saved', async () => {
+		await saveEmailSettingsDAL({ recipients: 'nope', autoSend: true })
+		mocks.saveEmailSettingsDb.mockRejectedValue(new Error('down'))
+		await saveEmailSettingsDAL({ recipients: 'a@x.com', autoSend: true })
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('records an emailed trip, with the send log row', async () => {
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com, b@x.com' })
+		expect(mocks.recordEvents).toHaveBeenCalledWith(pat, {
+			action: 'email.sent',
+			source: 'web',
+			tripId: 1,
+			details: { kind: 'manual', recipient_count: 2, send_id: '41' },
+		})
+		expect(JSON.stringify(mocks.recordEvents.mock.calls)).not.toContain(
+			'a@x.com',
+		)
+	})
+
+	it('records an auto-emailed trip', async () => {
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip())
+		expect(mocks.recordEvents).toHaveBeenCalledWith(pat, {
+			action: 'email.sent',
+			source: 'web',
+			tripId: 1,
+			details: { kind: 'auto', recipient_count: 1, send_id: '41' },
+		})
+	})
+
+	it('records a send the send log could not keep', async () => {
+		mocks.reserveEmailSend.mockResolvedValue({ ok: true, id: null })
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			pat,
+			expect.objectContaining({
+				action: 'email.sent',
+				details: { kind: 'manual', recipient_count: 1, send_id: null },
+			}),
+		)
+	})
+
+	it('records nothing for a send that failed or was over the limit', async () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => {})
+		mocks.sendTripEmail.mockRejectedValue(new Error('SES down'))
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip())
+		mocks.reserveEmailSend.mockResolvedValue({
+			ok: false,
+			retryInSeconds: 60,
+		})
+		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
+		await send?.(trip())
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
 	})
 })
