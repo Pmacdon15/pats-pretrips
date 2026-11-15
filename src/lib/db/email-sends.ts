@@ -73,8 +73,9 @@ export async function recentEmailSendsDb(
 	}))
 }
 
-/** Marks a reserved send as accepted by SES. */
+/** Marks the driver's reserved send as accepted by SES. */
 export async function confirmEmailSendDb(
+	driverEmail: string,
 	id: string,
 	sesMessageId: string | null,
 ) {
@@ -82,14 +83,15 @@ export async function confirmEmailSendDb(
 	await sql`
 		UPDATE pt_email_sends
 		SET status = 'sent', ses_message_id = ${sesMessageId}, sent_at = NOW()
-		WHERE id = ${id}
+		WHERE id = ${id} AND driver_email = ${driverEmail}
 	`
 }
 
-/** Removes a reserved send that didn't go out, so it doesn't count. */
-export async function releaseEmailSendDb(id: string) {
+/** Removes the driver's reserved send that didn't go out, so it doesn't count. */
+export async function releaseEmailSendDb(driverEmail: string, id: string) {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	await sql`
-		DELETE FROM pt_email_sends WHERE id = ${id} AND status = 'reserved'
+		DELETE FROM pt_email_sends
+		WHERE id = ${id} AND driver_email = ${driverEmail} AND status = 'reserved'
 	`
 }

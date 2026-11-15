@@ -252,7 +252,7 @@ describe('emailTripDAL', () => {
 	it('reports a failed send, and frees its place in the log', async () => {
 		mocks.sendTripEmail.mockRejectedValue(new Error('SES'))
 		expect(await reason(emailTripDAL(data))).toMatch(/Could not send/)
-		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('pat@x.com', '41')
 		expect(mocks.confirmEmailSend).not.toHaveBeenCalled()
 	})
 
@@ -263,7 +263,11 @@ describe('emailTripDAL', () => {
 			recipients: 2,
 			kind: 'manual',
 		})
-		expect(mocks.confirmEmailSend).toHaveBeenCalledWith('41', 'msg-1')
+		expect(mocks.confirmEmailSend).toHaveBeenCalledWith(
+			'pat@x.com',
+			'41',
+			'msg-1',
+		)
 		expect(mocks.releaseEmailSend).not.toHaveBeenCalled()
 	})
 
@@ -303,7 +307,11 @@ describe('prepareAutoEmailDAL', () => {
 			recipients: 1,
 			kind: 'auto',
 		})
-		expect(mocks.confirmEmailSend).toHaveBeenCalledWith('41', 'msg-1')
+		expect(mocks.confirmEmailSend).toHaveBeenCalledWith(
+			'pat@x.com',
+			'41',
+			'msg-1',
+		)
 	})
 
 	it('logs a trip with no id without one', async () => {
@@ -336,7 +344,7 @@ describe('prepareAutoEmailDAL', () => {
 		await expect(send?.(trip())).resolves.toBeUndefined()
 		expect(mocks.sendTripEmail.mock.calls[0][3]).toBeUndefined()
 		expect(console.error).toHaveBeenCalled()
-		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('pat@x.com', '41')
 		expect(mocks.confirmEmailSend).not.toHaveBeenCalled()
 	})
 
@@ -404,7 +412,7 @@ describe('recording the Clerk user on writes', () => {
 	it('stamps nothing for a send that failed', async () => {
 		mocks.sendTripEmail.mockRejectedValue(new Error('SES down'))
 		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
-		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('41')
+		expect(mocks.releaseEmailSend).toHaveBeenCalledWith('pat@x.com', '41')
 		expect(mocks.recordOwner).not.toHaveBeenCalled()
 	})
 })

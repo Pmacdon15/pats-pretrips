@@ -124,6 +124,8 @@ The suite is split into Vitest projects (see `vitest.config.mts`):
 - `app`: `tests/app`, covering pages, the layout, `proxy.ts` and the auth route.
 - `build`: `tests/build/static-shell.test.ts`, which reads `.next/` after `next build`.
 
+Every query on a driver-owned table must filter by the driver (`driverEmail = ${...}` on `PTTrips`, `driver_email = ${...}` on the `pt_*` tables), because the database has no row-level security. `tests/db/driver-scope.test.ts` reads every `sql` statement and fails when one doesn't; a new table goes in its `TABLES` list, and a query that really must cross drivers goes in its `ALLOW` list with a reason.
+
 The database is never hit: `tests/db/sql-mock.ts` stands in for the `neon()` tagged template and records every query. In CI (`.github/workflows/tests.yml`), each project runs as its own job. A final job merges their coverage and fails below 100%. `scripts/check-untested-files.ts` then catches any source file that no test imports.
 
 ## Contact

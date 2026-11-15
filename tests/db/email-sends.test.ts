@@ -75,16 +75,18 @@ describe('email send log queries', () => {
 	})
 
 	it('marks a send as sent, with the SES message id', async () => {
-		await confirmEmailSendDb('41', 'msg-1')
+		await confirmEmailSendDb('pat@x.com', '41', 'msg-1')
 		expect(sql.calls[0].text).toContain("SET status = 'sent'")
-		expect(sql.calls[0].values).toEqual(['msg-1', '41'])
+		expect(sql.calls[0].text).toContain('driver_email = ?')
+		expect(sql.calls[0].values).toEqual(['msg-1', '41', 'pat@x.com'])
 	})
 
 	it('releases only a send still reserved', async () => {
-		await releaseEmailSendDb('41')
+		await releaseEmailSendDb('pat@x.com', '41')
+		expect(sql.calls[0].text).toContain('DELETE FROM pt_email_sends')
 		expect(sql.calls[0].text).toContain(
-			"DELETE FROM pt_email_sends WHERE id = ? AND status = 'reserved'",
+			"WHERE id = ? AND driver_email = ? AND status = 'reserved'",
 		)
-		expect(sql.calls[0].values).toEqual(['41'])
+		expect(sql.calls[0].values).toEqual(['41', 'pat@x.com'])
 	})
 })

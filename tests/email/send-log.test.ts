@@ -173,15 +173,19 @@ describe('reserveEmailSend', () => {
 
 describe('confirmEmailSend and releaseEmailSend', () => {
 	it('mark a reserved send as sent, or release it', async () => {
-		await confirmEmailSend('41', 'msg-1')
-		expect(mocks.confirmEmailSendDb).toHaveBeenCalledWith('41', 'msg-1')
-		await releaseEmailSend('41')
-		expect(mocks.releaseEmailSendDb).toHaveBeenCalledWith('41')
+		await confirmEmailSend('pat@x.com', '41', 'msg-1')
+		expect(mocks.confirmEmailSendDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'41',
+			'msg-1',
+		)
+		await releaseEmailSend('pat@x.com', '41')
+		expect(mocks.releaseEmailSendDb).toHaveBeenCalledWith('pat@x.com', '41')
 	})
 
 	it('do nothing for an unlogged send', async () => {
-		await confirmEmailSend(null, 'msg-1')
-		await releaseEmailSend(null)
+		await confirmEmailSend('pat@x.com', null, 'msg-1')
+		await releaseEmailSend('pat@x.com', null)
 		expect(mocks.confirmEmailSendDb).not.toHaveBeenCalled()
 		expect(mocks.releaseEmailSendDb).not.toHaveBeenCalled()
 	})
@@ -189,8 +193,12 @@ describe('confirmEmailSend and releaseEmailSend', () => {
 	it('log database errors instead of throwing', async () => {
 		mocks.confirmEmailSendDb.mockRejectedValue(new Error('db'))
 		mocks.releaseEmailSendDb.mockRejectedValue(new Error('db'))
-		await expect(confirmEmailSend('41', null)).resolves.toBeUndefined()
-		await expect(releaseEmailSend('41')).resolves.toBeUndefined()
+		await expect(
+			confirmEmailSend('pat@x.com', '41', null),
+		).resolves.toBeUndefined()
+		await expect(
+			releaseEmailSend('pat@x.com', '41'),
+		).resolves.toBeUndefined()
 		expect(console.error).toHaveBeenCalledTimes(2)
 	})
 })
