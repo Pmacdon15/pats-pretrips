@@ -7,9 +7,15 @@ import {
 	Smartphone,
 	Wrench,
 } from 'lucide-react'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import HomePageButtons from '@/components/home/home-page-buttons'
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site'
+
+export const metadata: Metadata = {
+	alternates: { canonical: '/' },
+}
 
 const features = [
 	{
@@ -44,9 +50,49 @@ const features = [
 	},
 ]
 
+/** Structured data so search engines can describe the app in results. */
+const jsonLd = {
+	'@context': 'https://schema.org',
+	'@graph': [
+		{
+			'@type': 'WebSite',
+			'@id': `${SITE_URL}/#website`,
+			url: SITE_URL,
+			name: SITE_NAME,
+			description: SITE_DESCRIPTION,
+			inLanguage: 'en-CA',
+		},
+		{
+			'@type': 'WebApplication',
+			'@id': `${SITE_URL}/#app`,
+			name: SITE_NAME,
+			url: SITE_URL,
+			description: SITE_DESCRIPTION,
+			applicationCategory: 'BusinessApplication',
+			operatingSystem: 'Any (web browser, installable PWA)',
+			browserRequirements: 'Requires a modern web browser',
+			isPartOf: { '@id': `${SITE_URL}/#website` },
+			offers: {
+				'@type': 'Offer',
+				price: '0',
+				priceCurrency: 'CAD',
+				description: 'Pre-trip inspections are free.',
+			},
+			featureList: features.map((feature) => feature.title),
+		},
+	],
+}
+
 export default function Home() {
 	return (
 		<div className="flex flex-col pb-16">
+			<script
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from constants
+				dangerouslySetInnerHTML={{
+					__html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+				}}
+				type="application/ld+json"
+			/>
 			<section className="relative isolate overflow-hidden">
 				<Image
 					alt=""
@@ -137,7 +183,7 @@ export default function Home() {
 			<section className="mx-auto w-full max-w-5xl px-4 pt-20">
 				<div className="relative aspect-[16/7] w-full overflow-hidden rounded-2xl border shadow-lg">
 					<Image
-						alt="Truck dashboard"
+						alt="Dashboard of a modern truck cab, where drivers log pre-trip inspections"
 						className="object-cover"
 						fill
 						sizes="(min-width: 1024px) 1024px, 100vw"

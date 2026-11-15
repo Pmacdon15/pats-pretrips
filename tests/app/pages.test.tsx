@@ -292,7 +292,10 @@ describe('RootLayout', () => {
 			'<main class="flex-grow"><p>page body</p></main>',
 		)
 		expect(html).toContain('patrick@patmac.ca')
-		expect(metadata.title).toBe("Pat's PreTrips")
+		expect(metadata.title).toEqual({
+			default: "Pat's PreTrips — Pre-trips done in minutes",
+			template: "%s · Pat's PreTrips",
+		})
 		expect(viewport.themeColor).toHaveLength(2)
 	})
 })

@@ -3,6 +3,8 @@ import DisplayTripsFallback from '@/components/fallbacks/display-trips-fallback'
 import DisplayTrips from '@/components/trips/display-trips/DisplayTrips'
 import { fetchCurrentTrips, fetchPastTrips } from '@/lib/DAL/trips'
 
+export const metadata = { title: 'My trips' }
+
 const toPage = (value: string | string[] | undefined) =>
 	Math.max(1, Number(value) || 1)
 

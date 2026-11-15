@@ -1,4 +1,12 @@
+import type { Metadata } from 'next'
 import { Disclaimer } from '@/components/disclaimer/disclaimer'
+
+export const metadata: Metadata = {
+	title: 'Privacy policy',
+	description:
+		"How Pat's PreTrips handles your data: we only store your email to tie your pre-trip inspections to you, and never share or sell it.",
+	alternates: { canonical: '/privacy' },
+}
 
 export default function Page() {
 	return (
