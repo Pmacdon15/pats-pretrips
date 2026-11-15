@@ -20,6 +20,12 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+/** Shown from tablet width up; on phones every page lives in the avatar menu. */
+const primaryLink = cn(
+	buttonVariants({ variant: 'ghost', size: 'sm' }),
+	'hidden sm:inline-flex',
+)
+
 /** Shown with labels on wide screens; on phones they move into the avatar menu. */
 const secondaryLink = cn(
 	buttonVariants({ variant: 'ghost', size: 'sm' }),
@@ -60,30 +66,30 @@ export function HeaderNav() {
 	}
 
 	return (
-		<nav className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+		<nav className="flex min-w-0 items-center gap-1">
 			<Link
 				aria-label="My Trips"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={primaryLink}
 				href="/pretrips"
 			>
 				<ClipboardCheck />
-				<span className="hidden sm:inline">My Trips</span>
+				My Trips
 			</Link>
 			<Link
 				aria-label="Your vehicles"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={primaryLink}
 				href="/vehicles"
 			>
 				<Truck />
-				<span className="hidden sm:inline">Vehicles</span>
+				Vehicles
 			</Link>
 			<Link
 				aria-label="Defects and repairs"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={primaryLink}
 				href="/defects"
 			>
 				<Wrench />
-				<span className="hidden sm:inline">Defects</span>
+				Defects
 			</Link>
 			<Link
 				aria-label="Your carriers"
@@ -132,21 +138,27 @@ export function HeaderNav() {
 			 * organizations (docs/organizations.md). Switching changes whose
 			 * vehicles, carriers, email settings and plan the app uses.
 			 */}
-			<div className="flex max-w-28 items-center sm:ml-1 sm:max-w-44">
+			<div className="flex min-w-0 max-w-40 items-center overflow-hidden sm:ml-1 sm:max-w-44">
 				<OrganizationSwitcher
 					afterCreateOrganizationUrl="/vehicles"
 					appearance={{
 						elements: {
 							organizationSwitcherTrigger:
-								'max-w-full truncate px-1.5 py-1',
+								'max-w-full min-w-0 px-1.5 py-1',
+							organizationPreview: 'min-w-0',
+							organizationPreviewTextContainer: 'min-w-0',
+							organizationPreviewMainIdentifier: 'truncate',
+							userPreview: 'min-w-0',
+							userPreviewTextContainer: 'min-w-0',
+							userPreviewMainIdentifier: 'truncate',
 						},
 					}}
 					hidePersonal={false}
 				/>
 			</div>
-			<div className="flex size-9 items-center justify-center sm:ml-1">
+			<div className="flex size-9 shrink-0 items-center justify-center sm:ml-1">
 				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
-					{/* Every page; Carriers, Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}
+					{/* Every page; on phones this menu is the only nav, and Carriers, Email, Signature and Connect AI live only here below lg. The menu already has Sign out. */}
 					<UserButton.MenuItems>
 						{NAV_LINKS.map(({ href, label, icon: Icon }) => (
 							<UserButton.Link
