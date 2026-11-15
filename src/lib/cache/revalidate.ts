@@ -31,3 +31,8 @@ export function revalidateDriverVehicles(email: string) {
 export function expireDriverVehicles(email: string) {
 	revalidateTag(CACHE_TAGS.driverVehicles(email), { expire: 0 })
 }
+
+/** From a server action: the driver sees their saved carriers change now. */
+export function revalidateDriverCarriers(email: string) {
+	updateTag(CACHE_TAGS.driverCarriers(email))
+}

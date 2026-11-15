@@ -82,6 +82,7 @@ const TABLES: Tables = {
 	},
 	pt_email_sends: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_vehicles: { kind: 'driver', owner: 'driver_email', key: 'id' },
+	pt_carriers: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	// Append-only. Its trip_id and repair_id are deliberately not foreign keys,
 	// so an event outlives the row it describes.
 	pt_audit_events: { kind: 'driver', owner: 'driver_email', key: 'id' },

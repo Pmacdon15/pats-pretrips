@@ -166,6 +166,17 @@ export const schemaVehicle = z.object({
 	trailerPlateB: plate('Trailer B plate'),
 })
 
+/** A saved carrier, from the Carriers page. */
+export const schemaCarrier = z.object({
+	name: schemaTripFields.shape.carrier,
+	address: schemaTripFields.shape.carrierAddress,
+})
+
+export const schemaCarrierId = z
+	.number()
+	.int('Choose a carrier')
+	.positive('Choose a carrier')
+
 export const schemaVehicleId = z
 	.number()
 	.int('Choose a vehicle')

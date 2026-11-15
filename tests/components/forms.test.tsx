@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 	},
 	address: { data: undefined as unknown, isFetching: false },
 	vehicles: { data: [] as unknown[], isPending: false },
+	carriers: { data: [] as unknown[], isPending: false },
 	signatureStatus: {
 		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' } as
 			| undefined
@@ -32,11 +33,13 @@ vi.mock('@/lib/hooks/hooks', () => ({
 	useGetAddress: () => mocks.address,
 	useSignatureStatus: () => mocks.signatureStatus,
 	useVehicles: () => mocks.vehicles,
+	useCarriers: () => mocks.carriers,
 	SIGNATURE_STATUS_KEY: ['signatureStatus'],
 }))
 
 beforeEach(() => {
 	mocks.vehicles = { data: [], isPending: false }
+	mocks.carriers = { data: [], isPending: false }
 	mocks.addTrip.mockResolvedValue({})
 	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
@@ -179,6 +182,56 @@ describe('AddTripForm', () => {
 		expect(
 			screen.getByRole('link', { name: 'Manage vehicles' }),
 		).toHaveAttribute('href', '/vehicles')
+	})
+
+	it("fills the carrier from one of the driver's saved carriers", async () => {
+		mocks.carriers = {
+			data: [
+				{ id: 5, name: 'Acme Freight', address: '12 Depot Rd' },
+				{ id: 6, name: 'Bolt Haul', address: '9 Yard Ave' },
+			],
+			isPending: false,
+		}
+		const { user } = setup()
+		const picker = screen.getByLabelText('Saved carrier')
+		expect(
+			screen.getByRole('option', { name: 'Acme Freight — 12 Depot Rd' }),
+		).toBeInTheDocument()
+
+		await user.selectOptions(picker, '5')
+		expect(screen.getByLabelText('Carrier')).toHaveValue('Acme Freight')
+		expect(screen.getByLabelText('Carrier address')).toHaveValue(
+			'12 Depot Rd',
+		)
+
+		await user.selectOptions(picker, '6')
+		expect(screen.getByLabelText('Carrier')).toHaveValue('Bolt Haul')
+
+		// Back to "Choose a carrier…" leaves what's filled in.
+		await user.selectOptions(picker, '')
+		expect(screen.getByLabelText('Carrier address')).toHaveValue(
+			'9 Yard Ave',
+		)
+		expect(
+			screen.getByRole('link', { name: 'Manage carriers' }),
+		).toHaveAttribute('href', '/carriers')
+	})
+
+	it('suggests saving carriers, or shows nothing while they load', () => {
+		const first = render(
+			<AddTripForm
+				onDone={vi.fn()}
+				setOptimisticCurrentTrips={vi.fn()}
+			/>,
+		)
+		expect(
+			screen.getByRole('link', { name: 'Save your carriers' }),
+		).toHaveAttribute('href', '/carriers')
+		first.unmount()
+		mocks.carriers = { data: undefined as never, isPending: true }
+		setup()
+		expect(screen.queryByLabelText('Saved carrier')).toBeNull()
+		expect(screen.queryByText(/Save your carriers/)).toBeNull()
 	})
 
 	it('suggests saving vehicles, or shows nothing while they load', () => {

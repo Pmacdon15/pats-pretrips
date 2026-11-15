@@ -11,4 +11,6 @@ export const CACHE_TAGS = {
 	driverTrips: (email: string) => `trips:${email.toLowerCase()}`,
 	/** One driver's saved vehicles. */
 	driverVehicles: (email: string) => `vehicles:${email.toLowerCase()}`,
+	/** One driver's saved carriers. */
+	driverCarriers: (email: string) => `carriers:${email.toLowerCase()}`,
 } as const

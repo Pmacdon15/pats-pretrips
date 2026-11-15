@@ -41,6 +41,11 @@
 --   vehicle.updated              a saved vehicle changed; details.changed names
 --                                the fields
 --   vehicle.deleted              a saved vehicle deleted
+--   carrier.created              a saved carrier added (2026-11-21-carriers.sql);
+--                                details.carrier_id names it
+--   carrier.updated              a saved carrier changed; details.changed names
+--                                the fields
+--   carrier.deleted              a saved carrier deleted
 --
 -- source is 'web', or the AI app as the row the change is in records it:
 -- for trips and their signatures the app's name (pt_trip_signatures.source),

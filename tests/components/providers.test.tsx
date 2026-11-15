@@ -194,6 +194,9 @@ describe('Header', () => {
 		expect(
 			screen.getByRole('link', { name: 'Your vehicles' }),
 		).toHaveAttribute('href', '/vehicles')
+		expect(
+			screen.getByRole('link', { name: 'Your carriers' }),
+		).toHaveAttribute('href', '/carriers')
 		const signOut = screen.getByRole('button', { name: 'Sign out' })
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')
@@ -210,11 +213,12 @@ describe('Header', () => {
 		expect(links).toEqual([
 			['My Trips', '/pretrips'],
 			['Vehicles', '/vehicles'],
+			['Carriers', '/carriers'],
 			['Defects', '/defects'],
 			['Email', '/email'],
 			['Signature', '/signature'],
 			['Connect AI', '/connect'],
 		])
-		expect(menu.querySelectorAll('svg')).toHaveLength(6)
+		expect(menu.querySelectorAll('svg')).toHaveLength(7)
 	})
 })
