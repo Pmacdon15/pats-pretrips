@@ -9,10 +9,12 @@ import {
 	OPTIONS as resourcePreflight,
 } from '@/app/.well-known/oauth-protected-resource/[[...resource]]/route'
 import { GET as openId } from '@/app/.well-known/openid-configuration/[[...path]]/route'
+import { ALLOWED_HEADERS } from '@/mcp/http'
 import {
 	configuredIssuer,
 	frontendApiFromPublishableKey,
 } from '@/mcp/oauth-config'
+import { METADATA_CORS_HEADERS } from '@/mcp/oauth-metadata'
 
 const PK = `pk_live_${Buffer.from('clerk.patspretrips.ca$').toString('base64')}`
 const ISSUER = 'https://clerk.patspretrips.ca'
@@ -83,9 +85,48 @@ describe('protected resource metadata', () => {
 		expect((await openId()).status).toBe(503)
 	})
 
-	it('answers preflights', () => {
-		expect(resourcePreflight().status).toBe(204)
-		expect(authServerPreflight().status).toBe(204)
+	it('answers preflights with a fixed header list, logging unlisted headers', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+		const preflightReq = new Request(req.url, {
+			method: 'OPTIONS',
+			headers: {
+				origin: 'https://example.org',
+				'access-control-request-method': 'GET',
+				'access-control-request-headers':
+					'mcp-protocol-version, x-metadata-custom',
+			},
+		})
+		const res = resourcePreflight(preflightReq)
+		expect(res.status).toBe(204)
+		expect(res.headers.get('access-control-allow-origin')).toBe('*')
+		expect(res.headers.get('access-control-allow-headers')).toBe(
+			ALLOWED_HEADERS,
+		)
+		expect(res.headers.get('access-control-allow-credentials')).toBeNull()
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('"x-metadata-custom" header'),
+		)
+		expect(authServerPreflight(preflightReq).status).toBe(204)
+		warn.mockRestore()
+	})
+
+	it('never allows credentials, and never a wildcard header list', () => {
+		expect(METADATA_CORS_HEADERS['Access-Control-Allow-Origin']).toBe('*')
+		expect(METADATA_CORS_HEADERS['Access-Control-Allow-Headers']).toBe(
+			ALLOWED_HEADERS,
+		)
+		expect(
+			Object.keys(METADATA_CORS_HEADERS).map((name) =>
+				name.toLowerCase(),
+			),
+		).not.toContain('access-control-allow-credentials')
+		expect(
+			resource(req).headers.get('access-control-allow-credentials'),
+		).toBeNull()
+		vi.stubEnv('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', '')
+		expect(
+			resource(req).headers.get('access-control-allow-credentials'),
+		).toBeNull()
 	})
 })
 

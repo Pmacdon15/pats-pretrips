@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ countHitDb: vi.fn() }))
 vi.mock('@/lib/db/rate-limits', () => ({ countHitDb: mocks.countHitDb }))
@@ -175,5 +175,136 @@ describe('failed sign-ins', () => {
 		const res = await ask(mcpRoute(async () => Response.json({}), verify))
 		expect(res.status).toBe(200)
 		expect(mocks.countHitDb).not.toHaveBeenCalled()
+	})
+})
+
+describe('CORS', () => {
+	const url = 'https://patspretrips.ca/api/mcp'
+	const preflightFor = (requested?: string, userAgent?: string) =>
+		new Request(url, {
+			method: 'OPTIONS',
+			headers: {
+				origin: 'https://example.org',
+				'access-control-request-method': 'POST',
+				...(requested
+					? { 'access-control-request-headers': requested }
+					: {}),
+				...(userAgent ? { 'user-agent': userAgent } : {}),
+			},
+		})
+	let warn: ReturnType<typeof vi.spyOn>
+
+	// A fresh module each time, so the once-per-name log starts empty.
+	beforeEach(() => {
+		vi.resetModules()
+		warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+	})
+
+	afterEach(() => warn.mockRestore())
+
+	it('allows any origin, the MCP headers and harmless extras, and never credentials', async () => {
+		const http = await import('@/mcp/http')
+		const res = http.preflight(
+			preflightFor(
+				'Authorization, Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Last-Event-ID, traceparent, Cache-Control, Pragma',
+			),
+		)
+		expect(res.status).toBe(204)
+		expect(res.headers.get('access-control-allow-origin')).toBe('*')
+		expect(res.headers.get('access-control-allow-methods')).toBe(
+			'GET, POST, DELETE, OPTIONS',
+		)
+		expect(res.headers.get('access-control-allow-headers')).toBe(
+			http.ALLOWED_HEADERS,
+		)
+		expect(res.headers.get('access-control-expose-headers')).toBe(
+			'WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version, Retry-After',
+		)
+		expect(res.headers.get('access-control-max-age')).toBe('86400')
+		expect(res.headers.get('access-control-allow-credentials')).toBeNull()
+		expect(res.headers.get('vary')).toBeNull()
+		for (const name of [
+			'Authorization',
+			'Content-Type',
+			'Accept',
+			'Mcp-Session-Id',
+			'Mcp-Protocol-Version',
+			'Mcp-Method',
+			'Mcp-Name',
+			'Last-Event-ID',
+		]) {
+			expect(http.ALLOWED_REQUEST_HEADERS).toContain(name)
+		}
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	it("doesn't echo an unlisted header, and logs it once per name", async () => {
+		const http = await import('@/mcp/http')
+		const res = http.preflight(
+			preflightFor('authorization, X-Evil, x-other', 'SomeClient/1.0'),
+		)
+		expect(res.status).toBe(204)
+		expect(res.headers.get('access-control-allow-headers')).toBe(
+			http.ALLOWED_HEADERS,
+		)
+		expect(res.headers.get('access-control-allow-headers')).not.toMatch(
+			/x-evil|x-other/i,
+		)
+		expect(warn).toHaveBeenCalledTimes(2)
+		expect(warn).toHaveBeenCalledWith(
+			'CORS: a preflight to /api/mcp asked for the "x-evil" header, which isn\'t allowed; add it to ALLOWED_REQUEST_HEADERS in src/mcp/http.ts if a real client needs it (SomeClient/1.0)',
+		)
+		http.preflight(preflightFor('X-EVIL, x-other'))
+		expect(warn).toHaveBeenCalledTimes(2)
+	})
+
+	it("doesn't log empty or malformed names", async () => {
+		const http = await import('@/mcp/http')
+		http.preflight(preflightFor(` , "quoted", ${'x'.repeat(65)}`))
+		http.preflight(preflightFor())
+		expect(warn).not.toHaveBeenCalled()
+	})
+
+	it('stops logging new names after 50, so random names cannot flood the logs', async () => {
+		const http = await import('@/mcp/http')
+		const names = Array.from({ length: 60 }, (_, i) => `x-random-${i}`)
+		const res = http.preflight(preflightFor(names.join(', ')))
+		expect(res.status).toBe(204)
+		expect(warn).toHaveBeenCalledTimes(50)
+		http.preflight(preflightFor('x-random-0, x-random-59'))
+		expect(warn).toHaveBeenCalledTimes(50)
+	})
+
+	it('never sends Access-Control-Allow-Credentials, whatever the answer', async () => {
+		const http = await import('@/mcp/http')
+		expect(http.MCP_CORS_HEADERS['Access-Control-Allow-Origin']).toBe('*')
+		expect(
+			Object.keys(http.MCP_CORS_HEADERS).map((name) =>
+				name.toLowerCase(),
+			),
+		).not.toContain('access-control-allow-credentials')
+		// Even a handler that tried to allow credentials doesn't get through.
+		const route = http.mcpRoute(
+			async () =>
+				Response.json(
+					{},
+					{ headers: { 'access-control-allow-credentials': 'true' } },
+				),
+			verify,
+		)
+		const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+		const answers = [
+			await route(preflightFor('authorization')),
+			await route(new Request(url, { method: 'POST', body: '{}' })),
+			await ask(route),
+		]
+		info.mockRestore()
+		expect(answers.map((res) => res.status)).toEqual([204, 401, 200])
+		for (const res of answers) {
+			expect(res.headers.get('access-control-allow-origin')).toBe('*')
+			expect(
+				res.headers.get('access-control-allow-credentials'),
+			).toBeNull()
+		}
 	})
 })

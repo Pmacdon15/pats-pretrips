@@ -13,7 +13,8 @@ import { MCP_SCOPES } from '@/mcp/oauth-config'
  *   gets a plain challenge, a rejected one `error="invalid_token"`, and both
  *   point at the protected resource metadata (RFC 9728) for this endpoint.
  * - CORS on every response, including the 401 and the OPTIONS preflight, with
- *   `WWW-Authenticate` and `Mcp-Session-Id` exposed, for browser-based clients.
+ *   `WWW-Authenticate` and `Mcp-Session-Id` exposed, for browser-based clients
+ *   (any origin, a fixed list of request headers, never credentials).
  * - Streamable HTTP for clients that only accept `application/json`: the
  *   server is stateless, so every exchange ends with its response and can be
  *   answered as a plain JSON body instead of a one-shot event stream.
@@ -49,16 +50,58 @@ export function resourceMetadataUrl(req: Request) {
 	return `${publicOrigin(req)}${PROTECTED_RESOURCE_METADATA_PATH}${MCP_PATH}`
 }
 
-const ALLOWED_HEADERS = [
+/*
+ * CORS for /api/mcp and the /.well-known discovery documents.
+ *
+ * `Access-Control-Allow-Origin: *` is deliberate. Browser-based MCP clients
+ * run on origins we can't list in advance, and the MCP authorization spec
+ * has them read the 401 challenge, the discovery documents and the endpoint
+ * cross-origin. It's safe because auth is a bearer token in the
+ * Authorization header, never a cookie, and no response here ever sends
+ * `Access-Control-Allow-Credentials` (browsers refuse credentials with a
+ * wildcard origin anyway): a page can only call the endpoint with a token it
+ * already holds, which it could use from anywhere.
+ *
+ * The request headers allowed cross-origin are a fixed list, the same answer
+ * for every preflight, rather than an echo of whatever the browser asks for.
+ */
+
+/**
+ * The request headers a browser-based client may send. To allow another one,
+ * add its name here (any letter case) with a note on who sends it. A
+ * preflight asking for a header that isn't listed is logged once per header
+ * name ("CORS: ... isn't allowed"), which is the hint to add it.
+ */
+export const ALLOWED_REQUEST_HEADERS = [
+	// MCP Streamable HTTP, protocol 2025-03-26 to 2025-11-25.
 	'Authorization',
 	'Content-Type',
 	'Accept',
 	'Mcp-Session-Id',
 	'Mcp-Protocol-Version',
+	'Last-Event-ID',
+	// Standard request headers of newer MCP revisions (SEP-2243). A tool
+	// whose input schema declares `x-mcp-header` also makes clients send
+	// `Mcp-Param-{Name}`; none of ours does, so add those here if one ever does.
 	'Mcp-Method',
 	'Mcp-Name',
-	'Last-Event-ID',
-].join(', ')
+	// Added by browsers, fetch options (`cache: 'no-store'`) or common HTTP
+	// and tracing libraries. None of them carries any authority here.
+	'Accept-Language',
+	'Content-Language',
+	'Cache-Control',
+	'Pragma',
+	'User-Agent',
+	'X-Requested-With',
+	'X-Request-Id',
+	'traceparent',
+	'tracestate',
+	'baggage',
+	'sentry-trace',
+] as const
+
+/** `ALLOWED_REQUEST_HEADERS` as an `Access-Control-Allow-Headers` value. */
+export const ALLOWED_HEADERS = ALLOWED_REQUEST_HEADERS.join(', ')
 
 export const MCP_CORS_HEADERS: Record<string, string> = {
 	'Access-Control-Allow-Origin': '*',
@@ -69,12 +112,16 @@ export const MCP_CORS_HEADERS: Record<string, string> = {
 	'Access-Control-Max-Age': '86400',
 }
 
-/** The response with CORS headers added. Auth is a bearer token, never a cookie, so any origin may call. */
+/**
+ * The response with CORS headers added. Auth is a bearer token, never a
+ * cookie, so any origin may call, and credentials are never allowed.
+ */
 export function withCors(response: Response) {
 	const headers = new Headers(response.headers)
 	for (const [name, value] of Object.entries(MCP_CORS_HEADERS)) {
 		headers.set(name, value)
 	}
+	headers.delete('Access-Control-Allow-Credentials')
 	return new Response(response.body, {
 		status: response.status,
 		statusText: response.statusText,
@@ -82,15 +129,44 @@ export function withCors(response: Response) {
 	})
 }
 
-/** The CORS preflight answer. Echoes the requested headers, so a client's own extra headers pass too. */
-export function preflight(req: Request) {
-	const response = withCors(new Response(null, { status: 204 }))
+const ALLOWED_LOWERCASE = new Set<string>(
+	ALLOWED_REQUEST_HEADERS.map((name) => name.toLowerCase()),
+)
+/** An RFC 9110 token, kept short, so nothing odd reaches the logs. */
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9a-z-]{1,64}$/
+/** Caps how many distinct names are logged, so random names can't fill memory or the logs. */
+const MAX_REPORTED_HEADERS = 50
+const reportedHeaders = new Set<string>()
+
+/**
+ * Logs a header a preflight asked for that isn't allowed, once per header
+ * name per server instance. The browser then refuses that client's request,
+ * so this line is how the owner finds out a real client needs it.
+ */
+export function reportUnlistedHeaders(req: Request) {
 	const requested = req.headers.get('access-control-request-headers')
-	if (requested) {
-		response.headers.set('Access-Control-Allow-Headers', requested)
-		response.headers.set('Vary', 'Access-Control-Request-Headers')
+	if (!requested) return
+	for (const part of requested.split(',')) {
+		const name = part.trim().toLowerCase()
+		if (!HEADER_NAME.test(name) || ALLOWED_LOWERCASE.has(name)) continue
+		if (reportedHeaders.has(name)) continue
+		if (reportedHeaders.size >= MAX_REPORTED_HEADERS) return
+		reportedHeaders.add(name)
+		console.warn(
+			`CORS: a preflight to ${new URL(req.url).pathname} asked for the "${name}" header, which isn't allowed; add it to ALLOWED_REQUEST_HEADERS in src/mcp/http.ts if a real client needs it (${callerLabel(req)})`,
+		)
 	}
-	return response
+}
+
+/**
+ * The CORS preflight answer: the same fixed header list whatever was asked,
+ * so it needs no `Vary`. A preflight asking for an unlisted header still
+ * gets this normal answer (the browser then refuses that request), and the
+ * header is logged.
+ */
+export function preflight(req: Request) {
+	reportUnlistedHeaders(req)
+	return withCors(new Response(null, { status: 204 }))
 }
 
 /** The bearer token from the Authorization header. The scheme name is case-insensitive (RFC 7235 §2.1). */

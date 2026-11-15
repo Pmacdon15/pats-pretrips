@@ -58,7 +58,7 @@ vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
 import { DELETE, GET, OPTIONS, POST } from '@/app/api/mcp/route'
 import { resetRateLimiter } from '@/lib/rate-limit'
-import { messagesFromEventStream } from '@/mcp/http'
+import { ALLOWED_HEADERS, messagesFromEventStream } from '@/mcp/http'
 
 const URL_ = 'https://patspretrips.ca/api/mcp'
 const METADATA_URL =
@@ -228,18 +228,48 @@ describe('MCP endpoint auth', () => {
 		expect(res.headers.get('www-authenticate')).toContain(METADATA_URL)
 	})
 
-	it('answers the CORS preflight, echoing requested headers', async () => {
+	it('answers the CORS preflight with a fixed header list, never echoing requested headers', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 		const res = await OPTIONS(
 			new Request(URL_, {
 				method: 'OPTIONS',
-				headers: { 'access-control-request-headers': 'x-custom' },
+				headers: {
+					origin: 'https://example.org',
+					'access-control-request-method': 'POST',
+					'access-control-request-headers':
+						'authorization, content-type, mcp-protocol-version, x-route-custom',
+				},
 			}),
 		)
 		expect(res.status).toBe(204)
-		expect(res.headers.get('access-control-allow-headers')).toBe('x-custom')
+		const allowed = res.headers.get('access-control-allow-headers')
+		expect(allowed).toBe(ALLOWED_HEADERS)
+		expect(allowed).not.toContain('x-route-custom')
+		expect(res.headers.get('access-control-allow-origin')).toBe('*')
+		expect(res.headers.get('access-control-allow-credentials')).toBeNull()
+		expect(res.headers.get('vary')).toBeNull()
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('"x-route-custom" header'),
+		)
 		const plain = await OPTIONS(new Request(URL_, { method: 'OPTIONS' }))
-		expect(plain.headers.get('access-control-allow-headers')).toContain(
-			'Authorization',
+		expect(plain.headers.get('access-control-allow-headers')).toBe(
+			ALLOWED_HEADERS,
+		)
+	})
+
+	it('never allows credentials on the 401 challenge, and exposes WWW-Authenticate', async () => {
+		const res = await POST(
+			new Request(URL_, {
+				method: 'POST',
+				headers: { origin: 'https://example.org' },
+				body: '{}',
+			}),
+		)
+		expect(res.status).toBe(401)
+		expect(res.headers.get('access-control-allow-origin')).toBe('*')
+		expect(res.headers.get('access-control-allow-credentials')).toBeNull()
+		expect(res.headers.get('access-control-expose-headers')).toContain(
+			'WWW-Authenticate',
 		)
 	})
 
@@ -490,6 +520,7 @@ describe('failed sign-ins over HTTP', () => {
 		expect(first.status).toBe(429)
 		expect(first.headers.get('retry-after')).toBe('120')
 		expect(first.headers.get('access-control-allow-origin')).toBe('*')
+		expect(first.headers.get('access-control-allow-credentials')).toBeNull()
 		expect(first.body.error).toBe('rate_limited')
 		mocks.verify.mockClear()
 		const second = await initialize(KEY)
