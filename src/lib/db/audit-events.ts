@@ -43,6 +43,9 @@ export const AUDIT_ACTIONS = [
 	'signature.ai_signing_changed',
 	'email.settings_saved',
 	'email.sent',
+	'vehicle.created',
+	'vehicle.updated',
+	'vehicle.deleted',
 ] as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]

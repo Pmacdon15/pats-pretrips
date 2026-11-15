@@ -2,8 +2,19 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { getAddress } from '../actions/actions'
 import { getSignatureStatus } from '../actions/signatures'
+import { getVehicles } from '../actions/vehicles'
 
 export const SIGNATURE_STATUS_KEY = ['signatureStatus']
+export const VEHICLES_KEY = ['vehicles']
+
+/** The driver's saved vehicles, for the Vehicles page and the trip form. */
+export const useVehicles = () => {
+	return useQuery({
+		queryKey: VEHICLES_KEY,
+		queryFn: () => getVehicles(),
+		staleTime: 5 * 60 * 1000,
+	})
+}
 
 /** Whether the driver has a saved signature to sign pre-trips with. */
 export const useSignatureStatus = () => {

@@ -172,6 +172,9 @@ describe('Header', () => {
 		expect(
 			screen.getByRole('link', { name: 'Email pre-trips' }),
 		).toHaveAttribute('href', '/email')
+		expect(
+			screen.getByRole('link', { name: 'Your vehicles' }),
+		).toHaveAttribute('href', '/vehicles')
 		const signOut = screen.getByRole('button', { name: 'Sign out' })
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')

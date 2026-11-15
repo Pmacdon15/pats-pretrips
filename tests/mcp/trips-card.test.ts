@@ -948,3 +948,89 @@ describe('trips card in ChatGPT', () => {
 		expect(errors).toEqual([])
 	})
 })
+
+describe('trips card: vehicles', () => {
+	const vehicle = (over = {}) => ({
+		vehicle_id: 3,
+		name: 'Unit 42',
+		make: 'Volvo',
+		model: 'VNL',
+		truck_plate: 'TRK1',
+		trailer_plate_a: 'A1',
+		trailer_plate_b: 'B1',
+		...over,
+	})
+
+	it('draws the saved vehicles', () => {
+		const { window, deliver, errors } = load()
+		deliver(
+			toolResult({
+				vehicles: [
+					vehicle(),
+					vehicle({
+						vehicle_id: 4,
+						name: null,
+						truck_plate: null,
+						trailer_plate_a: null,
+						trailer_plate_b: null,
+					}),
+				],
+			}),
+		)
+		const text = window.document.body.textContent ?? ''
+		expect(window.document.querySelectorAll('.trip')).toHaveLength(2)
+		expect(text).toContain('Saved vehicles')
+		expect(text).toContain('2 vehicles')
+		expect(text).toContain('Unit 42')
+		expect(text).toContain('Truck Volvo VNL')
+		expect(text).toContain('Plate TRK1')
+		expect(text).toContain('Trailer A A1')
+		expect(text).toContain('Trailer B B1')
+		expect(text).toContain('Vehicle #4')
+		const link = window.document.querySelector('a')
+		expect(link?.getAttribute('href')).toBe(
+			'https://patspretrips.ca/vehicles',
+		)
+		expect(errors).toEqual([])
+	})
+
+	it('draws one vehicle, saved or deleted', () => {
+		const { window, deliver } = load()
+		deliver(toolResult({ vehicle: vehicle() }))
+		expect(window.document.getElementById('heading')?.textContent).toBe(
+			'Vehicle #3',
+		)
+		expect(window.document.getElementById('count')?.textContent).toBe('')
+		deliver(
+			toolResult({
+				status: 'deleted',
+				vehicle: vehicle({ name: null, make: null, model: null }),
+			}),
+		)
+		expect(window.document.getElementById('heading')?.textContent).toBe(
+			'Vehicle deleted',
+		)
+		expect(window.document.querySelector('.title')?.textContent).toBe(
+			'Vehicle 3',
+		)
+	})
+
+	it('says when there are none', () => {
+		const { window, deliver } = load()
+		deliver(toolResult({ vehicles: [vehicle()] }))
+		deliver(toolResult({ vehicles: [] }))
+		const text = window.document.body.textContent ?? ''
+		expect(text).toContain('0 vehicles')
+		expect(text).toContain('No saved vehicles yet.')
+	})
+
+	it('draws the trip of a started trip, not its vehicle', () => {
+		const { window, deliver } = load()
+		deliver(
+			toolResult({ trip: trip({ trip_id: 12 }), vehicles: [vehicle()] }),
+		)
+		expect(window.document.getElementById('heading')?.textContent).toBe(
+			'Trip #12',
+		)
+	})
+})

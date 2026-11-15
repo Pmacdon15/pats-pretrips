@@ -12,6 +12,7 @@ import {
 	type TripChanges,
 	updateTripDb,
 } from '@/lib/db/trips'
+import { getVehicleDb, listVehiclesOrNone } from '@/lib/db/vehicles'
 import { appUrl, tripUrl } from '@/lib/email/config'
 import { aiSigningAllowed } from '@/lib/signatures/signatures'
 import {
@@ -30,6 +31,7 @@ import {
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
+import { vehicleView } from './vehicle-tools'
 
 /*
  * What each MCP tool does, apart from MCP itself (src/mcp/server.ts). Every
@@ -192,13 +194,18 @@ export async function getTripDefaults(
 	args: z.infer<typeof getTripDefaultsInputSchema>,
 ): Promise<ToolResult> {
 	const input = getTripDefaultsInputSchema.parse(args)
-	const [latest, truck, signing] = await Promise.all([
+	const [latest, truck, signing, vehicles] = await Promise.all([
 		getLatestTripDb(caller.email),
 		input.truck_plate
 			? getLatestTripForPlateDb(caller.email, input.truck_plate)
 			: undefined,
 		signatureForAi(caller.email),
+		listVehiclesOrNone(caller.email),
 	])
+	const savedVehicles = vehicles.map(vehicleView)
+	const vehiclesNote = vehicles.length
+		? `The driver has ${vehicles.length} saved vehicle${vehicles.length === 1 ? '' : 's'} (vehicles): offer them, and pass the one they pick as vehicle_id to start_trip.`
+		: ''
 	const savedSignature = signing.status !== 'no_saved_signature'
 	const aiSigningAllowedNow = signing.status === 'allowed'
 	const signatureNote = aiSigningAllowedNow
@@ -209,10 +216,17 @@ export async function getTripDefaults(
 
 	if (!latest) {
 		return {
-			summary: `This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting. ${signatureNote}`,
+			summary: [
+				'This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting.',
+				vehiclesNote,
+				signatureNote,
+			]
+				.filter(Boolean)
+				.join(' '),
 			data: {
 				last_trip: null,
 				truck: null,
+				vehicles: savedVehicles,
 				saved_signature: savedSignature,
 				ai_signing_allowed: aiSigningAllowedNow,
 			},
@@ -239,6 +253,7 @@ export async function getTripDefaults(
 				: `No earlier trip in plate ${input.truck_plate}: ask the driver for its make and model.`
 			: '',
 		'Suggest these to the driver; confirm before starting the trip.',
+		vehiclesNote,
 		signatureNote,
 	]
 		.filter(Boolean)
@@ -260,6 +275,7 @@ export async function getTripDefaults(
 				date: new Date(latest.date).toISOString(),
 			},
 			truck: truckInfo,
+			vehicles: savedVehicles,
 			saved_signature: savedSignature,
 			ai_signing_allowed: aiSigningAllowedNow,
 		},
@@ -301,11 +317,27 @@ const signatureSource = (caller: McpCaller) =>
 
 export const startTripInputSchema = z.object({
 	odometer,
+	vehicle_id: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe(
+			'One of the driver’s saved vehicles (list_vehicles or get_trip_defaults): fills make, model and plates. Any of those passed as well take its place.',
+		),
 	truck_plate: plate.optional(),
 	trailer_plate_a: plate.optional(),
 	trailer_plate_b: plate.optional(),
-	make: text(MAKE_MODEL_MAX).describe('Vehicle make, e.g. "Freightliner"'),
-	model: text(MAKE_MODEL_MAX).describe('Vehicle model, e.g. "Cascadia"'),
+	make: text(MAKE_MODEL_MAX)
+		.optional()
+		.describe(
+			'Vehicle make, e.g. "Freightliner". Required unless vehicle_id is given.',
+		),
+	model: text(MAKE_MODEL_MAX)
+		.optional()
+		.describe(
+			'Vehicle model, e.g. "Cascadia". Required unless vehicle_id is given.',
+		),
 	carrier: text(CARRIER_MAX),
 	carrier_address: text(ADDRESS_MAX),
 	inspection_address: z
@@ -351,7 +383,37 @@ export async function startTrip(
 	caller: McpCaller,
 	args: z.input<typeof startTripInputSchema>,
 ): Promise<ToolResult> {
-	const input = startTripInputSchema.parse(args)
+	const parsed = startTripInputSchema.parse(args)
+	const vehicle = parsed.vehicle_id
+		? await getVehicleDb(parsed.vehicle_id, caller.email)
+		: undefined
+	if (parsed.vehicle_id && !vehicle) {
+		return {
+			summary: `Vehicle ${parsed.vehicle_id} wasn't found, so no trip was started. Use list_vehicles to find the vehicle's id.`,
+			data: { status: 'vehicle_not_found' },
+			isError: true,
+		}
+	}
+	// What the driver passed wins over the saved vehicle's details.
+	const input = {
+		...parsed,
+		make: parsed.make ?? vehicle?.make,
+		model: parsed.model ?? vehicle?.model,
+		truck_plate: parsed.truck_plate ?? (vehicle?.truck_plate || undefined),
+		trailer_plate_a:
+			parsed.trailer_plate_a ?? (vehicle?.trailer_plate_a || undefined),
+		trailer_plate_b:
+			parsed.trailer_plate_b ?? (vehicle?.trailer_plate_b || undefined),
+	}
+	const { make, model } = input
+	if (!make || !model) {
+		return {
+			summary:
+				'Pass the vehicle’s make and model, or a saved vehicle’s vehicle_id (list_vehicles). No trip was started.',
+			data: { status: 'vehicle_required' },
+			isError: true,
+		}
+	}
 	const warning = await odometerWarning(
 		caller.email,
 		input.truck_plate,
@@ -365,8 +427,8 @@ export async function startTrip(
 			carrier: input.carrier,
 			carrierAddress: input.carrier_address,
 			inspectionAddress: input.inspection_address,
-			make: input.make,
-			model: input.model,
+			make,
+			model,
 			odometer: input.odometer,
 			truckPlate: input.truck_plate,
 			trailerPlateA: input.trailer_plate_a,
@@ -407,6 +469,7 @@ export async function startTrip(
 			details: {
 				signed: Boolean(signature),
 				signing: status,
+				...(vehicle ? { vehicle_id: vehicle.id } : {}),
 				defects,
 				remarks_length: input.remarks.length,
 			},
@@ -430,7 +493,7 @@ export async function startTrip(
 					? `Not signed: the driver has no saved signature. They can sign this trip in the app at ${tripUrl(trip.tripid)}, or save a signature and turn on "${AI_SIGNING_SETTING}" at ${signaturePage()}, then ask you to sign it (update_trip with sign: true).`
 					: 'Not signed, as the driver asked.'
 	return {
-		summary: `Started trip ${trip.tripid}: ${input.make} ${input.model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${warning ? ` ${warning}` : ''}`,
+		summary: `Started trip ${trip.tripid}: ${make} ${model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${warning ? ` ${warning}` : ''}`,
 		data: {
 			trip: tripView(trip),
 			signing: status === 'allowed' ? 'signed' : status,

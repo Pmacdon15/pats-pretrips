@@ -10,6 +10,7 @@ import {
 	ODOMETER_MAX,
 	PLATE_MAX,
 	REMARKS_MAX,
+	VEHICLE_NAME_MAX,
 } from '@/lib/trip-limits'
 import { parseDefects } from '@/lib/utils-defects'
 
@@ -147,3 +148,25 @@ export const schemaCoordinates = z.object({
 	lat: z.number().min(-90).max(90),
 	lng: z.number().min(-180).max(180),
 })
+
+/** A saved vehicle, from the Vehicles page. */
+export const schemaVehicle = z.object({
+	name: z
+		.string()
+		.trim()
+		.max(
+			VEHICLE_NAME_MAX,
+			`Name is too long (${n(VEHICLE_NAME_MAX)} characters at most)`,
+		)
+		.optional(),
+	make: schemaTripFields.shape.make,
+	model: schemaTripFields.shape.model,
+	truckPlate: plate('Truck plate'),
+	trailerPlateA: plate('Trailer plate'),
+	trailerPlateB: plate('Trailer B plate'),
+})
+
+export const schemaVehicleId = z
+	.number()
+	.int('Choose a vehicle')
+	.positive('Choose a vehicle')

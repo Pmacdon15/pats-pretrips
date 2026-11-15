@@ -5,6 +5,7 @@ import { startTransition, useEffect, useState } from 'react'
 import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { DriverSignatureField } from '@/components/signature/driver-signature-field'
+import { VehiclePicker } from '@/components/vehicles/vehicle-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useAddTrip } from '@/lib/mutations/mutations'
 import {
@@ -161,6 +162,22 @@ export default function AddTripForm({
 			</FormSection>
 
 			<FormSection title="Vehicle">
+				<VehiclePicker
+					key={saves}
+					onPick={(v) => {
+						form.setFieldValue('make', v.make)
+						form.setFieldValue('model', v.model)
+						form.setFieldValue('truckPlate', v.truck_plate ?? '')
+						form.setFieldValue(
+							'trailerPlateA',
+							v.trailer_plate_a ?? '',
+						)
+						form.setFieldValue(
+							'trailerPlateB',
+							v.trailer_plate_b ?? '',
+						)
+					}}
+				/>
 				<div className="grid gap-4 sm:grid-cols-3">
 					<ControlledTextInput
 						form={form}

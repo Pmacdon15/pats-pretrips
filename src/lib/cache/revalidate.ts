@@ -21,3 +21,13 @@ export function revalidateDriverTrips(email: string) {
 export function expireDriverTrips(email: string) {
 	revalidateTag(CACHE_TAGS.driverTrips(email), { expire: 0 })
 }
+
+/** From a server action: the driver sees their saved vehicles change now. */
+export function revalidateDriverVehicles(email: string) {
+	updateTag(CACHE_TAGS.driverVehicles(email))
+}
+
+/** From a route handler (the MCP server): the vehicle list expires now. */
+export function expireDriverVehicles(email: string) {
+	revalidateTag(CACHE_TAGS.driverVehicles(email), { expire: 0 })
+}

@@ -26,6 +26,14 @@ const signatureMocks = vi.hoisted(() => ({
 	signTripDb: vi.fn(),
 }))
 vi.mock('@/lib/db/signatures', () => signatureMocks)
+const vehicleMocks = vi.hoisted(() => ({
+	listVehiclesOrNone: vi.fn(async () => [] as unknown[]),
+	getVehicleDb: vi.fn(),
+}))
+vi.mock('@/lib/db/vehicles', async (original) => ({
+	...(await original<typeof import('@/lib/db/vehicles')>()),
+	...vehicleMocks,
+}))
 const ownerMocks = vi.hoisted(() => ({ recordOwner: vi.fn() }))
 vi.mock('@/lib/db/owner-stamps', () => ownerMocks)
 // The real event builder, with the insert itself mocked.
@@ -157,6 +165,7 @@ describe('getTripDefaults', () => {
 		expect(result.data).toEqual({
 			last_trip: null,
 			truck: null,
+			vehicles: [],
 			saved_signature: false,
 			ai_signing_allowed: false,
 		})
@@ -165,6 +174,30 @@ describe('getTripDefaults', () => {
 			'no saved signature, so the trip will be saved unsigned. They can sign it in the app; to let you sign, they save a signature and turn on "Allow AI apps to sign for me" at https://patspretrips.ca/signature',
 		)
 		expect(mocks.getLatestTripForPlateDb).not.toHaveBeenCalled()
+	})
+
+	it("lists the driver's saved vehicles", async () => {
+		mocks.getLatestTripDb.mockResolvedValue(undefined)
+		vehicleMocks.listVehiclesOrNone.mockResolvedValue([VEHICLE])
+		const result = await getTripDefaults(caller, {})
+		expect(result.data.vehicles).toEqual([
+			{
+				vehicle_id: 3,
+				name: 'Unit 42',
+				make: 'Volvo',
+				model: 'VNL',
+				truck_plate: 'TRK 9',
+				trailer_plate_a: 'TRL 9',
+				trailer_plate_b: null,
+			},
+		])
+		expect(result.summary).toContain(
+			'The driver has 1 saved vehicle (vehicles)',
+		)
+		vehicleMocks.listVehiclesOrNone.mockResolvedValue([VEHICLE, VEHICLE])
+		mocks.getLatestTripDb.mockResolvedValue(recent())
+		const again = await getTripDefaults(caller, {})
+		expect(again.summary).toContain('2 saved vehicles')
 	})
 
 	it("suggests the last trip's carrier and that truck's details", async () => {
@@ -258,6 +291,84 @@ const start = {
 	inspection_address: '455 Yard Ave',
 	remarks: 'No defects found',
 }
+
+const VEHICLE = {
+	id: 3,
+	name: 'Unit 42',
+	make: 'Volvo',
+	model: 'VNL',
+	truck_plate: 'TRK 9',
+	trailer_plate_a: 'TRL 9',
+	trailer_plate_b: null,
+	created_at: '2026-11-01T00:00:00.000Z',
+	updated_at: '2026-11-01T00:00:00.000Z',
+}
+
+describe('startTrip with a saved vehicle', () => {
+	const { make: _m, model: _o, truck_plate: _t, ...noVehicle } = start
+
+	it("fills the make, model and plates from the driver's vehicle", async () => {
+		vehicleMocks.getVehicleDb.mockResolvedValue(VEHICLE)
+		mocks.getLatestTripForPlateDb.mockResolvedValue(undefined)
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(caller, { ...noVehicle, vehicle_id: 3 })
+		expect(vehicleMocks.getVehicleDb).toHaveBeenCalledWith(3, 'pat@x.com')
+		expect(mocks.createTripDb.mock.calls[0][0]).toMatchObject({
+			make: 'Volvo',
+			model: 'VNL',
+			truckPlate: 'TRK 9',
+			trailerPlateA: 'TRL 9',
+			trailerPlateB: undefined,
+		})
+		expect(result.summary).toContain('Started trip 5: Volvo VNL (TRK 9)')
+		expect(auditMocks.recordEvents.mock.calls[0][1].details).toMatchObject({
+			vehicle_id: 3,
+		})
+	})
+
+	it('lets what the driver passed win over the vehicle', async () => {
+		vehicleMocks.getVehicleDb.mockResolvedValue({
+			...VEHICLE,
+			truck_plate: null,
+			trailer_plate_a: null,
+			trailer_plate_b: 'B 1',
+		})
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(caller, {
+			...noVehicle,
+			vehicle_id: 3,
+			model: 'VNR',
+			trailer_plate_a: 'A 2',
+		})
+		expect(mocks.createTripDb.mock.calls[0][0]).toMatchObject({
+			make: 'Volvo',
+			model: 'VNR',
+			truckPlate: undefined,
+			trailerPlateA: 'A 2',
+			trailerPlateB: 'B 1',
+		})
+	})
+
+	it("refuses a vehicle that isn't the driver's", async () => {
+		vehicleMocks.getVehicleDb.mockResolvedValue(undefined)
+		const result = await startTrip(caller, { ...noVehicle, vehicle_id: 9 })
+		expect(result).toMatchObject({
+			isError: true,
+			data: { status: 'vehicle_not_found' },
+		})
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
+	})
+
+	it('needs a make and model without a vehicle', async () => {
+		const result = await startTrip(caller, { ...noVehicle, make: 'Volvo' })
+		expect(result).toMatchObject({
+			isError: true,
+			data: { status: 'vehicle_required' },
+		})
+		expect(vehicleMocks.getVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
+	})
+})
 
 describe('startTrip', () => {
 	it('saves the trip for the caller', async () => {
