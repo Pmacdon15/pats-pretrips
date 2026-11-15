@@ -81,6 +81,9 @@ const TABLES: Tables = {
 		key: 'driver_email',
 	},
 	pt_email_sends: { kind: 'driver', owner: 'driver_email', key: 'id' },
+	// Append-only. Its trip_id and repair_id are deliberately not foreign keys,
+	// so an event outlives the row it describes.
+	pt_audit_events: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_rate_limits: {
 		kind: 'not-driver',
 		why: 'counters keyed by a bucket string; holds no driver data',
@@ -444,8 +447,8 @@ describe('checker samples', () => {
 
 	test('an unknown or retired table fails', () => {
 		fails(
-			'SELECT * FROM pt_audit_events WHERE driver_email = :driverEmail',
-			/unknown table "pt_audit_events"/,
+			'SELECT * FROM pt_new_feature WHERE driver_email = :driverEmail',
+			/unknown table "pt_new_feature"/,
 		)
 		fails(
 			'SELECT * FROM drivers WHERE email = :driverEmail',
@@ -460,13 +463,13 @@ describe('checker samples', () => {
 
 	test('adding a table to TABLES is one line', () => {
 		const insert =
-			'INSERT INTO pt_audit_events (driver_email, action) VALUES (:driverEmail, :other)'
+			'INSERT INTO pt_new_feature (driver_email, action) VALUES (:driverEmail, :other)'
 		expect(messages(insert).join()).toMatch(
-			/unknown table "pt_audit_events"/,
+			/unknown table "pt_new_feature"/,
 		)
 		const withAudit: Tables = {
 			...TABLES,
-			pt_audit_events: {
+			pt_new_feature: {
 				kind: 'driver',
 				owner: 'driver_email',
 				key: 'id',

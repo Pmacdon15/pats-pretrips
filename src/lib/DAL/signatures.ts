@@ -1,5 +1,6 @@
 import { errAsync, okAsync } from 'neverthrow'
 import { getDriver, getDriverEmail } from '@/lib/auth'
+import { recordEvents } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import {
 	deleteSavedSignatureDb,
@@ -81,6 +82,7 @@ export async function saveSignatureDAL(dataUrl: string) {
 		const file = await compressSignature(fromBase64(parsed.data))
 		const updatedAt = await saveSignatureDb(email, file)
 		await recordOwner(driver, { table: 'driver_signature' })
+		await recordEvents(driver, { action: 'signature.saved', source: 'web' })
 		// Replacing a signature keeps the driver's AI signing choice.
 		const allowAiSigning = await aiSigningAllowed(email)
 		return okAsync({
@@ -98,11 +100,17 @@ export async function saveSignatureDAL(dataUrl: string) {
 }
 
 export async function deleteSignatureDAL() {
-	const email = await getDriverEmail()
-	if (!email) return errAsync(NOT_SIGNED_IN)
+	const driver = await getDriver()
+	if (!driver) return errAsync(NOT_SIGNED_IN)
 	try {
 		// The AI signing choice goes with it (it's on the same row).
-		await deleteSavedSignatureDb(email)
+		const deleted = await deleteSavedSignatureDb(driver.email)
+		if (deleted) {
+			await recordEvents(driver, {
+				action: 'signature.deleted',
+				source: 'web',
+			})
+		}
 		return okAsync(NO_SIGNATURE)
 	} catch (e) {
 		console.error('Error deleting signature: ', errorForLog(e))
@@ -117,8 +125,9 @@ export async function deleteSignatureDAL() {
  * signature, since that's what AI apps sign with.
  */
 export async function setAiSigningDAL(allow: unknown) {
-	const email = await getDriverEmail()
-	if (!email) return errAsync(NOT_SIGNED_IN)
+	const driver = await getDriver()
+	if (!driver) return errAsync(NOT_SIGNED_IN)
+	const { email } = driver
 	const limited = await signatureLimit(email)
 	if (limited) return errAsync(limited)
 	const parsed = schemaAllowAiSigning.safeParse(allow)
@@ -134,6 +143,11 @@ export async function setAiSigningDAL(allow: unknown) {
 				reason: 'Save a signature first, then choose whether AI apps can sign with it.',
 			} as const)
 		}
+		await recordEvents(driver, {
+			action: 'signature.ai_signing_changed',
+			source: 'web',
+			details: { allow_ai_signing: row.allowAiSigning },
+		})
 		return okAsync({ saved: true, ...row } as SignatureStatus)
 	} catch (e) {
 		if (isMissingAiSigningColumn(e)) {
@@ -190,6 +204,15 @@ export async function signTripDAL(data: {
 			{ table: 'trip', tripId: parsed.data.tripId },
 			{ table: 'trip_signature', tripId: parsed.data.tripId },
 		)
+		await recordEvents(driver, {
+			action: 'trip.signed',
+			source: 'web',
+			tripId: parsed.data.tripId,
+			details: {
+				signature:
+					parsed.data.signature === 'saved' ? 'saved' : 'drawn',
+			},
+		})
 		return okAsync(trip)
 	} catch (e) {
 		console.error('Error signing trip: ', errorForLog(e))

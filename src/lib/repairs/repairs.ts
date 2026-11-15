@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { recordEvents } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import {
 	createRepairDb,
@@ -154,10 +155,15 @@ export async function recordRepair(
 	})
 	// Nothing saved: another request marked it repaired first.
 	if (!repair) return alreadyRepaired(defect, input.tripId)
-	await recordOwner(
-		{ email: driverEmail, userId },
-		{ table: 'repair', repairId: repair.id },
-	)
+	const owner = { email: driverEmail, userId }
+	await recordOwner(owner, { table: 'repair', repairId: repair.id })
+	await recordEvents(owner, {
+		action: 'repair.recorded',
+		source,
+		tripId: repair.trip_id,
+		repairId: repair.id,
+		details: repairDetails(repair),
+	})
 	return { ok: true, repair }
 }
 
@@ -168,8 +174,48 @@ const alreadyRepaired = (defect: string, tripId: number) =>
 		message: `${defect} on trip ${tripId} is already marked repaired. Undo that repair first to record it again.`,
 	}) as const
 
-/** Undoes a repair, so the defect is open again. */
-export async function undoRepair(driverEmail: string, repairId: number) {
+/** A repair in the audit trail: what was recorded, never the files. */
+const repairDetails = (repair: {
+	defect: string
+	repaired_on: string
+	invoice_number: string | null
+	has_invoice: boolean
+	has_signature: boolean
+}) => ({
+	defect: repair.defect,
+	repaired_on: repair.repaired_on,
+	invoice_number: repair.invoice_number,
+	invoice_attached: repair.has_invoice,
+	signature_attached: repair.has_signature,
+})
+
+/**
+ * Undoes a repair, so the defect is open again. The repair, its invoice and
+ * its signature are deleted for good; the audit trail records what was
+ * removed, with `source` ("web" or the AI app, as recordRepair takes it) and
+ * the driver's Clerk `userId`.
+ */
+export async function undoRepair(
+	driverEmail: string,
+	repairId: number,
+	source: string,
+	userId?: string | null,
+): Promise<{ id: number; trip_id: number; defect: string } | undefined> {
 	if (!Number.isInteger(repairId) || repairId < 1) return undefined
-	return deleteRepairDb(repairId, driverEmail)
+	const removed = await deleteRepairDb(repairId, driverEmail)
+	if (!removed) return undefined
+	await recordEvents(
+		{ email: driverEmail, userId },
+		{
+			action: 'repair.deleted',
+			source,
+			tripId: removed.trip_id,
+			repairId: removed.id,
+			details: {
+				...repairDetails(removed),
+				recorded_by: removed.source,
+			},
+		},
+	)
+	return { id: removed.id, trip_id: removed.trip_id, defect: removed.defect }
 }

@@ -1,3 +1,4 @@
+import { recordEvents } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import type { StoredFile } from '@/lib/db/repairs'
 import {
@@ -51,10 +52,14 @@ export async function resolveSignature(
 	}
 	if (save) {
 		await saveSignatureDb(driverEmail, file)
-		await recordOwner(
-			{ email: driverEmail, userId },
-			{ table: 'driver_signature' },
-		)
+		const owner = { email: driverEmail, userId }
+		await recordOwner(owner, { table: 'driver_signature' })
+		// Only the web app's forms send a drawn signature to keep.
+		await recordEvents(owner, {
+			action: 'signature.saved',
+			source: 'web',
+			details: { while_signing: true },
+		})
 	}
 	return { ok: true, file }
 }

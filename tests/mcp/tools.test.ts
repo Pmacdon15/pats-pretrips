@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Trip } from '@/lib/types/types'
 import { trip } from '../helpers/fixtures'
 
 const mocks = vi.hoisted(() => ({
@@ -9,7 +10,11 @@ const mocks = vi.hoisted(() => ({
 	listTripsDb: vi.fn(),
 	updateTripDb: vi.fn(),
 }))
-vi.mock('@/lib/db/trips', () => mocks)
+vi.mock('@/lib/db/trips', async (original) => ({
+	...mocks,
+	CORE_TRIP_FIELDS: (await original<typeof import('@/lib/db/trips')>())
+		.CORE_TRIP_FIELDS,
+}))
 const repairMocks = vi.hoisted(() => ({
 	listTripRepairsDb: vi.fn(async () => [] as unknown[]),
 }))
@@ -23,6 +28,12 @@ const signatureMocks = vi.hoisted(() => ({
 vi.mock('@/lib/db/signatures', () => signatureMocks)
 const ownerMocks = vi.hoisted(() => ({ recordOwner: vi.fn() }))
 vi.mock('@/lib/db/owner-stamps', () => ownerMocks)
+// The real event builder, with the insert itself mocked.
+const auditMocks = vi.hoisted(() => ({ recordEvents: vi.fn() }))
+vi.mock('@/lib/db/audit-events', async (original) => ({
+	...(await original<typeof import('@/lib/db/audit-events')>()),
+	recordEvents: auditMocks.recordEvents,
+}))
 
 import {
 	getTrip,
@@ -39,6 +50,11 @@ const caller = { email: 'pat@x.com', client: 'Claude' }
 const NOW = new Date('2026-11-12T12:00:00Z')
 const recent = (over = {}) =>
 	trip({ date: new Date('2026-11-12T08:00:00Z'), ...over })
+/** What updateTripDb answers: the trip saved, and its core details before. */
+const saved = (after: Trip, before: Trip = recent()) => ({
+	trip: after,
+	before,
+})
 const old = (over = {}) =>
 	trip({ date: new Date('2026-11-10T08:00:00Z'), ...over })
 
@@ -451,7 +467,7 @@ describe('updateTrip', () => {
 
 	it('changes and signs a trip together', async () => {
 		mocks.getTripDb.mockResolvedValue(recent())
-		mocks.updateTripDb.mockResolvedValue(recent({ make: 'Mack' }))
+		mocks.updateTripDb.mockResolvedValue(saved(recent({ make: 'Mack' })))
 		signatureMocks.signTripDb.mockResolvedValue(recent({ signed_at: NOW }))
 		const result = await updateTrip(caller, {
 			trip_id: 1,
@@ -514,7 +530,7 @@ describe('updateTrip', () => {
 
 	it("doesn't check the AI setting when not signing", async () => {
 		mocks.getTripDb.mockResolvedValue(recent())
-		mocks.updateTripDb.mockResolvedValue(recent({ make: 'Mack' }))
+		mocks.updateTripDb.mockResolvedValue(saved(recent({ make: 'Mack' })))
 		signatureMocks.getAiSigningAllowedDb.mockResolvedValue(false)
 		const result = await updateTrip(caller, { trip_id: 1, make: 'Mack' })
 		expect(result.isError).toBeUndefined()
@@ -533,7 +549,12 @@ describe('updateTrip', () => {
 
 	it('adds new defects to the list and changes only what was passed', async () => {
 		mocks.getTripDb.mockResolvedValue(recent({ defects: 'Cab' }))
-		mocks.updateTripDb.mockResolvedValue(recent({ defects: 'Cab, Tires' }))
+		mocks.updateTripDb.mockResolvedValue(
+			saved(
+				recent({ defects: 'Cab, Tires', make: 'Mack' }),
+				recent({ defects: 'Cab' }),
+			),
+		)
 		const result = await updateTrip(caller, {
 			trip_id: 1,
 			add_defects: ['Cab', 'tires'],
@@ -621,7 +642,7 @@ describe('updateTrip', () => {
 		it('still adds defects and remarks', async () => {
 			mocks.getTripDb.mockResolvedValue(signedTrip({ defects: 'Cab' }))
 			mocks.updateTripDb.mockResolvedValue(
-				signedTrip({ defects: 'Cab, Lights' }),
+				saved(signedTrip({ defects: 'Cab, Lights' }), signedTrip()),
 			)
 			const result = await updateTrip(caller, {
 				trip_id: 1,
@@ -645,7 +666,9 @@ describe('updateTrip', () => {
 
 		it('ignores core fields resent with their signed values', async () => {
 			mocks.getTripDb.mockResolvedValue(signedTrip())
-			mocks.updateTripDb.mockResolvedValue(signedTrip())
+			mocks.updateTripDb.mockResolvedValue(
+				saved(signedTrip(), signedTrip()),
+			)
 			const same = {
 				trip_id: 1,
 				carrier: 'Acme',
@@ -712,7 +735,7 @@ describe('updateTrip', () => {
 		mocks.getLatestTripForPlateDb.mockResolvedValue(
 			old({ tripid: 2, odometer: 9000 }),
 		)
-		mocks.updateTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(saved(recent()))
 		const result = await updateTrip(caller, { trip_id: 1, odometer: 8000 })
 		expect(mocks.getLatestTripForPlateDb).toHaveBeenCalledWith(
 			'pat@x.com',
@@ -726,7 +749,7 @@ describe('updateTrip', () => {
 		mocks.getLatestTripForPlateDb.mockResolvedValue(
 			recent({ tripid: 1, odometer: 9000 }),
 		)
-		mocks.updateTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(saved(recent()))
 		const result = await updateTrip(caller, {
 			trip_id: 1,
 			odometer: 8000,
@@ -918,7 +941,7 @@ describe('recording the Clerk user on writes', () => {
 
 	it('stamps an updated trip, and its signature when it was signed', async () => {
 		mocks.getTripDb.mockResolvedValue(recent())
-		mocks.updateTripDb.mockResolvedValue(recent({ make: 'Mack' }))
+		mocks.updateTripDb.mockResolvedValue(saved(recent({ make: 'Mack' })))
 		await updateTrip(pat, { trip_id: 1, make: 'Mack' })
 		expect(ownerMocks.recordOwner).toHaveBeenLastCalledWith(pat, {
 			table: 'trip',
@@ -940,5 +963,195 @@ describe('recording the Clerk user on writes', () => {
 		mocks.getTripDb.mockResolvedValue(undefined)
 		await updateTrip(pat, { trip_id: 1, odometer: 2 })
 		expect(ownerMocks.recordOwner).not.toHaveBeenCalled()
+	})
+})
+
+describe('the audit trail', () => {
+	const pat = { ...caller, userId: 'user_1' }
+
+	it('records a started trip and its signing, as the AI app', async () => {
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(pat, { ...start, defects: ['tires'] })
+		expect(auditMocks.recordEvents).toHaveBeenCalledTimes(1)
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(
+			pat,
+			{
+				action: 'trip.created',
+				source: 'Claude',
+				tripId: 5,
+				details: {
+					signed: true,
+					signing: 'allowed',
+					defects: ['Tires'],
+					remarks_length: start.remarks.length,
+				},
+			},
+			{
+				action: 'trip.signed',
+				source: 'Claude',
+				tripId: 5,
+				details: { signature: 'saved' },
+			},
+		)
+	})
+
+	it('records an unsigned start without a signing, and why', async () => {
+		signatureMocks.getAiSigningAllowedDb.mockResolvedValue(false)
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(
+			{ ...pat, client: null },
+			{ ...start, truck_plate: undefined },
+		)
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: 'user_1' }),
+			expect.objectContaining({
+				action: 'trip.created',
+				// The same name the trip's signature would have recorded.
+				source: 'ai',
+				details: expect.objectContaining({
+					signed: false,
+					signing: 'ai_signing_off',
+					defects: [],
+				}),
+			}),
+			null,
+		)
+	})
+
+	it('records nothing for a start that failed', async () => {
+		mocks.createTripDb.mockRejectedValue(new Error('down'))
+		await expect(startTrip(pat, start)).rejects.toThrow('down')
+		expect(auditMocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('records what an update changed, from the row the database overwrote', async () => {
+		// The cached trip says 1000 km; the database had 1100 when it saved.
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(
+			saved(
+				recent({
+					odometer: 1200,
+					truckplate: 'NEW',
+					defects: 'Cab, Tires',
+				}),
+				recent({ odometer: 1100 }),
+			),
+		)
+		await updateTrip(pat, {
+			trip_id: 1,
+			odometer: 1200,
+			truck_plate: 'NEW',
+			add_defects: ['tires'],
+			add_remarks: 'Flat on route',
+		})
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(
+			pat,
+			{
+				action: 'trip.updated',
+				source: 'Claude',
+				tripId: 1,
+				details: {
+					changed: ['odometer', 'truckPlate'],
+					from: { odometer: 1100, truckPlate: 'TRK1' },
+					to: { odometer: 1200, truckPlate: 'NEW' },
+					defects_added: ['Tires'],
+					remarks_added_length: 13,
+				},
+			},
+			null,
+		)
+	})
+
+	it('records defects added to a signed trip, and nothing for resent values', async () => {
+		const signed = recent({ signed_at: NOW })
+		mocks.getTripDb.mockResolvedValue(signed)
+		mocks.updateTripDb.mockResolvedValue(
+			saved(recent({ signed_at: NOW, defects: 'Cab, Lights' }), signed),
+		)
+		await updateTrip(pat, { trip_id: 1, add_defects: ['lights'] })
+		expect(auditMocks.recordEvents).toHaveBeenLastCalledWith(
+			pat,
+			expect.objectContaining({
+				action: 'trip.defects_added',
+				details: { defects_added: ['Lights'] },
+			}),
+			null,
+		)
+
+		// Unsigned, every field resent as it was: saved, but nothing changed.
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(saved(recent()))
+		await updateTrip(pat, { trip_id: 1, make: 'Volvo' })
+		expect(auditMocks.recordEvents).toHaveBeenLastCalledWith(
+			pat,
+			null,
+			null,
+		)
+	})
+
+	it('records signing an existing trip with the saved signature', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		signatureMocks.signTripDb.mockResolvedValue(recent({ signed_at: NOW }))
+		await updateTrip(pat, { trip_id: 1, sign: true })
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(pat, null, {
+			action: 'trip.signed',
+			source: 'Claude',
+			tripId: 1,
+			details: { signature: 'saved' },
+		})
+	})
+
+	it('records an update that was saved although signing then found the trip too old', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(saved(recent({ make: 'Mack' })))
+		signatureMocks.signTripDb.mockResolvedValue(undefined)
+		const result = await updateTrip(pat, {
+			trip_id: 1,
+			make: 'Mack',
+			sign: true,
+		})
+		expect(result.data.status).toBe('too_old')
+		expect(auditMocks.recordEvents).toHaveBeenCalledTimes(1)
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(
+			pat,
+			expect.objectContaining({
+				action: 'trip.updated',
+				details: {
+					changed: ['make'],
+					from: { make: 'Volvo' },
+					to: { make: 'Mack' },
+				},
+			}),
+		)
+	})
+
+	it.each([
+		['signed_locked'],
+		['defects_too_long'],
+		['remarks_too_long'],
+	])('records nothing when the database refuses (%s)', async (status) => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(status)
+		await updateTrip(pat, { trip_id: 1, make: 'Mack' })
+		expect(auditMocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('records nothing when an update is refused before the database', async () => {
+		mocks.getTripDb.mockResolvedValue(recent({ signed_at: NOW }))
+		await updateTrip(pat, { trip_id: 1, odometer: 5 })
+		signatureMocks.getAiSigningAllowedDb.mockResolvedValue(false)
+		mocks.getTripDb.mockResolvedValue(recent())
+		await updateTrip(pat, { trip_id: 1, make: 'Mack', sign: true })
+		mocks.getTripDb.mockResolvedValue(undefined)
+		await updateTrip(pat, { trip_id: 1, make: 'Mack' })
+		expect(auditMocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('records nothing when the trip passed 24 hours before the update', async () => {
+		mocks.getTripDb.mockResolvedValue(recent())
+		mocks.updateTripDb.mockResolvedValue(undefined)
+		await updateTrip(pat, { trip_id: 1, odometer: 2 })
+		// Nothing was saved, so the (null) event is skipped.
+		expect(auditMocks.recordEvents).toHaveBeenCalledWith(pat, null)
 	})
 })

@@ -167,8 +167,12 @@ describe('connector queries', () => {
 				target_trip_id: 4,
 				defects_too_long: false,
 				remarks_too_long: false,
+				before_make: 'Volvo',
+				before_odometer: 1000,
 			},
 		])
+		// The trip as saved, and its core details as the update found them
+		// (for the audit trail), kept apart.
 		await expect(
 			updateTripDb(4, 'pat@x.com', {
 				odometer: 5,
@@ -176,7 +180,10 @@ describe('connector queries', () => {
 				addDefects: 'Cab',
 				addRemarks: 'Late',
 			}),
-		).resolves.toEqual({ tripid: 4, make: 'Mack' })
+		).resolves.toEqual({
+			trip: { tripid: 4, make: 'Mack' },
+			before: { make: 'Volvo', odometer: 1000 },
+		})
 		const [query] = sql.queries()
 		expect(query.text).toContain("date >= NOW() - INTERVAL '24 hours'")
 		const core = [null, null, null, 'Mack', null, 5, null, null, null]
@@ -243,8 +250,23 @@ describe('connector queries', () => {
 			)
 		}
 		expect(text).toContain(
-			'SELECT updated.*, target.tripId AS target_trip_id, target.defects_too_long, target.remarks_too_long FROM target LEFT JOIN updated ON true',
+			'SELECT updated.*, target.tripId AS target_trip_id, target.defects_too_long, target.remarks_too_long, target.before_carrier, target.before_carrieraddress, target.before_inspectionaddress, target.before_make, target.before_model, target.before_odometer, target.before_truckplate, target.before_trailerplatea, target.before_trailerplateb FROM target LEFT JOIN updated ON true',
 		)
+	})
+
+	it('reads every core field as it was from the locked row, in the same statement', async () => {
+		const { CORE_TRIP_FIELDS, updateTripDb } = await import(
+			'@/lib/db/trips'
+		)
+		await updateTripDb(4, 'pat@x.com', { odometer: 5 })
+		expect(sql.queries()).toHaveLength(1)
+		const { text } = sql.queries()[0]
+		const target = text.slice(0, text.indexOf('FOR UPDATE'))
+		for (const field of CORE_TRIP_FIELDS) {
+			expect(target).toContain(
+				`${field} AS before_${field.toLowerCase()}`,
+			)
+		}
 	})
 
 	it('caps the whole defects and remarks in the UPDATE itself, on the locked row', async () => {

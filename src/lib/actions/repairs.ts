@@ -1,6 +1,6 @@
 'use server'
 
-import { getDriver, getDriverEmail } from '@/lib/auth'
+import { getDriver } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import type { Repair } from '@/lib/db/repairs'
 import { errorForLog } from '@/lib/log'
@@ -73,10 +73,11 @@ export async function markDefectRepaired(
 export async function undoDefectRepair(
 	repairId: number,
 ): Promise<{ value: { id: number } } | { errorMessage: string }> {
-	const email = await getDriverEmail()
-	if (!email) return { errorMessage: 'Must be logged in' }
+	const driver = await getDriver()
+	if (!driver) return { errorMessage: 'Must be logged in' }
+	const { email } = driver
 	try {
-		const removed = await undoRepair(email, repairId)
+		const removed = await undoRepair(email, repairId, 'web', driver.userId)
 		if (!removed) return { errorMessage: 'That repair was not found.' }
 		revalidateDriverTrips(email)
 		return { value: { id: removed.id } }

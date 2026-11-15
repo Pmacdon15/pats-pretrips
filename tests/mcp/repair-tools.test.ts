@@ -277,7 +277,27 @@ describe('undoDefectRepair', () => {
 				'Undid the repair of Cab on trip 1; it shows as open again.',
 			data: { status: 'undone', id: 7, trip_id: 1, defect: 'Cab' },
 		})
-		expect(mocks.undoRepair).toHaveBeenCalledWith('pat@x.com', 7)
+		// Recorded in the audit trail as this AI app, the way repairs name it.
+		expect(mocks.undoRepair).toHaveBeenCalledWith(
+			'pat@x.com',
+			7,
+			'AI: Claude',
+			undefined,
+		)
+	})
+
+	it('names an AI app without a name the way repairs do, with the Clerk user', async () => {
+		mocks.undoRepair.mockResolvedValue({ id: 7, trip_id: 1, defect: 'Cab' })
+		await undoDefectRepair(
+			{ email: 'pat@x.com', client: null, userId: 'user_1' },
+			{ repair_id: 7 },
+		)
+		expect(mocks.undoRepair).toHaveBeenCalledWith(
+			'pat@x.com',
+			7,
+			'AI assistant',
+			'user_1',
+		)
 	})
 
 	it('says when it isn’t found', async () => {

@@ -232,6 +232,16 @@ export type TripUpdateRefusal =
 	| 'defects_too_long'
 	| 'remarks_too_long'
 
+/** A trip's core details, by their column names as rows return them. */
+export type TripBefore = Pick<Trip, Lowercase<CoreTripField>>
+
+/**
+ * A saved update: the trip as it is now, and its core details as the update
+ * found them (read from the locked row in the same statement, so exactly
+ * what was overwritten; for the audit trail, src/lib/db/audit-events.ts).
+ */
+export type UpdatedTrip = { trip: Trip; before: TripBefore }
+
 /**
  * Changes a trip from the last 24 hours, the same window the web app allows
  * for on-route defects. Fields left out keep their value; defects and remarks
@@ -252,13 +262,14 @@ export type TripUpdateRefusal =
  * the trip is signed or added to at the same moment. The trip's row is locked
  * (FOR UPDATE) before the update, so the reason given is read from the row as
  * the update saw it. Undefined when the trip isn't the driver's or is older
- * than 24 hours.
+ * than 24 hours. A saved update answers the trip and, in `before`, its core
+ * details as they were (see UpdatedTrip).
  */
 export async function updateTripDb(
 	tripId: number,
 	driverEmail: string,
 	changes: TripChanges,
-): Promise<Trip | TripUpdateRefusal | undefined> {
+): Promise<UpdatedTrip | TripUpdateRefusal | undefined> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const c = (value: string | undefined) => value ?? null
 	const odometer = changes.odometer ?? null
@@ -269,6 +280,11 @@ export async function updateTripDb(
 	const [row] = await sql`
         WITH target AS MATERIALIZED (
             SELECT tripId,
+                carrier AS before_carrier, carrierAddress AS before_carrieraddress,
+                inspectionAddress AS before_inspectionaddress, make AS before_make,
+                model AS before_model, odometer AS before_odometer,
+                truckPlate AS before_truckplate, trailerPlateA AS before_trailerplatea,
+                trailerPlateB AS before_trailerplateb,
                 (${addDefects}::text IS NOT NULL
                     AND COALESCE(char_length(NULLIF(defects, '')) + 2, 0) + char_length(${addDefects}::text) > ${STORED_DEFECTS_MAX}::int
                 ) AS defects_too_long,
@@ -326,7 +342,12 @@ export async function updateTripDb(
             RETURNING PTTrips.*
         )
         SELECT updated.*, target.tripId AS target_trip_id,
-            target.defects_too_long, target.remarks_too_long
+            target.defects_too_long, target.remarks_too_long,
+            target.before_carrier, target.before_carrieraddress,
+            target.before_inspectionaddress, target.before_make,
+            target.before_model, target.before_odometer,
+            target.before_truckplate, target.before_trailerplatea,
+            target.before_trailerplateb
         FROM target LEFT JOIN updated ON true
     `
 	// No row: not the driver's trip, or older than 24 hours. The trip but not
@@ -342,7 +363,16 @@ export async function updateTripDb(
 		target_trip_id: _,
 		defects_too_long: _defects,
 		remarks_too_long: _remarks,
-		...trip
+		...rest
 	} = row
-	return trip as Trip
+	const before: Record<string, unknown> = {}
+	const trip: Record<string, unknown> = {}
+	for (const [key, value] of Object.entries(rest)) {
+		if (key.startsWith(BEFORE)) before[key.slice(BEFORE.length)] = value
+		else trip[key] = value
+	}
+	return { trip: trip as unknown as Trip, before: before as TripBefore }
 }
+
+/** The prefix of the core fields as they were, in updateTripDb's answer. */
+const BEFORE = 'before_'
