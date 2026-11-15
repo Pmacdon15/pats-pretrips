@@ -1,6 +1,9 @@
 'use server'
 
-import { revalidateDriverVehicles } from '@/lib/cache/revalidate'
+import {
+	revalidateDriverVehicles,
+	revalidateOrgVehicles,
+} from '@/lib/cache/revalidate'
 import {
 	addVehicleDAL,
 	deleteVehicleDAL,
@@ -17,13 +20,14 @@ export async function getVehicles() {
 	return fetchVehiclesDAL()
 }
 
-/** The saved vehicle, clearing the driver's cached list; or why not. */
+/** The saved vehicle, clearing the space's cached list; or why not. */
 function answer(
 	result: Awaited<ReturnType<typeof addVehicleDAL>>,
 ): VehicleAnswer {
 	return result.match(
-		({ vehicle, email }) => {
-			revalidateDriverVehicles(email)
+		({ vehicle, email, orgId }) => {
+			if (orgId) revalidateOrgVehicles(orgId)
+			else revalidateDriverVehicles(email)
 			return { value: vehicle }
 		},
 		(err) => ({ errorMessage: err.reason }),

@@ -13,6 +13,7 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 - **Installable PWA**: Add to your home screen for a full-screen, app-like experience with an offline fallback page
 - **Email pre-trips (paid)**: send each pre-trip as a PDF to dispatch or yourself when it's completed, or from any trip at any time, through Amazon SES. Locked behind the Clerk Billing feature `email_pretrips`. See [docs/email.md](docs/email.md).
 - **AI connector**: an [MCP](https://modelcontextprotocol.io) server at `https://patspretrips.ca/api/mcp` that Claude, Muse, Gemini or any MCP-capable assistant can connect to. Send it a photo of the odometer and the licence plate, tell it the make and model, and it starts your pre-trip once you confirm it; it can also update a trip from the last 24 hours. See [docs/mcp-ai-guide.md](docs/mcp-ai-guide.md) for setup (Clerk sign-in, the database migrations) and the rules the assistant follows.
+- **Organizations**: drivers work in their personal space or in a [Clerk organization](https://clerk.com/docs/organizations/overview) picked in the header. An organization shares its vehicles, carriers and email settings with every member; only its admins change them, and its own plan unlocks emailing pre-trips. Solo users work exactly as before. See [docs/organizations.md](docs/organizations.md).
 - **Audit trail**: every change to trips, signatures, repairs and email settings, and every email sent, from the web app or an AI app, is recorded in `pt_audit_events` (best-effort; no page for it yet). See [docs/audit-trail.md](docs/audit-trail.md) for what is recorded, the migration and example queries.
  
 ## Technology Stack
@@ -73,9 +74,10 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 4. Set up the database
    Run `src/lib/sql/makeDb.sql` (the trips table), then every dated file in
    `src/lib/sql/` in date order, oldest first. All of them are safe to run again.
-   The newest, `2026-11-19-audit-events.sql`, adds the audit trail
-   ([docs/audit-trail.md](docs/audit-trail.md)); until it's run, changes are
-   saved as usual but not recorded there.
+   The newest, `2026-11-22-organizations.sql`, adds the tables an
+   organization's space uses ([docs/organizations.md](docs/organizations.md));
+   until it's run, solo users are unaffected and organizations have no
+   shared vehicles, carriers or email settings.
  
 5. Start the development server
    ```bash

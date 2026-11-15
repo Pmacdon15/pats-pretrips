@@ -1,22 +1,86 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryWrapper } from '../helpers/query'
 
 const mocks = vi.hoisted(() => ({
 	getAddress: vi.fn(),
 	getVehicles: vi.fn(),
 	getCarriers: vi.fn(),
+	useAuth: vi.fn(),
 }))
+vi.mock('@clerk/nextjs', () => ({ useAuth: mocks.useAuth }))
 vi.mock('@/lib/actions/actions', () => ({ getAddress: mocks.getAddress }))
 vi.mock('@/lib/actions/vehicles', () => ({ getVehicles: mocks.getVehicles }))
 vi.mock('@/lib/actions/carriers', () => ({ getCarriers: mocks.getCarriers }))
 
 import {
+	CARRIERS_KEY,
 	useCarriers,
 	useGetAddress,
 	useGetLocation,
 	useVehicles,
+	VEHICLES_KEY,
 } from '@/lib/hooks/hooks'
+import { useSpace } from '@/lib/hooks/space'
+
+beforeEach(() => {
+	mocks.useAuth.mockReturnValue({ orgId: null, has: () => false })
+})
+
+describe('useSpace', () => {
+	it('is the personal space, which a solo user manages, with no active organization', () => {
+		const { result } = renderHook(() => useSpace())
+		expect(result.current).toEqual({
+			orgId: null,
+			inOrg: false,
+			canManage: true,
+		})
+	})
+
+	it("is an organization's space, managed only by its admins", () => {
+		const has = vi.fn((p: { role?: string }) => p.role === 'org:admin')
+		mocks.useAuth.mockReturnValue({ orgId: 'org_1', has })
+		expect(renderHook(() => useSpace()).result.current).toEqual({
+			orgId: 'org_1',
+			inOrg: true,
+			canManage: true,
+		})
+		expect(has).toHaveBeenCalledWith({ role: 'org:admin' })
+		has.mockReturnValue(false)
+		expect(renderHook(() => useSpace()).result.current.canManage).toBe(
+			false,
+		)
+	})
+})
+
+describe('space lists', () => {
+	it('keys each space separately, under the shared prefix mutations clear', async () => {
+		mocks.getVehicles.mockResolvedValue([])
+		mocks.getCarriers.mockResolvedValue([])
+		mocks.useAuth.mockReturnValue({ orgId: 'org_1', has: () => false })
+		const wrapper = queryWrapper()
+		const { result } = renderHook(
+			() => {
+				useVehicles()
+				useCarriers()
+				return useQueryClient()
+			},
+			{ wrapper },
+		)
+		await waitFor(() =>
+			expect(
+				result.current.getQueryData([...VEHICLES_KEY, 'org_1']),
+			).toEqual([]),
+		)
+		expect(result.current.getQueryData([...CARRIERS_KEY, 'org_1'])).toEqual(
+			[],
+		)
+		expect(
+			result.current.getQueryData([...VEHICLES_KEY, 'personal']),
+		).toBeUndefined()
+	})
+})
 
 describe('useCarriers', () => {
 	it("reads the driver's saved carriers", async () => {

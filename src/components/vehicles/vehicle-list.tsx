@@ -8,15 +8,18 @@ import { Button } from '@/components/ui/button'
 import { deleteVehicle } from '@/lib/actions/vehicles'
 import type { Vehicle } from '@/lib/db/vehicles'
 import { useVehicles, VEHICLES_KEY } from '@/lib/hooks/hooks'
+import { useSpace } from '@/lib/hooks/space'
 import { formatLimit, VEHICLES_MAX } from '@/lib/trip-limits'
 import { VehicleForm } from './vehicle-form'
 
 /**
- * The driver's saved vehicles: add one, edit one or delete one. Pick one on
+ * The space's saved vehicles (the driver's own, or their organization's):
+ * add one, edit one or delete one, when the driver manages the space. Pick one on
  * a new pre-trip to fill in its make, model and plates.
  */
 export function VehicleList() {
 	const { data: vehicles = [], isPending } = useVehicles()
+	const { inOrg, canManage } = useSpace()
 	// 'new' while adding, a vehicle's id while editing it.
 	const [editing, setEditing] = useState<'new' | number | null>(null)
 
@@ -28,7 +31,24 @@ export function VehicleList() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			{vehicles.length === 0 && editing !== 'new' && (
+			{inOrg && canManage && (
+				<p className="rounded-md bg-muted p-3 text-muted-foreground text-sm">
+					These vehicles are shared with everyone in your
+					organization. As an admin, you can change them.
+				</p>
+			)}
+			{!canManage && (
+				<p className="rounded-md bg-muted p-3 text-muted-foreground text-sm">
+					These are your organization&apos;s vehicles. Only its admins
+					can add, change or delete them.
+				</p>
+			)}
+			{vehicles.length === 0 && editing !== 'new' && !canManage && (
+				<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
+					Your organization has no saved vehicles yet.
+				</p>
+			)}
+			{vehicles.length === 0 && editing !== 'new' && canManage && (
 				<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
 					No saved vehicles yet. Add the trucks you drive, then pick
 					one when you start a pre-trip.
@@ -44,6 +64,7 @@ export function VehicleList() {
 							/>
 						) : (
 							<VehicleRow
+								canManage={canManage}
 								onEdit={() => setEditing(v.id)}
 								vehicle={v}
 							/>
@@ -51,7 +72,7 @@ export function VehicleList() {
 					</li>
 				))}
 			</ul>
-			{editing === 'new' ? (
+			{!canManage ? null : editing === 'new' ? (
 				<div className="rounded-md border p-4">
 					<VehicleForm onDone={() => setEditing(null)} />
 				</div>
@@ -66,7 +87,7 @@ export function VehicleList() {
 					Add a vehicle
 				</Button>
 			)}
-			{full && (
+			{canManage && full && (
 				<p className="text-muted-foreground text-xs">
 					You can save up to {formatLimit(VEHICLES_MAX)} vehicles.
 				</p>
@@ -78,9 +99,12 @@ export function VehicleList() {
 function VehicleRow({
 	vehicle: v,
 	onEdit,
+	canManage,
 }: {
 	vehicle: Vehicle
 	onEdit: () => void
+	/** Shows Edit and Delete: the driver manages this space. */
+	canManage: boolean
 }) {
 	const queryClient = useQueryClient()
 	const [confirming, setConfirming] = useState(false)
@@ -126,7 +150,7 @@ function VehicleRow({
 				</div>
 			</div>
 			<div className="flex gap-2">
-				{confirming ? (
+				{!canManage ? null : confirming ? (
 					<>
 						<Button
 							disabled={pending}

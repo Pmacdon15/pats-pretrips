@@ -8,15 +8,18 @@ import { Button } from '@/components/ui/button'
 import { deleteCarrier } from '@/lib/actions/carriers'
 import type { Carrier } from '@/lib/db/carriers'
 import { CARRIERS_KEY, useCarriers } from '@/lib/hooks/hooks'
+import { useSpace } from '@/lib/hooks/space'
 import { CARRIERS_MAX, formatLimit } from '@/lib/trip-limits'
 import { CarrierForm } from './carrier-form'
 
 /**
- * The driver's saved carriers: add one, edit one or delete one. Pick one on
+ * The space's saved carriers (the driver's own, or their organization's):
+ * add one, edit one or delete one, when the driver manages the space. Pick one on
  * a new pre-trip to fill in the carrier and its address.
  */
 export function CarrierList() {
 	const { data: carriers = [], isPending } = useCarriers()
+	const { inOrg, canManage } = useSpace()
 	// 'new' while adding, a carrier's id while editing it.
 	const [editing, setEditing] = useState<'new' | number | null>(null)
 
@@ -28,7 +31,24 @@ export function CarrierList() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			{carriers.length === 0 && editing !== 'new' && (
+			{inOrg && canManage && (
+				<p className="rounded-md bg-muted p-3 text-muted-foreground text-sm">
+					These carriers are shared with everyone in your
+					organization. As an admin, you can change them.
+				</p>
+			)}
+			{!canManage && (
+				<p className="rounded-md bg-muted p-3 text-muted-foreground text-sm">
+					These are your organization&apos;s carriers. Only its admins
+					can add, change or delete them.
+				</p>
+			)}
+			{carriers.length === 0 && editing !== 'new' && !canManage && (
+				<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
+					Your organization has no saved carriers yet.
+				</p>
+			)}
+			{carriers.length === 0 && editing !== 'new' && canManage && (
 				<p className="rounded-md border border-dashed p-6 text-center text-muted-foreground text-sm">
 					No saved carriers yet. Add the companies you haul for, then
 					pick one when you start a pre-trip.
@@ -44,6 +64,7 @@ export function CarrierList() {
 							/>
 						) : (
 							<CarrierRow
+								canManage={canManage}
 								carrier={c}
 								onEdit={() => setEditing(c.id)}
 							/>
@@ -51,7 +72,7 @@ export function CarrierList() {
 					</li>
 				))}
 			</ul>
-			{editing === 'new' ? (
+			{!canManage ? null : editing === 'new' ? (
 				<div className="rounded-md border p-4">
 					<CarrierForm onDone={() => setEditing(null)} />
 				</div>
@@ -66,7 +87,7 @@ export function CarrierList() {
 					Add a carrier
 				</Button>
 			)}
-			{full && (
+			{canManage && full && (
 				<p className="text-muted-foreground text-xs">
 					You can save up to {formatLimit(CARRIERS_MAX)} carriers.
 				</p>
@@ -78,9 +99,12 @@ export function CarrierList() {
 function CarrierRow({
 	carrier: c,
 	onEdit,
+	canManage,
 }: {
 	carrier: Carrier
 	onEdit: () => void
+	/** Shows Edit and Delete: the driver manages this space. */
+	canManage: boolean
 }) {
 	const queryClient = useQueryClient()
 	const [confirming, setConfirming] = useState(false)
@@ -111,7 +135,7 @@ function CarrierRow({
 				</div>
 			</div>
 			<div className="flex shrink-0 gap-2">
-				{confirming ? (
+				{!canManage ? null : confirming ? (
 					<>
 						<Button
 							disabled={pending}

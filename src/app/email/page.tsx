@@ -1,7 +1,7 @@
-import { PricingTable } from '@clerk/nextjs'
 import { Mail } from 'lucide-react'
 import { Suspense } from 'react'
 import { EmailSettingsForm } from '@/components/email/email-settings'
+import { SpacePricingTable } from '@/components/email/space-pricing'
 import {
 	Card,
 	CardContent,
@@ -39,9 +39,10 @@ export default function Page() {
 								<div className="grid gap-4">
 									<p className="text-muted-foreground text-sm">
 										Emailing pre-trips is part of a paid
-										plan.
+										plan. In an organization, its plan
+										covers every member.
 									</p>
-									<PricingTable newSubscriptionRedirectUrl="/email" />
+									<SpacePricingTable />
 								</div>
 							}
 						/>

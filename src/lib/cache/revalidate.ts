@@ -36,3 +36,13 @@ export function expireDriverVehicles(email: string) {
 export function revalidateDriverCarriers(email: string) {
 	updateTag(CACHE_TAGS.driverCarriers(email))
 }
+
+/** From a server action: an organization's members see its vehicles change now. */
+export function revalidateOrgVehicles(orgId: string) {
+	updateTag(CACHE_TAGS.orgVehicles(orgId))
+}
+
+/** From a server action: an organization's members see its carriers change now. */
+export function revalidateOrgCarriers(orgId: string) {
+	updateTag(CACHE_TAGS.orgCarriers(orgId))
+}

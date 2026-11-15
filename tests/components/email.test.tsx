@@ -20,6 +20,8 @@ import type { EmailAccess } from '@/lib/DAL/email'
 
 const access = (over: Partial<EmailAccess> = {}): EmailAccess => ({
 	allowed: true,
+	space: 'personal',
+	canEdit: true,
 	settings: { recipients: ['a@x.com'], autoSend: false, timeZone: null },
 	...over,
 })
@@ -150,6 +152,51 @@ describe('EmailSettingsForm', () => {
 		})
 		expect(input).toHaveValue('a@x.com, b@x.com')
 		expect(mocks.toast.success).toHaveBeenCalledWith('Email settings saved')
+	})
+
+	it("shows an organization's settings read-only to a member who isn't an admin", async () => {
+		await show(
+			access({
+				space: 'org',
+				canEdit: false,
+				settings: {
+					recipients: ['dispatch@x.com', 'safety@x.com'],
+					autoSend: true,
+					timeZone: null,
+				},
+			}),
+		)
+		expect(
+			screen.getByText(/organization's admins choose who/),
+		).toBeInTheDocument()
+		expect(
+			screen.getByText('dispatch@x.com, safety@x.com'),
+		).toBeInTheDocument()
+		expect(screen.getByText('yes')).toBeInTheDocument()
+		expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+		expect(screen.queryByLabelText('Send pre-trips to')).toBeNull()
+	})
+
+	it("says when an organization's admins haven't set anyone up yet", async () => {
+		await show(
+			access({
+				space: 'org',
+				canEdit: false,
+				settings: { recipients: [], autoSend: false, timeZone: null },
+			}),
+		)
+		expect(screen.getByText('nobody yet')).toBeInTheDocument()
+		expect(screen.getByText('no')).toBeInTheDocument()
+	})
+
+	it("lets an organization's admin edit its settings for every driver", async () => {
+		await show(access({ space: 'org', canEdit: true }))
+		expect(
+			screen.getByText(/Used for everyone in your organization/),
+		).toBeInTheDocument()
+		expect(
+			screen.getByText('Email each pre-trip when a driver completes it'),
+		).toBeInTheDocument()
 	})
 
 	it('shows why it could not save', async () => {

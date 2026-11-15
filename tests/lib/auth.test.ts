@@ -8,6 +8,9 @@ import {
 	driverName,
 	getDriver,
 	getDriverEmail,
+	getSpace,
+	isSpaceAdmin,
+	ORG_ADMIN_ROLE,
 } from '@/lib/auth'
 
 beforeEach(() => {
@@ -53,15 +56,55 @@ describe('emailing pre-trips', () => {
 		)
 	})
 
-	it("is allowed by the plan's email_pretrips feature", async () => {
+	it("is allowed by the personal plan's email_pretrips feature in the personal space", async () => {
 		const has = vi.fn().mockReturnValue(true)
-		mocks.auth.mockResolvedValue({ userId: 'user_1', has })
+		mocks.auth.mockResolvedValue({ userId: 'user_1', orgId: null, has })
 		await expect(canEmailPretrips()).resolves.toBe(true)
-		expect(has).toHaveBeenCalledWith({ feature: 'email_pretrips' })
+		expect(has).toHaveBeenCalledWith({ feature: 'u:email_pretrips' })
 		has.mockReturnValue(false)
 		await expect(canEmailPretrips()).resolves.toBe(false)
 		mocks.auth.mockResolvedValue({ userId: null, has })
 		has.mockReturnValue(true)
 		await expect(canEmailPretrips()).resolves.toBe(false)
+	})
+
+	it("is allowed by the organization's plan in an organization's space", async () => {
+		const has = vi.fn().mockReturnValue(true)
+		mocks.auth.mockResolvedValue({ userId: 'user_1', orgId: 'org_1', has })
+		await expect(canEmailPretrips()).resolves.toBe(true)
+		expect(has).toHaveBeenCalledWith({ feature: 'o:email_pretrips' })
+	})
+})
+
+describe('spaces and admin checks', () => {
+	it('is the personal space, whose solo user is its admin, without an active organization', async () => {
+		const has = vi.fn().mockReturnValue(false)
+		mocks.auth.mockResolvedValue({ userId: 'user_1', orgId: null, has })
+		await expect(getSpace()).resolves.toEqual({
+			kind: 'personal',
+			isAdmin: true,
+		})
+		await expect(isSpaceAdmin()).resolves.toBe(true)
+		expect(has).not.toHaveBeenCalled()
+	})
+
+	it("is the organization's space, administered only by its org:admin members", async () => {
+		const has = vi.fn().mockReturnValue(true)
+		mocks.auth.mockResolvedValue({ userId: 'user_1', orgId: 'org_1', has })
+		await expect(getSpace()).resolves.toEqual({
+			kind: 'org',
+			orgId: 'org_1',
+			isAdmin: true,
+		})
+		expect(has).toHaveBeenCalledWith({ role: ORG_ADMIN_ROLE })
+		expect(ORG_ADMIN_ROLE).toBe('org:admin')
+		has.mockReturnValue(false)
+		await expect(isSpaceAdmin()).resolves.toBe(false)
+	})
+
+	it('is nobody when signed out', async () => {
+		mocks.auth.mockResolvedValue({ userId: null, has: vi.fn() })
+		await expect(getSpace()).resolves.toBeNull()
+		await expect(isSpaceAdmin()).resolves.toBe(false)
 	})
 })

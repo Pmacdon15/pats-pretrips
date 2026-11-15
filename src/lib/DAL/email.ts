@@ -4,13 +4,17 @@ import {
 	type Driver,
 	driverName,
 	getDriver,
+	getSpace,
+	type Space,
 } from '@/lib/auth'
 import { recordEvents } from '@/lib/db/audit-events'
 import type { EmailSendKind } from '@/lib/db/email-sends'
 import {
 	type EmailSettings,
 	getEmailSettingsDb,
+	getOrgEmailSettingsOrNone,
 	saveEmailSettingsDb,
+	saveOrgEmailSettingsDb,
 } from '@/lib/db/email-settings'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import { getRepairFileDb, listTripRepairsDb } from '@/lib/db/repairs'
@@ -34,8 +38,12 @@ import { errorForLog } from '@/lib/log'
 import type { Trip } from '@/lib/types/types'
 
 /*
- * Emailing pre-trips, for drivers whose Clerk plan has the email_pretrips
- * feature. Everything here is for the signed-in driver only.
+ * Emailing pre-trips, when the active space's Clerk plan has the
+ * email_pretrips feature (the driver's own plan in their personal space, the
+ * organization's in an organization's; docs/organizations.md). Everything
+ * here is for the signed-in driver only. The settings (who new pre-trips go
+ * to) are the space's: the driver's own, or the organization's, which only
+ * its admins can change.
  */
 
 const issues = (error: { issues: { message: string }[] }) =>
@@ -45,21 +53,36 @@ const LOCKED = {
 	reason: 'Emailing pre-trips is part of a paid plan. Upgrade to turn it on.',
 } as const
 
+const NOT_ORG_ADMIN = {
+	reason: 'Only an admin of your organization can change its email settings.',
+} as const
+
 export type EmailAccess = {
-	/** The driver's plan includes emailing pre-trips. */
+	/** The active space's plan includes emailing pre-trips. */
 	allowed: boolean
+	/** Whose settings these are: the driver's own, or their organization's. */
+	space: Space['kind']
+	/** The driver may change the settings: an admin of the space. */
+	canEdit: boolean
 	settings: EmailSettings
 }
 
-/** Whether the driver can email pre-trips, and their saved settings. */
+/** The space's saved settings: the driver's own, or the organization's. */
+function spaceSettings(driver: Driver, space: Space) {
+	return space.kind === 'org'
+		? getOrgEmailSettingsOrNone(space.orgId)
+		: getEmailSettingsDb(driver.email)
+}
+
+/** Whether the driver can email pre-trips, and the space's saved settings. */
 export async function getEmailAccessDAL(): Promise<EmailAccess> {
-	const driver = await getDriver()
-	if (!driver) throw new Error('Must be logged in')
+	const [driver, space] = await Promise.all([getDriver(), getSpace()])
+	if (!driver || !space) throw new Error('Must be logged in')
 	const [allowed, settings] = await Promise.all([
 		canEmailPretrips(),
-		getEmailSettingsDb(driver.email),
+		spaceSettings(driver, space),
 	])
-	return { allowed, settings }
+	return { allowed, space: space.kind, canEdit: space.isAdmin, settings }
 }
 
 export async function saveEmailSettingsDAL(data: {
@@ -67,8 +90,11 @@ export async function saveEmailSettingsDAL(data: {
 	autoSend: boolean
 	timeZone?: string
 }) {
-	const driver = await getDriver()
-	if (!driver) return errAsync({ reason: 'Must be logged in' } as const)
+	const [driver, space] = await Promise.all([getDriver(), getSpace()])
+	if (!driver || !space) {
+		return errAsync({ reason: 'Must be logged in' } as const)
+	}
+	if (!space.isAdmin) return errAsync(NOT_ORG_ADMIN)
 	if (!(await canEmailPretrips())) return errAsync(LOCKED)
 
 	const parsed = emailSettingsSchema.safeParse(data)
@@ -87,12 +113,17 @@ export async function saveEmailSettingsDAL(data: {
 	}
 
 	try {
-		const settings = await saveEmailSettingsDb(driver.email, {
+		const values = {
 			recipients,
 			autoSend: parsed.data.autoSend,
 			timeZone: parsed.data.timeZone ?? null,
-		})
-		await recordOwner(driver, { table: 'email_settings' })
+		}
+		const settings = await (space.kind === 'org'
+			? saveOrgEmailSettingsDb(space.orgId, driver, values)
+			: saveEmailSettingsDb(driver.email, values))
+		if (space.kind === 'personal') {
+			await recordOwner(driver, { table: 'email_settings' })
+		}
 		// How many recipients, never their addresses.
 		await recordEvents(driver, {
 			action: 'email.settings_saved',
@@ -101,6 +132,7 @@ export async function saveEmailSettingsDAL(data: {
 				recipient_count: settings.recipients.length,
 				auto_send: settings.autoSend,
 				time_zone: settings.timeZone,
+				...(space.kind === 'org' ? { org_id: space.orgId } : {}),
 			},
 		})
 		return okAsync(settings)
@@ -233,15 +265,15 @@ export async function emailTripDAL(data: {
 
 /**
  * What to do once a new pre-trip is saved: a function that emails it to the
- * driver's recipients, or null when auto-send is off or not in their plan.
+ * space's recipients, or null when auto-send is off or not in its plan.
  * Everything that reads the request runs now, so the sending itself can
  * happen after the response.
  */
 export async function prepareAutoEmailDAL() {
-	const driver = await getDriver()
-	if (!driver || !fromAddress()) return null
+	const [driver, space] = await Promise.all([getDriver(), getSpace()])
+	if (!driver || !space || !fromAddress()) return null
 	if (!(await canEmailPretrips())) return null
-	const settings = await getEmailSettingsDb(driver.email)
+	const settings = await spaceSettings(driver, space)
 	if (!settings.autoSend || settings.recipients.length === 0) return null
 
 	return async (trip: Trip) => {

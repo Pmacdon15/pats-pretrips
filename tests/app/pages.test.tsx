@@ -64,9 +64,13 @@ vi.mock('@clerk/nextjs', () => ({
 	ClerkProvider: ({ children }: { children: React.ReactNode }) => (
 		<div data-testid="clerk">{children}</div>
 	),
-	PricingTable: (p: { newSubscriptionRedirectUrl: string }) => (
-		<p data-testid="pricing">{p.newSubscriptionRedirectUrl}</p>
+	PricingTable: (p: { newSubscriptionRedirectUrl: string; for?: string }) => (
+		<p data-for={p.for} data-testid="pricing">
+			{p.newSubscriptionRedirectUrl}
+		</p>
 	),
+	// The personal space (no active organization).
+	useAuth: () => ({ orgId: null, has: () => false }),
 }))
 vi.mock('@/components/header/header', () => ({
 	default: () => <header>header</header>,
