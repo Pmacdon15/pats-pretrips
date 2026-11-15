@@ -149,6 +149,49 @@ describe('trips card', () => {
 		expect(chips[2]).not.toContain('Signed · can add defects')
 	})
 
+	it('lists several trips as short rows that open to the full card', () => {
+		const { window, deliver } = load()
+		deliver(
+			toolResult({
+				trips: [
+					trip(),
+					trip({ trip_id: 8, defects: ['Tires', 'Lights'] }),
+				],
+				has_more: false,
+				page: 1,
+				when: 'current',
+			}),
+		)
+		const rows = [...window.document.querySelectorAll('details.trip')]
+		expect(rows).toHaveLength(2)
+		expect(rows.every((r) => !r.hasAttribute('open'))).toBe(true)
+		const summaries = rows.map(
+			(r) => r.querySelector('summary')?.textContent,
+		)
+		expect(summaries[0]).toContain('Freightliner Cascadia')
+		expect(summaries[0]).toContain('No defects')
+		expect(summaries[0]).toContain('ABC 1234 · Trip #7')
+		expect(summaries[1]).toContain('2 defects open')
+		// The details are still there, behind the tap.
+		expect(rows[1].querySelector('.body')?.textContent).toContain(
+			'Open in PreTrips',
+		)
+	})
+
+	it('shows a single listed trip in full', () => {
+		const { window, deliver } = load()
+		deliver(
+			toolResult({
+				trips: [trip()],
+				has_more: false,
+				page: 1,
+				when: 'current',
+			}),
+		)
+		expect(window.document.querySelector('details')).toBeNull()
+		expect(window.document.querySelectorAll('article.trip')).toHaveLength(1)
+	})
+
 	it('shows one trip from get_trip, and an empty list kindly', () => {
 		const { window, deliver } = load()
 		deliver({
