@@ -117,6 +117,29 @@ describe('trips card', () => {
 		expect(window.document.querySelectorAll('.chip.bad')).toHaveLength(2)
 	})
 
+	it('caps its height so the host never clips the list', async () => {
+		const { window, deliver } = load()
+		// Before the host says how much room it gives, a safe default.
+		expect(window.document.body.style.maxHeight).toBe('480px')
+
+		deliver({
+			jsonrpc: '2.0',
+			id: 1,
+			result: {
+				hostContext: { containerDimensions: { maxHeight: 600 } },
+			},
+		})
+		await flush()
+		expect(window.document.body.style.maxHeight).toBe('600px')
+
+		deliver({
+			jsonrpc: '2.0',
+			method: 'ui/notifications/host-context-changed',
+			params: { containerDimensions: { height: 350 } },
+		})
+		expect(window.document.body.style.maxHeight).toBe('350px')
+	})
+
 	it('says a signed trip from the last 24 hours only takes defects', () => {
 		const { window, deliver } = load()
 		deliver({

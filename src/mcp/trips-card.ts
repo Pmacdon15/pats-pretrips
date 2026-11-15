@@ -84,12 +84,14 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-	padding: 12px 12px 24px;
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
 }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
 .muted { color: var(--muted); font-size: 12px; }
-.list { display: grid; gap: 8px; }
+.list { display: grid; gap: 8px; align-content: start; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .trip { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .title { font-weight: 600; font-size: 14px; }
@@ -457,6 +459,23 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
+	// Hosts cap how tall the card's frame can grow and clip whatever is
+	// below that, so the card caps itself and the list scrolls inside it.
+	// A host that says how much room it gives (containerDimensions) is
+	// followed; otherwise the card stays under a height every host allows.
+	var DEFAULT_MAX_HEIGHT = 480;
+	function applyDimensions(ctx) {
+		var dims = isObject(ctx) && isObject(ctx.containerDimensions) ? ctx.containerDimensions : null;
+		var max = DEFAULT_MAX_HEIGHT;
+		if (dims) {
+			var given = typeof dims.maxHeight === 'number' ? dims.maxHeight : dims.height;
+			if (typeof given === 'number' && given > 0) max = Math.floor(given);
+		}
+		document.body.style.maxHeight = max + 'px';
+	}
+	// Set before the first size report, which waits for the host to answer.
+	applyDimensions(null);
+
 	function reportSize() {
 		var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
 		notify('ui/notifications/size-changed', { height: h });
@@ -489,6 +508,10 @@ a:hover { text-decoration: underline; }
 			if (params) render(params.structuredContent);
 		} else if (msg.method === 'ui/notifications/host-context-changed') {
 			applyTheme(params);
+			if (isObject(params) && isObject(params.containerDimensions)) {
+				applyDimensions(params);
+				reportSize();
+			}
 		} else if (hasId) {
 			// Requests the card has nothing for (ping, teardown) get an empty
 			// result, so the host is not left waiting.
@@ -507,7 +530,9 @@ a:hover { text-decoration: underline; }
 		appInfo: { name: 'pats-pretrips-trips-card', version: '1.0.0' },
 		appCapabilities: {},
 	}).then(function (res) {
-		applyTheme(isObject(res.result) ? res.result.hostContext : null);
+		var ctx = isObject(res.result) ? res.result.hostContext : null;
+		applyTheme(ctx);
+		if (isObject(ctx) && isObject(ctx.containerDimensions)) applyDimensions(ctx);
 		notify('ui/notifications/initialized');
 	});
 
