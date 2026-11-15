@@ -11,10 +11,17 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+
+/** Shown with labels on wide screens; on phones they move into the avatar menu. */
+const secondaryLink = cn(
+	buttonVariants({ variant: 'ghost', size: 'sm' }),
+	'hidden lg:inline-flex',
+)
 
 /**
- * The signed-in driver's pages, shown in the header and again in Clerk's
- * profile menu (the avatar), so every page is a tap away on a phone too.
+ * Every page of the app, listed in the avatar menu so each one is a tap away
+ * on a phone, where the header shows only some of them.
  */
 export const NAV_LINKS = [
 	{ href: '/pretrips', label: 'My Trips', icon: ClipboardCheck },
@@ -72,40 +79,41 @@ export function HeaderNav() {
 			</Link>
 			<Link
 				aria-label="Email pre-trips"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/email"
 			>
 				<Mail />
-				<span className="hidden sm:inline">Email</span>
+				Email
 			</Link>
 			<Link
 				aria-label="Your signature"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/signature"
 			>
 				<PenLine />
-				<span className="hidden sm:inline">Signature</span>
+				Signature
 			</Link>
 			<Link
 				aria-label="Connect your AI"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/connect"
 			>
 				<Bot />
-				<span className="hidden sm:inline">Connect AI</span>
+				Connect AI
 			</Link>
 			<SignOutButton redirectUrl="/">
 				<button
 					aria-label="Sign out"
-					className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+					className={secondaryLink}
 					type="button"
 				>
 					<LogOut />
-					<span className="hidden sm:inline">Sign out</span>
+					Sign out
 				</button>
 			</SignOutButton>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
+					{/* Every page; Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}
 					<UserButton.MenuItems>
 						{NAV_LINKS.map(({ href, label, icon: Icon }) => (
 							<UserButton.Link
