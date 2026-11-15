@@ -127,12 +127,13 @@ export async function reserveEmailSend(
 
 /** Marks a reserved send as sent. Never throws: the email has gone. */
 export async function confirmEmailSend(
+	driverEmail: string,
 	id: string | null,
 	sesMessageId: string | null,
 ) {
 	if (id === null) return
 	try {
-		await confirmEmailSendDb(id, sesMessageId)
+		await confirmEmailSendDb(driverEmail, id, sesMessageId)
 	} catch (e) {
 		// The row stays 'reserved', which still counts towards the limits.
 		console.error(
@@ -143,10 +144,10 @@ export async function confirmEmailSend(
 }
 
 /** Frees a reserved send that failed. Never throws. */
-export async function releaseEmailSend(id: string | null) {
+export async function releaseEmailSend(driverEmail: string, id: string | null) {
 	if (id === null) return
 	try {
-		await releaseEmailSendDb(id)
+		await releaseEmailSendDb(driverEmail, id)
 	} catch (e) {
 		// The row stays 'reserved' and counts: erring towards the limit.
 		console.error(
