@@ -10,7 +10,10 @@ const mocks = vi.hoisted(() => ({
 	updateCarrier: vi.fn(),
 	deleteCarrier: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn() },
+	// The active space, as Clerk's client session gives it.
+	space: { orgId: null as string | null, inOrg: false, canManage: true },
 }))
+vi.mock('@/lib/hooks/space', () => ({ useSpace: () => mocks.space }))
 vi.mock('@/lib/actions/carriers', () => ({
 	getCarriers: mocks.getCarriers,
 	addCarrier: mocks.addCarrier,
@@ -29,6 +32,7 @@ const carrier = (over = {}) => ({
 })
 
 beforeEach(() => {
+	mocks.space = { orgId: null, inOrg: false, canManage: true }
 	mocks.getCarriers.mockResolvedValue([carrier()])
 })
 
@@ -195,6 +199,52 @@ describe('CarrierList', () => {
 		).toBeDisabled()
 		expect(
 			screen.getByText('You can save up to 50 carriers.'),
+		).toBeInTheDocument()
+	})
+
+	it("shows an organization's carriers read-only to a member who isn't an admin", async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		setup()
+		expect(await screen.findByText('Acme Freight')).toBeInTheDocument()
+		expect(
+			screen.getByText(/Only its admins can add, change or delete them/),
+		).toBeInTheDocument()
+		expect(
+			screen.queryByRole('button', { name: 'Add a carrier' }),
+		).toBeNull()
+		expect(
+			screen.queryByRole('button', { name: 'Edit Acme Freight' }),
+		).toBeNull()
+		expect(
+			screen.queryByRole('button', { name: 'Delete Acme Freight' }),
+		).toBeNull()
+	})
+
+	it('says when an organization has no carriers, without offering to add one', async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		mocks.getCarriers.mockResolvedValue([])
+		setup()
+		expect(
+			await screen.findByText(
+				'Your organization has no saved carriers yet.',
+			),
+		).toBeInTheDocument()
+		expect(screen.queryByText(/No saved carriers yet/)).toBeNull()
+	})
+
+	it("lets an organization's admin manage its carriers", async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: true }
+		setup()
+		expect(
+			await screen.findByText(
+				/shared with everyone in your organization/,
+			),
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole('button', { name: 'Add a carrier' }),
+		).toBeEnabled()
+		expect(
+			screen.getByRole('button', { name: 'Edit Acme Freight' }),
 		).toBeInTheDocument()
 	})
 })

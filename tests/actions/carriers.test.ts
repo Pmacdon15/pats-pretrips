@@ -24,7 +24,7 @@ import {
 } from '@/lib/actions/carriers'
 
 const row = { id: 5, name: 'Acme', address: '12 Depot Rd' }
-const saved = okAsync({ carrier: row, email: 'Pat@x.com' })
+const saved = okAsync({ carrier: row, email: 'Pat@x.com', orgId: null })
 
 beforeEach(() => {
 	mocks.fetchCarriersDAL.mockResolvedValue([row])
@@ -43,6 +43,14 @@ describe('carrier actions', () => {
 		dal.mockReturnValue(saved)
 		await expect(call()).resolves.toEqual({ value: row })
 		expect(mocks.updateTag).toHaveBeenCalledWith('carriers:pat@x.com')
+	})
+
+	it("clears an organization's list, not the driver's, for a change in it", async () => {
+		mocks.addCarrierDAL.mockReturnValue(
+			okAsync({ carrier: row, email: 'Pat@x.com', orgId: 'org_1' }),
+		)
+		await expect(addCarrier({})).resolves.toEqual({ value: row })
+		expect(mocks.updateTag.mock.calls).toEqual([['org-carriers:org_1']])
 	})
 
 	it('answers why not, clearing nothing', async () => {

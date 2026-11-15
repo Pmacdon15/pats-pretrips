@@ -28,10 +28,19 @@ import ts from 'typescript'
 /* ---- Configuration types (the values live in the test) ---- */
 
 export type TableRule =
-	/** Rows belong to one driver: `owner` is the column holding the driver. */
+	/**
+	 * Rows belong to one driver, or to one organization's space: `owner` is
+	 * the column holding the driver (or the organization).
+	 */
 	| {
 			kind: 'driver'
 			owner: string
+			/**
+			 * What the bound `${...}` value for `owner` must be named like (its
+			 * last property): /email/i by default, the driver's email. An
+			 * organization's tables use /orgId$/, the active Clerk organization.
+			 */
+			identity?: RegExp
 			/** The column that identifies one row. */
 			key: string
 			/** Columns that point at another table's key (foreign keys). */
@@ -867,12 +876,15 @@ class Analyzer {
 		return i === nodes.length ? p.n : undefined
 	}
 
-	/** Whether a hole's TypeScript expression looks like the driver's identity. */
-	identityHole(n: number): boolean {
+	/**
+	 * Whether a hole's TypeScript expression looks like the identity that owns
+	 * the table's rows: the driver's email, or the rule's own `identity`.
+	 */
+	identityHole(n: number, rule: { identity?: RegExp }): boolean {
 		const text = this.holes[n - 1] ?? ''
 		return (
 			/^[A-Za-z_$][\w$]*(\??\.[A-Za-z_$][\w$]*)*$/.test(text) &&
-			/email/i.test(text.split('.').pop() ?? '')
+			(rule.identity ?? /email/i).test(text.split('.').pop() ?? '')
 		)
 	}
 
@@ -984,7 +996,7 @@ class Analyzer {
 					ref.col === rule.owner &&
 					this.resolve(ref, rels) === rel
 				) {
-					if (!this.identityHole(p)) return false
+					if (!this.identityHole(p, rule)) return false
 					how.push(`${ref.q ? `${ref.q}.` : ''}${ref.col} = $${p}`)
 					return true
 				}
@@ -1330,7 +1342,7 @@ class Analyzer {
 				for (const v of values) this.scan(v, scope)
 				if (!rule || ownerIdx < 0) continue
 				const p = this.param(values[ownerIdx] ?? [])
-				if (p === undefined || !this.identityHole(p)) {
+				if (p === undefined || !this.identityHole(p, rule)) {
 					this.error(
 						pos,
 						`inserts ${table}.${rule.owner} from something other than the driver's bound email (\${driverEmail})`,
@@ -1372,7 +1384,8 @@ class Analyzer {
 							: item,
 					)
 					const col = this.scopedColumn(item, branch)
-					const fromParam = p !== undefined && this.identityHole(p)
+					const fromParam =
+						p !== undefined && this.identityHole(p, rule)
 					const fromRow =
 						col !== undefined &&
 						this.driverRule(col.base)?.owner === col.col

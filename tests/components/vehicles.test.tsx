@@ -10,7 +10,10 @@ const mocks = vi.hoisted(() => ({
 	updateVehicle: vi.fn(),
 	deleteVehicle: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn() },
+	// The active space, as Clerk's client session gives it.
+	space: { orgId: null as string | null, inOrg: false, canManage: true },
 }))
+vi.mock('@/lib/hooks/space', () => ({ useSpace: () => mocks.space }))
 vi.mock('@/lib/actions/vehicles', () => ({
 	getVehicles: mocks.getVehicles,
 	addVehicle: mocks.addVehicle,
@@ -33,6 +36,7 @@ const vehicle = (over = {}) => ({
 })
 
 beforeEach(() => {
+	mocks.space = { orgId: null, inOrg: false, canManage: true }
 	mocks.getVehicles.mockResolvedValue([vehicle()])
 })
 
@@ -217,6 +221,52 @@ describe('VehicleList', () => {
 		).toBeDisabled()
 		expect(
 			screen.getByText('You can save up to 50 vehicles.'),
+		).toBeInTheDocument()
+	})
+
+	it("shows an organization's vehicles read-only to a member who isn't an admin", async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		setup()
+		expect(await screen.findByText('Unit 42')).toBeInTheDocument()
+		expect(
+			screen.getByText(/Only its admins can add, change or delete them/),
+		).toBeInTheDocument()
+		expect(
+			screen.queryByRole('button', { name: 'Add a vehicle' }),
+		).toBeNull()
+		expect(
+			screen.queryByRole('button', { name: 'Edit Unit 42' }),
+		).toBeNull()
+		expect(
+			screen.queryByRole('button', { name: 'Delete Unit 42' }),
+		).toBeNull()
+	})
+
+	it('says when an organization has no vehicles, without offering to add one', async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		mocks.getVehicles.mockResolvedValue([])
+		setup()
+		expect(
+			await screen.findByText(
+				'Your organization has no saved vehicles yet.',
+			),
+		).toBeInTheDocument()
+		expect(screen.queryByText(/No saved vehicles yet/)).toBeNull()
+	})
+
+	it("lets an organization's admin manage its vehicles", async () => {
+		mocks.space = { orgId: 'org_1', inOrg: true, canManage: true }
+		setup()
+		expect(
+			await screen.findByText(
+				/shared with everyone in your organization/,
+			),
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole('button', { name: 'Add a vehicle' }),
+		).toBeEnabled()
+		expect(
+			screen.getByRole('button', { name: 'Edit Unit 42' }),
 		).toBeInTheDocument()
 	})
 })

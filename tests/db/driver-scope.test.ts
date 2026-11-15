@@ -83,6 +83,27 @@ const TABLES: Tables = {
 	pt_email_sends: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_vehicles: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_carriers: { kind: 'driver', owner: 'driver_email', key: 'id' },
+	// An organization's space (docs/organizations.md): owned by the Clerk
+	// organization, so every statement limits them to the active one
+	// (`clerk_org_id = ${orgId}`). driver_email there only notes who saved it.
+	pt_org_vehicles: {
+		kind: 'driver',
+		owner: 'clerk_org_id',
+		key: 'id',
+		identity: /orgId$/,
+	},
+	pt_org_carriers: {
+		kind: 'driver',
+		owner: 'clerk_org_id',
+		key: 'id',
+		identity: /orgId$/,
+	},
+	pt_org_email_settings: {
+		kind: 'driver',
+		owner: 'clerk_org_id',
+		key: 'clerk_org_id',
+		identity: /orgId$/,
+	},
 	// Append-only. Its trip_id and repair_id are deliberately not foreign keys,
 	// so an event outlives the row it describes.
 	pt_audit_events: { kind: 'driver', owner: 'driver_email', key: 'id' },
@@ -254,7 +275,7 @@ function check(sqlText: string, tag = 'sql', allow: AllowEntry[] = []) {
 		/(?<![:\w]):([A-Za-z_][\w.]*)/g,
 		(_, name) => `\${${name}}`,
 	)
-	const source = `async function sample(driverEmail, tripId, id, other) {\n\treturn ${tag}\`${body}\`\n}\n`
+	const source = `async function sample(driverEmail, orgId, tripId, id, other) {\n\treturn ${tag}\`${body}\`\n}\n`
 	return checkSources([{ file: 'sample.ts', source }], TABLES, allow)
 }
 const messages = (sqlText: string, tag?: string) =>
@@ -267,6 +288,39 @@ const fails = (sqlText: string, pattern: RegExp) => {
 }
 
 describe('checker samples', () => {
+	test("an organization's table is limited to the bound org ID, never the driver's email", () => {
+		passes(
+			'SELECT * FROM pt_org_vehicles WHERE id = :id AND clerk_org_id = :orgId',
+		)
+		passes(
+			'DELETE FROM pt_org_carriers WHERE id = :id AND clerk_org_id = :orgId',
+		)
+		fails(
+			'SELECT * FROM pt_org_vehicles WHERE id = :id AND driver_email = :driverEmail',
+			/reads pt_org_vehicles/,
+		)
+		fails(
+			'SELECT * FROM pt_org_vehicles WHERE clerk_org_id = :other',
+			/reads pt_org_vehicles/,
+		)
+		fails(
+			'UPDATE pt_org_email_settings SET auto_send = false WHERE clerk_org_id = :driverEmail',
+			/pt_org_email_settings/,
+		)
+		// A driver's own table still needs the driver's email.
+		fails(
+			'SELECT * FROM pt_vehicles WHERE driver_email = :orgId',
+			/reads pt_vehicles/,
+		)
+		passes(
+			'INSERT INTO pt_org_carriers (clerk_org_id, driver_email, name, address) VALUES (:orgId, :driverEmail, :other, :other)',
+		)
+		fails(
+			'INSERT INTO pt_org_carriers (clerk_org_id, driver_email, name, address) VALUES (:driverEmail, :driverEmail, :other, :other)',
+			/inserts pt_org_carriers.clerk_org_id/,
+		)
+	})
+
 	test('a correct query passes; without the driver filter it fails', () => {
 		passes(
 			'SELECT * FROM PTTrips WHERE tripId = :tripId AND driverEmail = :driverEmail',

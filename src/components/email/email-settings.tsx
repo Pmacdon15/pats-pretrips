@@ -29,6 +29,7 @@ export function EmailSettingsForm({
 	const autoSendId = useId()
 
 	if (!access.allowed) return pricing
+	if (!access.canEdit) return <OrgSettings access={access} />
 
 	const save = () => {
 		// Same rules as the server: an empty list is fine unless auto-send is on.
@@ -79,7 +80,10 @@ export function EmailSettingsForm({
 					value={recipients}
 				/>
 				<p className="text-muted-foreground text-xs">
-					Up to 5 addresses, separated by commas. Replies come to you.
+					Up to 5 addresses, separated by commas.{' '}
+					{access.space === 'org'
+						? 'Used for everyone in your organization.'
+						: 'Replies come to you.'}
 				</p>
 			</div>
 			<label
@@ -95,7 +99,9 @@ export function EmailSettingsForm({
 				/>
 				<span>
 					<span className="font-medium">
-						Email each pre-trip when I complete it
+						{access.space === 'org'
+							? 'Email each pre-trip when a driver completes it'
+							: 'Email each pre-trip when I complete it'}
 					</span>
 					<span className="block text-muted-foreground">
 						The PDF has links back to the trip to edit it or add an
@@ -107,5 +113,31 @@ export function EmailSettingsForm({
 				<Save /> {pending ? 'Saving…' : 'Save'}
 			</Button>
 		</form>
+	)
+}
+
+/**
+ * An organization's settings, for a member who isn't one of its admins:
+ * what's set, read-only. They can still email any trip from its page.
+ */
+function OrgSettings({ access }: { access: EmailAccess }) {
+	const { recipients, autoSend } = access.settings
+	return (
+		<div className="flex flex-col gap-3 text-sm">
+			<p className="rounded-md bg-muted p-3 text-muted-foreground">
+				Your organization&apos;s admins choose who pre-trips are emailed
+				to. You can still email any trip from its page.
+			</p>
+			<p>
+				<span className="font-medium">Sent to: </span>
+				{recipients.length ? recipients.join(', ') : 'nobody yet'}
+			</p>
+			<p>
+				<span className="font-medium">
+					Each new pre-trip is emailed automatically:{' '}
+				</span>
+				{autoSend ? 'yes' : 'no'}
+			</p>
+		</div>
 	)
 }

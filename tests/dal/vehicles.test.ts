@@ -5,6 +5,12 @@ const mocks = vi.hoisted(() => ({
 	rateLimit: vi.fn(),
 	recordEvents: vi.fn(),
 	listVehiclesOrNone: vi.fn(),
+	listOrgVehiclesOrNone: vi.fn(),
+	createOrgVehicleDb: vi.fn(),
+	updateOrgVehicleDb: vi.fn(),
+	deleteOrgVehicleDb: vi.fn(),
+	// The driver's active space (src/lib/auth.ts getSpace).
+	space: vi.fn(),
 	createVehicleDb: vi.fn(),
 	updateVehicleDb: vi.fn(),
 	deleteVehicleDb: vi.fn(),
@@ -16,6 +22,7 @@ vi.mock('@/lib/rate-limit', async (original) => ({
 // `email` stands in for the signed-in driver's email (null when signed out).
 vi.mock('@/lib/auth', () => ({
 	getDriverEmail: mocks.email,
+	getSpace: async () => ((await mocks.email()) ? mocks.space() : null),
 	getDriver: async () => {
 		const email = await mocks.email()
 		return email
@@ -27,6 +34,10 @@ vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/db/vehicles', async (original) => ({
 	...(await original<typeof import('@/lib/db/vehicles')>()),
 	listVehiclesOrNone: mocks.listVehiclesOrNone,
+	listOrgVehiclesOrNone: mocks.listOrgVehiclesOrNone,
+	createOrgVehicleDb: mocks.createOrgVehicleDb,
+	updateOrgVehicleDb: mocks.updateOrgVehicleDb,
+	deleteOrgVehicleDb: mocks.deleteOrgVehicleDb,
 	createVehicleDb: mocks.createVehicleDb,
 	updateVehicleDb: mocks.updateVehicleDb,
 	deleteVehicleDb: mocks.deleteVehicleDb,
@@ -67,6 +78,7 @@ const form = {
 beforeEach(() => {
 	mocks.email.mockResolvedValue('pat@x.com')
 	mocks.rateLimit.mockResolvedValue({ ok: true })
+	mocks.space.mockReturnValue({ kind: 'personal', isAdmin: true })
 })
 
 describe('fetchVehiclesDAL', () => {
@@ -118,6 +130,7 @@ describe('addVehicleDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			vehicle: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.createVehicleDb).toHaveBeenCalledWith(driver, form)
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
@@ -177,6 +190,7 @@ describe('updateVehicleDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			vehicle: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.updateVehicleDb).toHaveBeenCalledWith(3, 'pat@x.com', {
 			name: '',
@@ -237,6 +251,7 @@ describe('deleteVehicleDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			vehicle: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.deleteVehicleDb).toHaveBeenCalledWith(3, 'pat@x.com')
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
@@ -258,5 +273,88 @@ describe('deleteVehicleDAL', () => {
 		mocks.deleteVehicleDb.mockRejectedValue(new Error('down'))
 		const result = await deleteVehicleDAL(3)
 		expect(result._unsafeUnwrapErr().reason).toContain('Could not delete')
+	})
+})
+
+describe("an organization's vehicles", () => {
+	const member = { kind: 'org', orgId: 'org_1', isAdmin: false }
+	const admin = { kind: 'org', orgId: 'org_1', isAdmin: true }
+
+	it('lists the organization’s vehicles for any member, never the driver’s own', async () => {
+		mocks.space.mockReturnValue(member)
+		mocks.listOrgVehiclesOrNone.mockResolvedValue([row])
+		await expect(fetchVehiclesDAL()).resolves.toEqual([row])
+		expect(mocks.listOrgVehiclesOrNone).toHaveBeenCalledWith('org_1')
+		expect(mocks.listVehiclesOrNone).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['add', () => addVehicleDAL(form)],
+		['update', () => updateVehicleDAL(3, form)],
+		['delete', () => deleteVehicleDAL(3)],
+	])('%s is refused for a member who is not an admin', async (_name, call) => {
+		mocks.space.mockReturnValue(member)
+		expect((await call())._unsafeUnwrapErr()).toEqual({
+			reason: 'Only an admin of your organization can change its vehicles.',
+		})
+		expect(mocks.rateLimit).not.toHaveBeenCalled()
+		expect(mocks.createOrgVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.updateOrgVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.deleteOrgVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('an admin adds one to the organization, recorded with it', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.createOrgVehicleDb.mockResolvedValue(row)
+		const result = await addVehicleDAL(form)
+		expect(result._unsafeUnwrap()).toEqual({
+			vehicle: row,
+			email: 'pat@x.com',
+			orgId: 'org_1',
+		})
+		expect(mocks.createOrgVehicleDb).toHaveBeenCalledWith(
+			'org_1',
+			driver,
+			form,
+		)
+		expect(mocks.createVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
+			action: 'vehicle.created',
+			source: 'web',
+			details: { vehicle_id: 3, org_id: 'org_1' },
+		})
+	})
+
+	it('an admin changes and deletes the organization’s, not their own', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.updateOrgVehicleDb.mockResolvedValue({
+			vehicle: row,
+			before: row,
+		})
+		mocks.deleteOrgVehicleDb.mockResolvedValue(row)
+		expect((await updateVehicleDAL(3, form))._unsafeUnwrap().orgId).toBe(
+			'org_1',
+		)
+		expect(mocks.updateOrgVehicleDb.mock.calls[0].slice(0, 2)).toEqual([
+			3,
+			'org_1',
+		])
+		expect((await deleteVehicleDAL(3))._unsafeUnwrap().orgId).toBe('org_1')
+		expect(mocks.deleteOrgVehicleDb).toHaveBeenCalledWith(3, 'org_1')
+		expect(mocks.updateVehicleDb).not.toHaveBeenCalled()
+		expect(mocks.deleteVehicleDb).not.toHaveBeenCalled()
+	})
+
+	it('answers not found for another organization’s vehicle', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.updateOrgVehicleDb.mockResolvedValue(undefined)
+		mocks.deleteOrgVehicleDb.mockResolvedValue(undefined)
+		expect((await updateVehicleDAL(3, form))._unsafeUnwrapErr()).toEqual({
+			reason: 'That vehicle was not found.',
+		})
+		expect((await deleteVehicleDAL(3))._unsafeUnwrapErr()).toEqual({
+			reason: 'That vehicle was not found.',
+		})
 	})
 })

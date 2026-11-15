@@ -27,6 +27,13 @@ vi.mock('@clerk/nextjs', () => {
 			</span>
 		)
 	return {
+		// Records how the switcher is set up: personal spaces must stay offered.
+		OrganizationSwitcher: (p: { hidePersonal?: boolean }) => (
+			<span
+				data-hide-personal={String(p.hidePersonal)}
+				data-testid="org-switcher"
+			/>
+		),
 		SignInButton: wrap('sign-in'),
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
@@ -201,6 +208,15 @@ describe('Header', () => {
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')
 		expect(screen.getByTestId('user-button')).toBeInTheDocument()
+	})
+
+	it('offers the organization switcher, with the personal space, when signed in', async () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
+		await renderHeader()
+		expect(screen.getByTestId('org-switcher')).toHaveAttribute(
+			'data-hide-personal',
+			'false',
+		)
 	})
 
 	it("lists the driver's pages in the profile menu too", async () => {

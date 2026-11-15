@@ -5,6 +5,12 @@ const mocks = vi.hoisted(() => ({
 	rateLimit: vi.fn(),
 	recordEvents: vi.fn(),
 	listCarriersOrNone: vi.fn(),
+	listOrgCarriersOrNone: vi.fn(),
+	createOrgCarrierDb: vi.fn(),
+	updateOrgCarrierDb: vi.fn(),
+	deleteOrgCarrierDb: vi.fn(),
+	// The driver's active space (src/lib/auth.ts getSpace).
+	space: vi.fn(),
 	createCarrierDb: vi.fn(),
 	updateCarrierDb: vi.fn(),
 	deleteCarrierDb: vi.fn(),
@@ -16,6 +22,7 @@ vi.mock('@/lib/rate-limit', async (original) => ({
 // `email` stands in for the signed-in driver's email (null when signed out).
 vi.mock('@/lib/auth', () => ({
 	getDriverEmail: mocks.email,
+	getSpace: async () => ((await mocks.email()) ? mocks.space() : null),
 	getDriver: async () => {
 		const email = await mocks.email()
 		return email
@@ -27,6 +34,10 @@ vi.mock('@/lib/db/audit-events', () => ({ recordEvents: mocks.recordEvents }))
 vi.mock('@/lib/db/carriers', async (original) => ({
 	...(await original<typeof import('@/lib/db/carriers')>()),
 	listCarriersOrNone: mocks.listCarriersOrNone,
+	listOrgCarriersOrNone: mocks.listOrgCarriersOrNone,
+	createOrgCarrierDb: mocks.createOrgCarrierDb,
+	updateOrgCarrierDb: mocks.updateOrgCarrierDb,
+	deleteOrgCarrierDb: mocks.deleteOrgCarrierDb,
 	createCarrierDb: mocks.createCarrierDb,
 	updateCarrierDb: mocks.updateCarrierDb,
 	deleteCarrierDb: mocks.deleteCarrierDb,
@@ -58,6 +69,7 @@ const form = { name: 'Acme Freight', address: '12 Depot Rd' }
 beforeEach(() => {
 	mocks.email.mockResolvedValue('pat@x.com')
 	mocks.rateLimit.mockResolvedValue({ ok: true })
+	mocks.space.mockReturnValue({ kind: 'personal', isAdmin: true })
 })
 
 describe('fetchCarriersDAL', () => {
@@ -109,6 +121,7 @@ describe('addCarrierDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			carrier: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.createCarrierDb).toHaveBeenCalledWith(driver, form)
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
@@ -169,6 +182,7 @@ describe('updateCarrierDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			carrier: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.updateCarrierDb).toHaveBeenCalledWith(5, 'pat@x.com', form)
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
@@ -205,6 +219,7 @@ describe('deleteCarrierDAL', () => {
 		expect(result._unsafeUnwrap()).toEqual({
 			carrier: row,
 			email: 'pat@x.com',
+			orgId: null,
 		})
 		expect(mocks.deleteCarrierDb).toHaveBeenCalledWith(5, 'pat@x.com')
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
@@ -226,5 +241,88 @@ describe('deleteCarrierDAL', () => {
 		mocks.deleteCarrierDb.mockRejectedValue(new Error('down'))
 		const result = await deleteCarrierDAL(5)
 		expect(result._unsafeUnwrapErr().reason).toContain('Could not delete')
+	})
+})
+
+describe("an organization's carriers", () => {
+	const member = { kind: 'org', orgId: 'org_1', isAdmin: false }
+	const admin = { kind: 'org', orgId: 'org_1', isAdmin: true }
+
+	it('lists the organization’s carriers for any member, never the driver’s own', async () => {
+		mocks.space.mockReturnValue(member)
+		mocks.listOrgCarriersOrNone.mockResolvedValue([row])
+		await expect(fetchCarriersDAL()).resolves.toEqual([row])
+		expect(mocks.listOrgCarriersOrNone).toHaveBeenCalledWith('org_1')
+		expect(mocks.listCarriersOrNone).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['add', () => addCarrierDAL(form)],
+		['update', () => updateCarrierDAL(5, form)],
+		['delete', () => deleteCarrierDAL(5)],
+	])('%s is refused for a member who is not an admin', async (_name, call) => {
+		mocks.space.mockReturnValue(member)
+		expect((await call())._unsafeUnwrapErr()).toEqual({
+			reason: 'Only an admin of your organization can change its carriers.',
+		})
+		expect(mocks.rateLimit).not.toHaveBeenCalled()
+		expect(mocks.createOrgCarrierDb).not.toHaveBeenCalled()
+		expect(mocks.updateOrgCarrierDb).not.toHaveBeenCalled()
+		expect(mocks.deleteOrgCarrierDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it('an admin adds one to the organization, recorded with it', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.createOrgCarrierDb.mockResolvedValue(row)
+		const result = await addCarrierDAL(form)
+		expect(result._unsafeUnwrap()).toEqual({
+			carrier: row,
+			email: 'pat@x.com',
+			orgId: 'org_1',
+		})
+		expect(mocks.createOrgCarrierDb).toHaveBeenCalledWith(
+			'org_1',
+			driver,
+			form,
+		)
+		expect(mocks.createCarrierDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
+			action: 'carrier.created',
+			source: 'web',
+			details: { carrier_id: 5, org_id: 'org_1' },
+		})
+	})
+
+	it('an admin changes and deletes the organization’s, not their own', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.updateOrgCarrierDb.mockResolvedValue({
+			carrier: row,
+			before: row,
+		})
+		mocks.deleteOrgCarrierDb.mockResolvedValue(row)
+		expect((await updateCarrierDAL(5, form))._unsafeUnwrap().orgId).toBe(
+			'org_1',
+		)
+		expect(mocks.updateOrgCarrierDb.mock.calls[0].slice(0, 2)).toEqual([
+			5,
+			'org_1',
+		])
+		expect((await deleteCarrierDAL(5))._unsafeUnwrap().orgId).toBe('org_1')
+		expect(mocks.deleteOrgCarrierDb).toHaveBeenCalledWith(5, 'org_1')
+		expect(mocks.updateCarrierDb).not.toHaveBeenCalled()
+		expect(mocks.deleteCarrierDb).not.toHaveBeenCalled()
+	})
+
+	it('answers not found for another organization’s carrier', async () => {
+		mocks.space.mockReturnValue(admin)
+		mocks.updateOrgCarrierDb.mockResolvedValue(undefined)
+		mocks.deleteOrgCarrierDb.mockResolvedValue(undefined)
+		expect((await updateCarrierDAL(5, form))._unsafeUnwrapErr()).toEqual({
+			reason: 'That carrier was not found.',
+		})
+		expect((await deleteCarrierDAL(5))._unsafeUnwrapErr()).toEqual({
+			reason: 'That carrier was not found.',
+		})
 	})
 })

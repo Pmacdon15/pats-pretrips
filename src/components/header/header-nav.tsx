@@ -1,5 +1,11 @@
 'use client'
-import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
+import {
+	OrganizationSwitcher,
+	SignInButton,
+	SignOutButton,
+	UserButton,
+	useAuth,
+} from '@clerk/nextjs'
 import {
 	Bot,
 	Building2,
@@ -121,6 +127,23 @@ export function HeaderNav() {
 					Sign out
 				</button>
 			</SignOutButton>
+			{/*
+			 * The active space: the driver's personal space or one of their
+			 * organizations (docs/organizations.md). Switching changes whose
+			 * vehicles, carriers, email settings and plan the app uses.
+			 */}
+			<div className="flex max-w-28 items-center sm:ml-1 sm:max-w-44">
+				<OrganizationSwitcher
+					afterCreateOrganizationUrl="/vehicles"
+					appearance={{
+						elements: {
+							organizationSwitcherTrigger:
+								'max-w-full truncate px-1.5 py-1',
+						},
+					}}
+					hidePersonal={false}
+				/>
+			</div>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
 					{/* Every page; Carriers, Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}

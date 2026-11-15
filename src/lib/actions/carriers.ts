@@ -1,6 +1,9 @@
 'use server'
 
-import { revalidateDriverCarriers } from '@/lib/cache/revalidate'
+import {
+	revalidateDriverCarriers,
+	revalidateOrgCarriers,
+} from '@/lib/cache/revalidate'
 import {
 	addCarrierDAL,
 	deleteCarrierDAL,
@@ -17,13 +20,14 @@ export async function getCarriers() {
 	return fetchCarriersDAL()
 }
 
-/** The saved carrier, clearing the driver's cached list; or why not. */
+/** The saved carrier, clearing the space's cached list; or why not. */
 function answer(
 	result: Awaited<ReturnType<typeof addCarrierDAL>>,
 ): CarrierAnswer {
 	return result.match(
-		({ carrier, email }) => {
-			revalidateDriverCarriers(email)
+		({ carrier, email, orgId }) => {
+			if (orgId) revalidateOrgCarriers(orgId)
+			else revalidateDriverCarriers(email)
 			return { value: carrier }
 		},
 		(err) => ({ errorMessage: err.reason }),

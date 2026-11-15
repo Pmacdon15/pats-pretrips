@@ -3,9 +3,12 @@ import { repair, trip } from '../helpers/fixtures'
 
 const mocks = vi.hoisted(() => ({
 	getDriver: vi.fn(),
+	getSpace: vi.fn(),
 	canEmailPretrips: vi.fn(),
 	getEmailSettingsDb: vi.fn(),
 	saveEmailSettingsDb: vi.fn(),
+	getOrgEmailSettingsOrNone: vi.fn(),
+	saveOrgEmailSettingsDb: vi.fn(),
 	getTripDb: vi.fn(),
 	sendTripEmail: vi.fn(),
 	listTripRepairsDb: vi.fn(),
@@ -34,6 +37,7 @@ vi.mock('@/lib/db/repairs', () => ({
 }))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getDriver,
+	getSpace: async () => ((await mocks.getDriver()) ? mocks.getSpace() : null),
 	canEmailPretrips: mocks.canEmailPretrips,
 	driverName: (d: { givenName: string | null; email: string }) =>
 		d.givenName ?? d.email,
@@ -41,6 +45,8 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/db/email-settings', () => ({
 	getEmailSettingsDb: mocks.getEmailSettingsDb,
 	saveEmailSettingsDb: mocks.saveEmailSettingsDb,
+	getOrgEmailSettingsOrNone: mocks.getOrgEmailSettingsOrNone,
+	saveOrgEmailSettingsDb: mocks.saveOrgEmailSettingsDb,
 }))
 vi.mock('@/lib/db/trips', () => ({ getTripDb: mocks.getTripDb }))
 vi.mock('@/lib/email/trip-email', () => ({
@@ -68,6 +74,7 @@ const pat = {
 
 beforeEach(() => {
 	mocks.getDriver.mockResolvedValue(pat)
+	mocks.getSpace.mockReturnValue({ kind: 'personal', isAdmin: true })
 	mocks.canEmailPretrips.mockResolvedValue(true)
 	mocks.getEmailSettingsDb.mockResolvedValue(settings)
 	mocks.saveEmailSettingsDb.mockImplementation(async (_e, s) => s)
@@ -95,6 +102,8 @@ describe('getEmailAccessDAL', () => {
 	it("answers whether the plan has email, and the driver's settings", async () => {
 		await expect(getEmailAccessDAL()).resolves.toEqual({
 			allowed: true,
+			space: 'personal',
+			canEdit: true,
 			settings,
 		})
 		expect(mocks.getEmailSettingsDb).toHaveBeenCalledWith('pat@x.com')
@@ -496,5 +505,100 @@ describe('the audit trail', () => {
 		await emailTripDAL({ tripId: 1, recipients: 'a@x.com' })
 		await send?.(trip())
 		expect(mocks.recordEvents).not.toHaveBeenCalled()
+	})
+})
+
+describe("in an organization's space", () => {
+	const orgSettings = {
+		recipients: ['dispatch@org.com'],
+		autoSend: true,
+		timeZone: 'America/Edmonton',
+	}
+	const member = { kind: 'org', orgId: 'org_1', isAdmin: false }
+	const admin = { kind: 'org', orgId: 'org_1', isAdmin: true }
+	const data = { recipients: 'dispatch@org.com', autoSend: true }
+
+	beforeEach(() => {
+		mocks.getOrgEmailSettingsOrNone.mockResolvedValue(orgSettings)
+		mocks.saveOrgEmailSettingsDb.mockImplementation(async (_o, _d, s) => s)
+	})
+
+	it("reads the organization's settings; only an admin may edit them", async () => {
+		mocks.getSpace.mockReturnValue(member)
+		await expect(getEmailAccessDAL()).resolves.toEqual({
+			allowed: true,
+			space: 'org',
+			canEdit: false,
+			settings: orgSettings,
+		})
+		expect(mocks.getOrgEmailSettingsOrNone).toHaveBeenCalledWith('org_1')
+		expect(mocks.getEmailSettingsDb).not.toHaveBeenCalled()
+		mocks.getSpace.mockReturnValue(admin)
+		expect((await getEmailAccessDAL()).canEdit).toBe(true)
+	})
+
+	it("refuses a member who isn't an admin, saving nothing", async () => {
+		mocks.getSpace.mockReturnValue(member)
+		expect(await reason(saveEmailSettingsDAL(data))).toBe(
+			'Only an admin of your organization can change its email settings.',
+		)
+		expect(mocks.saveOrgEmailSettingsDb).not.toHaveBeenCalled()
+		expect(mocks.saveEmailSettingsDb).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).not.toHaveBeenCalled()
+	})
+
+	it("an admin saves the organization's settings, recorded with it", async () => {
+		mocks.getSpace.mockReturnValue(admin)
+		const result = await saveEmailSettingsDAL(data)
+		expect(result._unsafeUnwrap()).toEqual({
+			recipients: ['dispatch@org.com'],
+			autoSend: true,
+			timeZone: null,
+		})
+		expect(mocks.saveOrgEmailSettingsDb).toHaveBeenCalledWith(
+			'org_1',
+			pat,
+			{
+				recipients: ['dispatch@org.com'],
+				autoSend: true,
+				timeZone: null,
+			},
+		)
+		expect(mocks.saveEmailSettingsDb).not.toHaveBeenCalled()
+		// The driver's own settings row isn't touched, so nothing to stamp.
+		expect(mocks.recordOwner).not.toHaveBeenCalled()
+		expect(mocks.recordEvents).toHaveBeenCalledWith(pat, {
+			action: 'email.settings_saved',
+			source: 'web',
+			details: {
+				recipient_count: 1,
+				auto_send: true,
+				time_zone: null,
+				org_id: 'org_1',
+			},
+		})
+	})
+
+	it("an admin still needs the organization's plan", async () => {
+		mocks.getSpace.mockReturnValue(admin)
+		mocks.canEmailPretrips.mockResolvedValue(false)
+		expect(await reason(saveEmailSettingsDAL(data))).toMatch(/paid plan/)
+		expect(mocks.saveOrgEmailSettingsDb).not.toHaveBeenCalled()
+	})
+
+	it("auto-emails any member's new trip to the organization's recipients", async () => {
+		mocks.getSpace.mockReturnValue(member)
+		const send = await prepareAutoEmailDAL()
+		await send?.(trip())
+		expect(mocks.sendTripEmail).toHaveBeenCalledWith(
+			trip(),
+			{ name: 'Pat', email: 'pat@x.com' },
+			['dispatch@org.com'],
+			'America/Edmonton',
+			[],
+			null,
+		)
+		// Send limits stay the driver's own.
+		expect(mocks.reserveEmailSend.mock.calls[0][0]).toBe('pat@x.com')
 	})
 })

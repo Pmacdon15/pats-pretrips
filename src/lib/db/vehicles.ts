@@ -199,6 +199,13 @@ export async function updateVehicleDb(
             target.before_trailer_plate_a, target.before_trailer_plate_b
         FROM target JOIN updated ON true
     `
+	return splitUpdated(row)
+}
+
+/** An update's row: the vehicle's columns, and its `before_` columns. */
+function splitUpdated(
+	row: Record<string, unknown> | undefined,
+): UpdatedVehicle | undefined {
 	if (!row) return undefined
 	const vehicle: Record<string, unknown> = {}
 	const before: Record<string, unknown> = {}
@@ -227,6 +234,149 @@ export async function deleteVehicleDb(
 	const [row] = await sql()`
         DELETE FROM pt_vehicles
         WHERE id = ${vehicleId} AND driver_email = ${driverEmail}
+        RETURNING id, name, make, model, truck_plate, trailer_plate_a,
+            trailer_plate_b, created_at, updated_at
+    `
+	return row as Vehicle | undefined
+}
+
+/*
+ * An organization's shared vehicles (pt_org_vehicles,
+ * src/lib/sql/2026-11-22-organizations.sql; docs/organizations.md): the same
+ * as a driver's own, keyed by the Clerk organization ID instead of the
+ * driver's email. Every member reads them; the DAL lets only the
+ * organization's admins change them.
+ */
+
+export const ORG_MIGRATION = 'src/lib/sql/2026-11-22-organizations.sql'
+
+/** The organization's vehicles, oldest first. Cached until one changes. */
+export async function listOrgVehiclesDb(orgId: string): Promise<Vehicle[]> {
+	'use cache'
+	cacheTag(CACHE_TAGS.orgVehicles(orgId))
+	cacheLife('hours')
+
+	const rows = await sql()`
+        SELECT id, name, make, model, truck_plate, trailer_plate_a,
+            trailer_plate_b, created_at, updated_at
+        FROM pt_org_vehicles
+        WHERE clerk_org_id = ${orgId}
+        ORDER BY created_at, id
+        LIMIT ${VEHICLES_MAX}
+    `
+	return rows as Vehicle[]
+}
+
+let warnedOrgMissing = false
+
+/**
+ * The organization's vehicles, or none when they can't be read (before
+ * the migration is run, logged once per server instance, or on any other
+ * error, logged). Never throws.
+ */
+export async function listOrgVehiclesOrNone(orgId: string): Promise<Vehicle[]> {
+	try {
+		return await listOrgVehiclesDb(orgId)
+	} catch (error) {
+		if (!isMissingColumnOrTable(error)) {
+			console.error(
+				'Org vehicles: could not list them:',
+				errorForLog(error),
+			)
+		} else if (!warnedOrgMissing) {
+			warnedOrgMissing = true
+			console.error(
+				`Org vehicles: the pt_org_vehicles table is missing, so organizations show no saved vehicles. Run ${ORG_MIGRATION}.`,
+			)
+		}
+		return []
+	}
+}
+
+/** For tests: forget that the missing org table was already logged. */
+export function resetOrgVehicleWarnings() {
+	warnedOrgMissing = false
+}
+
+/**
+ * Saves a new vehicle in the organization's fleet, added by `owner` (an
+ * admin). Answers 'too_many' (saving nothing) at VEHICLES_MAX.
+ */
+export async function createOrgVehicleDb(
+	orgId: string,
+	owner: Owner,
+	fields: VehicleFields,
+): Promise<Vehicle | 'too_many'> {
+	const [row] = await sql()`
+        INSERT INTO pt_org_vehicles (
+            clerk_org_id, driver_email, clerk_user_id, name, make, model,
+            truck_plate, trailer_plate_a, trailer_plate_b
+        )
+        SELECT ${orgId}, ${owner.email}, ${owner.userId || null},
+            ${orNull(fields.name)}, ${fields.make.trim()},
+            ${fields.model.trim()}, ${orNull(fields.truckPlate)},
+            ${orNull(fields.trailerPlateA)}, ${orNull(fields.trailerPlateB)}
+        WHERE (
+            SELECT COUNT(*) FROM pt_org_vehicles WHERE clerk_org_id = ${orgId}
+        ) < ${VEHICLES_MAX}
+        RETURNING id, name, make, model, truck_plate, trailer_plate_a,
+            trailer_plate_b, created_at, updated_at
+    `
+	return (row as Vehicle | undefined) ?? 'too_many'
+}
+
+/**
+ * Changes one of the organization's vehicles, like updateVehicleDb.
+ * Undefined when it isn't the organization's.
+ */
+export async function updateOrgVehicleDb(
+	vehicleId: number,
+	orgId: string,
+	changes: VehicleChanges,
+): Promise<UpdatedVehicle | undefined> {
+	const [row] = await sql()`
+        WITH target AS MATERIALIZED (
+            SELECT id AS target_id, name AS before_name, make AS before_make,
+                model AS before_model, truck_plate AS before_truck_plate,
+                trailer_plate_a AS before_trailer_plate_a,
+                trailer_plate_b AS before_trailer_plate_b
+            FROM pt_org_vehicles
+            WHERE id = ${vehicleId} AND clerk_org_id = ${orgId}
+            FOR UPDATE
+        ), updated AS (
+            UPDATE pt_org_vehicles
+            SET name = CASE WHEN ${given(changes.name)}::boolean THEN ${orNull(changes.name)}::text ELSE pt_org_vehicles.name END,
+                make = COALESCE(${orNull(changes.make)}::text, pt_org_vehicles.make),
+                model = COALESCE(${orNull(changes.model)}::text, pt_org_vehicles.model),
+                truck_plate = CASE WHEN ${given(changes.truckPlate)}::boolean THEN ${orNull(changes.truckPlate)}::text ELSE pt_org_vehicles.truck_plate END,
+                trailer_plate_a = CASE WHEN ${given(changes.trailerPlateA)}::boolean THEN ${orNull(changes.trailerPlateA)}::text ELSE pt_org_vehicles.trailer_plate_a END,
+                trailer_plate_b = CASE WHEN ${given(changes.trailerPlateB)}::boolean THEN ${orNull(changes.trailerPlateB)}::text ELSE pt_org_vehicles.trailer_plate_b END,
+                updated_at = NOW()
+            FROM target
+            WHERE pt_org_vehicles.id = target.target_id
+            AND clerk_org_id = ${orgId}
+            RETURNING pt_org_vehicles.id, pt_org_vehicles.name,
+                pt_org_vehicles.make, pt_org_vehicles.model,
+                pt_org_vehicles.truck_plate, pt_org_vehicles.trailer_plate_a,
+                pt_org_vehicles.trailer_plate_b, pt_org_vehicles.created_at,
+                pt_org_vehicles.updated_at
+        )
+        SELECT updated.*, target.before_name, target.before_make,
+            target.before_model, target.before_truck_plate,
+            target.before_trailer_plate_a, target.before_trailer_plate_b
+        FROM target JOIN updated ON true
+    `
+	return splitUpdated(row)
+}
+
+/** Deletes one of the organization's vehicles; the deleted row, or undefined. */
+export async function deleteOrgVehicleDb(
+	vehicleId: number,
+	orgId: string,
+): Promise<Vehicle | undefined> {
+	const [row] = await sql()`
+        DELETE FROM pt_org_vehicles
+        WHERE id = ${vehicleId} AND clerk_org_id = ${orgId}
         RETURNING id, name, make, model, truck_plate, trailer_plate_a,
             trailer_plate_b, created_at, updated_at
     `

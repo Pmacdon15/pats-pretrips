@@ -4,24 +4,32 @@ import { getAddress } from '../actions/actions'
 import { getCarriers } from '../actions/carriers'
 import { getSignatureStatus } from '../actions/signatures'
 import { getVehicles } from '../actions/vehicles'
+import { useSpace } from './space'
 
 export const SIGNATURE_STATUS_KEY = ['signatureStatus']
+/** Every space's vehicles; each space's list is keyed under it. */
 export const VEHICLES_KEY = ['vehicles']
+/** Every space's carriers; each space's list is keyed under it. */
 export const CARRIERS_KEY = ['carriers']
 
-/** The driver's saved carriers, for the Carriers page and the trip form. */
+/** The cache key of one space's list, so switching spaces never shows another's. */
+const spaceKey = (orgId: string | null) => orgId ?? 'personal'
+
+/** The space's saved carriers, for the Carriers page and the trip form. */
 export const useCarriers = () => {
+	const { orgId } = useSpace()
 	return useQuery({
-		queryKey: CARRIERS_KEY,
+		queryKey: [...CARRIERS_KEY, spaceKey(orgId)],
 		queryFn: () => getCarriers(),
 		staleTime: 5 * 60 * 1000,
 	})
 }
 
-/** The driver's saved vehicles, for the Vehicles page and the trip form. */
+/** The space's saved vehicles, for the Vehicles page and the trip form. */
 export const useVehicles = () => {
+	const { orgId } = useSpace()
 	return useQuery({
-		queryKey: VEHICLES_KEY,
+		queryKey: [...VEHICLES_KEY, spaceKey(orgId)],
 		queryFn: () => getVehicles(),
 		staleTime: 5 * 60 * 1000,
 	})

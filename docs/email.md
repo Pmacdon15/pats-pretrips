@@ -20,8 +20,15 @@ The feature is locked behind the Clerk Billing feature **`email_pretrips`**
 1. Clerk Dashboard → Billing → enable billing and connect Stripe.
 2. Create a plan for users (e.g. "Pro") and add a feature with the slug
    `email_pretrips`.
-3. Drivers without it see Clerk's `<PricingTable />` on `/email` and a
-   "See plans" button on each trip.
+3. For organizations, also create an **organization plan** with the same
+   `email_pretrips` feature. The check is scoped to the active space
+   (`u:email_pretrips` in a driver's personal space, `o:email_pretrips` in an
+   organization's), so the organization's plan covers all its members and a
+   personal plan doesn't unlock email inside an organization. See
+   [organizations.md](organizations.md).
+4. Drivers without it see Clerk's `<PricingTable />` on `/email` (the
+   organization's plans while one is active) and a "See plans" button on
+   each trip.
 
 ## AWS setup
 

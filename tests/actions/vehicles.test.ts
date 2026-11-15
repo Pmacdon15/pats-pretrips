@@ -24,7 +24,7 @@ import {
 } from '@/lib/actions/vehicles'
 
 const row = { id: 3, make: 'Volvo', model: 'VNL' }
-const saved = okAsync({ vehicle: row, email: 'Pat@x.com' })
+const saved = okAsync({ vehicle: row, email: 'Pat@x.com', orgId: null })
 
 beforeEach(() => {
 	mocks.fetchVehiclesDAL.mockResolvedValue([row])
@@ -47,6 +47,14 @@ describe('vehicle actions', () => {
 		dal.mockReturnValue(saved)
 		await expect(call()).resolves.toEqual({ value: row })
 		expect(mocks.updateTag).toHaveBeenCalledWith('vehicles:pat@x.com')
+	})
+
+	it("clears an organization's list, not the driver's, for a change in it", async () => {
+		mocks.addVehicleDAL.mockReturnValue(
+			okAsync({ vehicle: row, email: 'Pat@x.com', orgId: 'org_1' }),
+		)
+		await expect(addVehicle({})).resolves.toEqual({ value: row })
+		expect(mocks.updateTag.mock.calls).toEqual([['org-vehicles:org_1']])
 	})
 
 	it('answers why not, clearing nothing', async () => {
