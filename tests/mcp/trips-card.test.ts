@@ -117,27 +117,26 @@ describe('trips card', () => {
 		expect(window.document.querySelectorAll('.chip.bad')).toHaveLength(2)
 	})
 
-	it('caps its height so the host never clips the list', async () => {
-		const { window, deliver } = load()
-		// Before the host says how much room it gives, a safe default.
-		expect(window.document.body.style.maxHeight).toBe('480px')
-
-		deliver({
-			jsonrpc: '2.0',
-			id: 1,
-			result: {
-				hostContext: { containerDimensions: { maxHeight: 600 } },
-			},
-		})
-		await flush()
-		expect(window.document.body.style.maxHeight).toBe('600px')
-
+	it('asks for its full height, including what the list scrolls out of view', () => {
+		const { window, sent, deliver } = load()
+		const list = window.document.getElementById('list') as HTMLElement
+		// A frame shorter than the content: 300px of the list is scrolled away.
+		Object.defineProperty(list, 'scrollHeight', { get: () => 700 })
+		Object.defineProperty(list, 'clientHeight', { get: () => 400 })
+		window.document.documentElement.getBoundingClientRect = () =>
+			({ height: 480 }) as DOMRect
+		deliver(toolResult({ trips: [trip(), trip({ trip_id: 8 })], page: 1 }))
+		const sizes = sent.filter(
+			(m) => m.method === 'ui/notifications/size-changed',
+		)
+		expect(sizes.at(-1)).toMatchObject({ params: { height: 780 } })
+		// The host's own dimensions never shrink the card.
 		deliver({
 			jsonrpc: '2.0',
 			method: 'ui/notifications/host-context-changed',
 			params: { containerDimensions: { height: 350 } },
 		})
-		expect(window.document.body.style.maxHeight).toBe('350px')
+		expect(window.document.body.style.maxHeight).toBe('')
 	})
 
 	it('says a signed trip from the last 24 hours only takes defects', () => {
