@@ -63,8 +63,20 @@ export interface GeocodingResult {
 	types: string[]
 }
 
+/** Google's Geocoding API answer, as the server receives it. */
 export interface GeocodingResponse {
 	results: GeocodingResult[]
 	status: string
 	error_message?: string
+}
+
+/**
+ * What `getAddress` sends to the browser: Google's status and, when there is
+ * one, the best address. Nothing else from Google's answer (in particular
+ * not `error_message`, which is Google's own text and could quote the
+ * request) leaves the server.
+ */
+export interface AddressLookup {
+	status: string
+	results: { formatted_address: string }[]
 }

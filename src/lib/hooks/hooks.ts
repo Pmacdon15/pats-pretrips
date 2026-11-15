@@ -14,6 +14,12 @@ export const useSignatureStatus = () => {
 	})
 }
 
+/**
+ * The address for the driver's (rounded) position. `getAddress` returns only
+ * Google's status and the first `formatted_address`; on any failure there is
+ * none and the driver types it. The result stays in this browser only (see
+ * docs/geocoding.md for why nothing is cached on the server).
+ */
 export const useGetAddress = (lat: number, long: number) => {
 	return useQuery({
 		queryKey: ['inspectionAddress', lat, long],

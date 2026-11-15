@@ -7,7 +7,7 @@ import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { GEOCODE } from '@/lib/rate-limit/limits'
-import type { GeocodingResponse } from '@/lib/types/types'
+import type { AddressLookup, GeocodingResponse } from '@/lib/types/types'
 import { prepareAutoEmailDAL } from '../DAL/email'
 import { addOnRouteDefectsDAL, addTripDAL } from '../DAL/inserts'
 import {
@@ -60,17 +60,22 @@ export async function addTrip(data: z.infer<typeof schemaAddTripForm>) {
 	)
 }
 
+/** How long Google gets to answer before the driver types the address. */
+const GEOCODE_TIMEOUT_MS = 5000
+
 export async function getAddress(
 	lat: number,
 	lng: number,
-): Promise<{ data: GeocodingResponse | undefined; errorMessage?: string }> {
+): Promise<{ data: AddressLookup | undefined; errorMessage?: string }> {
 	const driverEmail = await getDriverEmail()
 
 	if (!driverEmail) {
 		throw new Error('Must be logged in')
 	}
 
-	// Each lookup is a paid Google API call.
+	// Each lookup is a paid Google API call. Nothing is cached on the server:
+	// Google's terms don't allow a shared cache of geocoded addresses (see
+	// docs/geocoding.md), so every call that gets past here reaches Google.
 	const limited = await rateLimit(GEOCODE, driverEmail)
 	if (!limited.ok) {
 		console.warn('getAddress: rate limited')
@@ -87,8 +92,10 @@ export async function getAddress(
 		console.error('getAddress called with invalid coordinates')
 		return { data: undefined }
 	}
-	lat = coords.data.lat
-	lng = coords.data.lng
+	// The same ~10 m rounding the browser does, so a caller can't send more
+	// precision than the form needs.
+	lat = roundCoordinate(coords.data.lat)
+	lng = roundCoordinate(coords.data.lng)
 
 	// Nothing here logs the driver's position or the address it resolves to.
 	const apiKey = process.env.REVERSE_GEOCODING_API_KEY
@@ -98,9 +105,13 @@ export async function getAddress(
 	}
 
 	try {
-		const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+		// The classic Geocoding API only reads the key from the `key` query
+		// parameter (it ignores the X-Goog-Api-Key header), so the URL holds
+		// the key: it is never logged, thrown or returned.
+		const url = `https://maps.googleapis.com/maps/api/geocode/json?${new URLSearchParams({ latlng: `${lat},${lng}`, key: apiKey })}`
 		const response = await fetch(url, {
 			cache: 'no-cache',
+			signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS),
 		})
 
 		if (!response.ok) {
@@ -116,15 +127,21 @@ export async function getAddress(
 				`getAddress: Google returned ${data.status}`,
 				withoutRequest(data.error_message ?? '', apiKey),
 			)
-			return { data }
+			return { data: forClient(data) }
 		}
 
 		if (!data.results?.length) {
 			console.warn('getAddress: Google returned OK with no results')
 		}
 
-		return { data }
+		return { data: forClient(data) }
 	} catch (error) {
+		if (error instanceof Error && error.name === 'TimeoutError') {
+			console.error(
+				`getAddress: Google did not answer within ${GEOCODE_TIMEOUT_MS} ms`,
+			)
+			return { data: undefined }
+		}
 		console.error(
 			'getAddress: the Google request failed:',
 			withoutRequest(
@@ -133,6 +150,31 @@ export async function getAddress(
 			),
 		)
 		return { data: undefined }
+	}
+}
+
+/** Rounds to 4 decimals (about 10 m), as `useGetLocation` does. */
+function roundCoordinate(value: number) {
+	// `+ 0` turns -0 into 0.
+	return Number(value.toFixed(4)) + 0
+}
+
+/**
+ * Only what the form uses: Google's status and the best address. Google's
+ * `error_message` and everything else in its answer stay on the server.
+ */
+function forClient(data: GeocodingResponse): AddressLookup {
+	const status =
+		typeof data.status === 'string' && /^[A-Z_]{1,40}$/.test(data.status)
+			? data.status
+			: 'UNKNOWN_ERROR'
+	const address = data.results?.[0]?.formatted_address
+	return {
+		status,
+		results:
+			status === 'OK' && typeof address === 'string'
+				? [{ formatted_address: address }]
+				: [],
 	}
 }
 

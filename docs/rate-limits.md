@@ -35,7 +35,7 @@ All of them are in `src/lib/rate-limit/limits.ts`.
 | `MCP_AUTH_FAILURES` | client IP | 30 failed sign-ins per 10 minutes | `/api/mcp`: bad, revoked or expired access tokens, and personal API keys (`ppt_…`), which are no longer accepted. Over it, every request from that IP gets `429` with `Retry-After` until the window ends, even with a good token. |
 | `MCP_TOOL_CALLS` | driver | 300 tool calls per 5 minutes | Every MCP tool call, across all the driver's AI apps. Over it, the tool answers a readable error. |
 | `REPAIR_UPLOADS` | driver | 30 per hour | Recording a defect repair (invoice and signature upload), from the web app and the `mark_defect_repaired` tool together. |
-| `GEOCODE` | driver | 60 per hour | `getAddress` (Google Geocoding). Over it, the address is left for the driver to type. |
+| `GEOCODE` | driver | 60 per hour | `getAddress` (Google Geocoding). Over it, the address is left for the driver to type. See [geocoding.md](geocoding.md). |
 | `SIGNATURES` | driver | 30 per hour | `saveSignature` and `signTrip`. |
 | `TRIP_WRITES` | driver | 60 per hour | `addTrip` and `addOnRouteDefects` in the web app. |
 
