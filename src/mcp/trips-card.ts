@@ -87,6 +87,7 @@ body {
 	padding: 12px;
 	display: flex;
 	flex-direction: column;
+	max-height: 100vh;
 }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
@@ -261,7 +262,7 @@ a:hover { text-decoration: underline; }
 		var body = el('div', 'body');
 		tripDetails(t, null, body);
 		card.appendChild(body);
-		card.addEventListener('toggle', reportSize);
+		card.addEventListener('toggle', function () { reportSize(); reveal(card); });
 		return card;
 	}
 
@@ -459,26 +460,29 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
-	// Hosts cap how tall the card's frame can grow and clip whatever is
-	// below that, so the card caps itself and the list scrolls inside it.
-	// A host that says how much room it gives (containerDimensions) is
-	// followed; otherwise the card stays under a height every host allows.
-	var DEFAULT_MAX_HEIGHT = 480;
-	function applyDimensions(ctx) {
-		var dims = isObject(ctx) && isObject(ctx.containerDimensions) ? ctx.containerDimensions : null;
-		var max = DEFAULT_MAX_HEIGHT;
-		if (dims) {
-			var given = typeof dims.maxHeight === 'number' ? dims.maxHeight : dims.height;
-			if (typeof given === 'number' && given > 0) max = Math.floor(given);
-		}
-		document.body.style.maxHeight = max + 'px';
-	}
-	// Set before the first size report, which waits for the host to answer.
-	applyDimensions(null);
-
+	// The card is never taller than its frame (max-height: 100vh), so when
+	// the host gives it less room than it asks for, the list scrolls inside
+	// the frame instead of being cut off. The height asked for is the full
+	// height of the content, whatever the frame is now: what is on screen
+	// plus what the list has scrolled out of view.
+	var lastHeight = -1;
 	function reportSize() {
-		var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+		var list = document.getElementById('list');
+		var hidden = list ? Math.max(0, list.scrollHeight - list.clientHeight) : 0;
+		var h = Math.ceil(document.documentElement.getBoundingClientRect().height + hidden);
+		if (h === lastHeight) return;
+		lastHeight = h;
 		notify('ui/notifications/size-changed', { height: h });
+	}
+
+	// An opened trip whose details fall below the bottom of a scrolling
+	// list is scrolled into view, so opening it visibly does something.
+	function reveal(card) {
+		var list = document.getElementById('list');
+		if (!list || !card.open) return;
+		var over = card.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom;
+		var room = card.getBoundingClientRect().top - list.getBoundingClientRect().top;
+		if (over > 0) list.scrollTop += Math.min(over, Math.max(0, room));
 	}
 
 	// Only the frame that embeds the card speaks for the host: the host
@@ -508,10 +512,6 @@ a:hover { text-decoration: underline; }
 			if (params) render(params.structuredContent);
 		} else if (msg.method === 'ui/notifications/host-context-changed') {
 			applyTheme(params);
-			if (isObject(params) && isObject(params.containerDimensions)) {
-				applyDimensions(params);
-				reportSize();
-			}
 		} else if (hasId) {
 			// Requests the card has nothing for (ping, teardown) get an empty
 			// result, so the host is not left waiting.
@@ -532,11 +532,15 @@ a:hover { text-decoration: underline; }
 	}).then(function (res) {
 		var ctx = isObject(res.result) ? res.result.hostContext : null;
 		applyTheme(ctx);
-		if (isObject(ctx) && isObject(ctx.containerDimensions)) applyDimensions(ctx);
 		notify('ui/notifications/initialized');
 	});
 
-	if (typeof ResizeObserver !== 'undefined') new ResizeObserver(reportSize).observe(document.body);
+	if (typeof ResizeObserver !== 'undefined') {
+		var sizes = new ResizeObserver(reportSize);
+		sizes.observe(document.body);
+		sizes.observe(document.getElementById('list'));
+	}
+	window.addEventListener('resize', reportSize);
 })();
 </script>
 </body>
