@@ -1,12 +1,13 @@
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { expireDriverTrips } from '@/lib/cache/revalidate'
+import { expireDriverTrips, expireDriverVehicles } from '@/lib/cache/revalidate'
 import { errorForLog } from '@/lib/log'
 import { rateLimitAll, rateLimitMessage } from '@/lib/rate-limit'
 import {
 	type Limit,
 	MCP_TOOL_CALLS,
 	REPAIR_UPLOADS,
+	VEHICLE_WRITES,
 } from '@/lib/rate-limit/limits'
 import { MCP_INSTRUCTIONS } from '@/mcp/instructions'
 import { portable } from '@/mcp/portable-schema'
@@ -40,6 +41,16 @@ import {
 	TRIPS_CARD_TOOL_META,
 	TRIPS_CARD_URI,
 } from '@/mcp/trips-card'
+import {
+	addVehicle,
+	addVehicleInputSchema,
+	deleteVehicle,
+	deleteVehicleInputSchema,
+	listVehicles,
+	listVehiclesInputSchema,
+	updateVehicle,
+	updateVehicleInputSchema,
+} from '@/mcp/vehicle-tools'
 
 /*
  * The PreTrips MCP server: its name, instructions and tools. Standard MCP
@@ -92,8 +103,8 @@ function respond(result: ToolResult) {
 
 /**
  * Runs a tool for the verified caller; bad input becomes a readable tool
- * error. A tool that writes also clears the cached trip lists, so a trip an
- * assistant started shows up in the web app straight away. Every call counts
+ * error. A tool that writes also clears the cached trip and vehicle lists, so
+ * a trip an assistant started shows up in the web app straight away. Every call counts
  * against the driver's tool-call limit, plus any `limits` the tool adds.
  */
 export async function run(
@@ -132,6 +143,7 @@ export async function run(
 		const result = await tool(caller)
 		if (!readOnly && !result.isError) {
 			expireDriverTrips(caller.email)
+			expireDriverVehicles(caller.email)
 		}
 		return respond(result)
 	} catch (error) {
@@ -155,15 +167,16 @@ export async function run(
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false }
 
 export function registerPreTripTools(server: McpServer) {
-	// The card AI apps with MCP Apps show for list_trips, get_trip and
-	// list_defects.
+	// The card AI apps with MCP Apps show for the trip, defect and vehicle
+	// tools: list_trips, get_trip, start_trip, update_trip, list_defects and
+	// the vehicle tools.
 	server.registerResource(
 		'trips_card',
 		TRIPS_CARD_URI,
 		{
 			title: 'Trips card',
 			description:
-				"Shows the driver's trips, defects and repairs as cards in the chat.",
+				"Shows the driver's trips, defects, repairs and vehicles as cards in the chat.",
 			mimeType: MCP_APP_MIME_TYPE,
 			_meta: { ui: { prefersBorder: true } },
 		},
@@ -217,7 +230,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Start a pre-trip',
 			description:
-				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults, and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The trip is signed with the driver's saved signature only if they turned on \"Allow AI apps to sign for me\" in the app; otherwise it is saved unsigned, and the answer (signing) says why and how the driver can sign it. The answer warns when the odometer is lower than the truck's last reading.",
+				"Starts (saves) a pre-trip inspection report. Read the odometer and plates from the driver's photos, fill the rest from get_trip_defaults (or pass a saved vehicle's vehicle_id for its make, model and plates), and show the driver the whole trip first: only call this once they confirm it, including where they're inspecting and whether they found defects. The trip is signed with the driver's saved signature only if they turned on \"Allow AI apps to sign for me\" in the app; otherwise it is saved unsigned, and the answer (signing) says why and how the driver can sign it. The answer warns when the odometer is lower than the truck's last reading.",
 			inputSchema: portable(startTripInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -225,6 +238,7 @@ export function registerPreTripTools(server: McpServer) {
 				idempotentHint: false,
 				openWorldHint: false,
 			},
+			_meta: TRIPS_CARD_TOOL_META,
 		},
 		(args, ctx) =>
 			run(server, ctx.http?.authInfo, (caller) =>
@@ -245,6 +259,7 @@ export function registerPreTripTools(server: McpServer) {
 				idempotentHint: false,
 				openWorldHint: false,
 			},
+			_meta: TRIPS_CARD_TOOL_META,
 		},
 		(args, ctx) =>
 			run(server, ctx.http?.authInfo, (caller) =>
@@ -348,6 +363,94 @@ export function registerPreTripTools(server: McpServer) {
 		(args, ctx) =>
 			run(server, ctx.http?.authInfo, (caller) =>
 				undoDefectRepair(caller, args),
+			),
+	)
+
+	server.registerTool(
+		'list_vehicles',
+		{
+			title: 'List saved vehicles',
+			description:
+				"The driver's saved vehicles (name, make, model, truck and trailer plates), each with a vehicle_id. Pass one as start_trip's vehicle_id to fill in its details.",
+			inputSchema: portable(listVehiclesInputSchema),
+			annotations: READ_ONLY,
+			_meta: TRIPS_CARD_TOOL_META,
+		},
+		(_args, ctx) =>
+			run(server, ctx.http?.authInfo, (caller) => listVehicles(caller), {
+				readOnly: true,
+			}),
+	)
+
+	server.registerTool(
+		'add_vehicle',
+		{
+			title: 'Save a vehicle',
+			description:
+				'Saves a vehicle the driver drives (make, model, optional name like "Unit 42" and plates), so later pre-trips can use it (start_trip with vehicle_id). Confirm the details with the driver first.',
+			inputSchema: portable(addVehicleInputSchema),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false,
+			},
+			_meta: TRIPS_CARD_TOOL_META,
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => addVehicle(caller, args),
+				{ limits: [VEHICLE_WRITES] },
+			),
+	)
+
+	server.registerTool(
+		'update_vehicle',
+		{
+			title: 'Edit a saved vehicle',
+			description:
+				'Changes one of the driver\'s saved vehicles: pass vehicle_id and only the fields that change ("" removes a name or plate). Trips already saved keep the details they were started with.',
+			inputSchema: portable(updateVehicleInputSchema),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+			_meta: TRIPS_CARD_TOOL_META,
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => updateVehicle(caller, args),
+				{ limits: [VEHICLE_WRITES] },
+			),
+	)
+
+	server.registerTool(
+		'delete_vehicle',
+		{
+			title: 'Delete a saved vehicle',
+			description:
+				"Deletes one of the driver's saved vehicles. Trips already saved in it are unchanged. Only when the driver asks.",
+			inputSchema: portable(deleteVehicleInputSchema),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: false,
+			},
+			_meta: TRIPS_CARD_TOOL_META,
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => deleteVehicle(caller, args),
+				{ limits: [VEHICLE_WRITES] },
 			),
 	)
 }

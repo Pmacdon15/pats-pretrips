@@ -175,6 +175,9 @@ describe('recordEvents', () => {
 			'signature.ai_signing_changed',
 			'email.settings_saved',
 			'email.sent',
+			'vehicle.created',
+			'vehicle.updated',
+			'vehicle.deleted',
 		])
 		for (const action of AUDIT_ACTIONS) {
 			expect(action.length).toBeLessThanOrEqual(40)

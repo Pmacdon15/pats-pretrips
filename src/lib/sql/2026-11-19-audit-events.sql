@@ -36,6 +36,11 @@
 --   signature.ai_signing_changed "Allow AI apps to sign for me" turned on or off
 --   email.settings_saved         email settings saved (recipient count, not addresses)
 --   email.sent                   a pre-trip emailed, manually or automatically
+--   vehicle.created              a saved vehicle added (2026-11-20-vehicles.sql);
+--                                details.vehicle_id names it
+--   vehicle.updated              a saved vehicle changed; details.changed names
+--                                the fields
+--   vehicle.deleted              a saved vehicle deleted
 --
 -- source is 'web', or the AI app as the row the change is in records it:
 -- for trips and their signatures the app's name (pt_trip_signatures.source),

@@ -6,6 +6,7 @@ import {
 	LogOut,
 	Mail,
 	PenLine,
+	Truck,
 	Wrench,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -39,6 +40,14 @@ export function HeaderNav() {
 			>
 				<ClipboardCheck />
 				<span className="hidden sm:inline">My Trips</span>
+			</Link>
+			<Link
+				aria-label="Your vehicles"
+				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				href="/vehicles"
+			>
+				<Truck />
+				<span className="hidden sm:inline">Vehicles</span>
 			</Link>
 			<Link
 				aria-label="Defects and repairs"

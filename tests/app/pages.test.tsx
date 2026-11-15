@@ -39,6 +39,9 @@ vi.mock('@/components/email/email-settings', () => ({
 vi.mock('@/components/signature/signature-settings', () => ({
 	SignatureSettings: () => <p data-testid="signature-settings" />,
 }))
+vi.mock('@/components/vehicles/vehicle-list', () => ({
+	VehicleList: () => <p data-testid="vehicle-list" />,
+}))
 vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getUser,
 }))
@@ -109,6 +112,7 @@ import Privacy from '@/app/privacy/page'
 import ShellCheck, { metadata as shellMeta } from '@/app/shell-check/page'
 import SignaturePage, { metadata as signatureMeta } from '@/app/signature/page'
 import Terms from '@/app/termsOfService/page'
+import VehiclesPage, { metadata as vehiclesMeta } from '@/app/vehicles/page'
 
 beforeEach(() => {
 	mocks.fetchCurrentTrips.mockResolvedValue({
@@ -194,6 +198,15 @@ describe('/signature', () => {
 		expect(screen.getByText('Your signature')).toBeInTheDocument()
 		expect(screen.getByTestId('signature-settings')).toBeInTheDocument()
 		expect(signatureMeta.title).toMatch('Signature')
+	})
+})
+
+describe('/vehicles', () => {
+	it("is a static page around the driver's saved vehicles", async () => {
+		await renderAsync(<VehiclesPage />)
+		expect(screen.getByText('Your vehicles')).toBeInTheDocument()
+		expect(screen.getByTestId('vehicle-list')).toBeInTheDocument()
+		expect(vehiclesMeta.title).toMatch('Vehicles')
 	})
 })
 

@@ -2,10 +2,21 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { queryWrapper } from '../helpers/query'
 
-const mocks = vi.hoisted(() => ({ getAddress: vi.fn() }))
+const mocks = vi.hoisted(() => ({ getAddress: vi.fn(), getVehicles: vi.fn() }))
 vi.mock('@/lib/actions/actions', () => ({ getAddress: mocks.getAddress }))
+vi.mock('@/lib/actions/vehicles', () => ({ getVehicles: mocks.getVehicles }))
 
-import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
+import { useGetAddress, useGetLocation, useVehicles } from '@/lib/hooks/hooks'
+
+describe('useVehicles', () => {
+	it("reads the driver's saved vehicles", async () => {
+		mocks.getVehicles.mockResolvedValue([{ id: 3 }])
+		const { result } = renderHook(() => useVehicles(), {
+			wrapper: queryWrapper(),
+		})
+		await waitFor(() => expect(result.current.data).toEqual([{ id: 3 }]))
+	})
+})
 
 describe('useGetAddress', () => {
 	it('looks up the address for the coordinates', async () => {

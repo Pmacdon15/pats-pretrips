@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 		status: 'loading',
 	},
 	address: { data: undefined as unknown, isFetching: false },
+	vehicles: { data: [] as unknown[], isPending: false },
 	signatureStatus: {
 		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' } as
 			| undefined
@@ -30,10 +31,12 @@ vi.mock('@/lib/hooks/hooks', () => ({
 	useGetLocation: () => mocks.location,
 	useGetAddress: () => mocks.address,
 	useSignatureStatus: () => mocks.signatureStatus,
+	useVehicles: () => mocks.vehicles,
 	SIGNATURE_STATUS_KEY: ['signatureStatus'],
 }))
 
 beforeEach(() => {
+	mocks.vehicles = { data: [], isPending: false }
 	mocks.addTrip.mockResolvedValue({})
 	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
@@ -124,6 +127,76 @@ describe('AddTripForm', () => {
 			isFetching: false,
 		}
 	}
+
+	it("fills the vehicle from one of the driver's saved vehicles", async () => {
+		mocks.vehicles = {
+			data: [
+				{
+					id: 3,
+					name: 'Unit 42',
+					make: 'Volvo',
+					model: 'VNL',
+					truck_plate: 'TRK1',
+					trailer_plate_a: 'A1',
+					trailer_plate_b: null,
+				},
+				{
+					id: 4,
+					name: null,
+					make: 'Mack',
+					model: 'Anthem',
+					truck_plate: null,
+					trailer_plate_a: null,
+					trailer_plate_b: 'B2',
+				},
+			],
+			isPending: false,
+		}
+		const { user } = setup()
+		const picker = screen.getByLabelText('Saved vehicle')
+		expect(
+			screen.getByRole('option', { name: 'Unit 42 — Volvo VNL (TRK1)' }),
+		).toBeInTheDocument()
+		expect(
+			screen.getByRole('option', { name: 'Mack Anthem' }),
+		).toBeInTheDocument()
+
+		await user.selectOptions(picker, '3')
+		expect(screen.getByLabelText('Make')).toHaveValue('Volvo')
+		expect(screen.getByLabelText('Model')).toHaveValue('VNL')
+		expect(screen.getByLabelText(/^Truck plate/)).toHaveValue('TRK1')
+		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('A1')
+		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('')
+
+		await user.selectOptions(picker, '4')
+		expect(screen.getByLabelText('Make')).toHaveValue('Mack')
+		expect(screen.getByLabelText(/^Truck plate/)).toHaveValue('')
+		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('B2')
+
+		// Back to "Choose a vehicle…" leaves what's filled in.
+		await user.selectOptions(picker, '')
+		expect(screen.getByLabelText('Make')).toHaveValue('Mack')
+		expect(
+			screen.getByRole('link', { name: 'Manage vehicles' }),
+		).toHaveAttribute('href', '/vehicles')
+	})
+
+	it('suggests saving vehicles, or shows nothing while they load', () => {
+		const first = render(
+			<AddTripForm
+				onDone={vi.fn()}
+				setOptimisticCurrentTrips={vi.fn()}
+			/>,
+		)
+		expect(
+			screen.getByRole('link', { name: 'Save your vehicles' }),
+		).toHaveAttribute('href', '/vehicles')
+		first.unmount()
+		mocks.vehicles = { data: undefined as never, isPending: true }
+		setup()
+		expect(screen.queryByLabelText('Saved vehicle')).toBeNull()
+		expect(screen.queryByText(/Save your vehicles/)).toBeNull()
+	})
 
 	it('fills the inspection address from the current location', () => {
 		located()

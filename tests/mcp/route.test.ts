@@ -21,6 +21,17 @@ const mocks = vi.hoisted(() => ({
 	revalidateTag: vi.fn(),
 	countHitDb: vi.fn(),
 	getAiSigningAllowedDb: vi.fn(),
+	vehicle: {
+		id: 3,
+		name: 'Unit 42',
+		make: 'Volvo',
+		model: 'VNL',
+		truck_plate: 'TRK1',
+		trailer_plate_a: null,
+		trailer_plate_b: null,
+		created_at: '2026-11-01T00:00:00.000Z',
+		updated_at: '2026-11-01T00:00:00.000Z',
+	},
 }))
 vi.mock('@clerk/nextjs/server', () => ({
 	clerkClient: async () => ({
@@ -53,6 +64,17 @@ vi.mock('@/lib/db/signatures', () => ({
 	getAiSigningAllowedDb: mocks.getAiSigningAllowedDb,
 	saveSignatureDb: vi.fn(),
 	signTripDb: vi.fn(),
+}))
+vi.mock('@/lib/db/vehicles', async (original) => ({
+	...(await original<typeof import('@/lib/db/vehicles')>()),
+	listVehiclesOrNone: vi.fn(async () => [mocks.vehicle]),
+	getVehicleDb: vi.fn(async () => mocks.vehicle),
+	createVehicleDb: vi.fn(async () => mocks.vehicle),
+	updateVehicleDb: vi.fn(async () => ({
+		vehicle: mocks.vehicle,
+		before: mocks.vehicle,
+	})),
+	deleteVehicleDb: vi.fn(async () => mocks.vehicle),
 }))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
@@ -302,6 +324,10 @@ describe('MCP endpoint auth', () => {
 			'list_defects',
 			'mark_defect_repaired',
 			'undo_defect_repair',
+			'list_vehicles',
+			'add_vehicle',
+			'update_vehicle',
+			'delete_vehicle',
 		])
 	})
 
@@ -335,14 +361,24 @@ describe('MCP endpoint auth', () => {
 })
 
 describe('trips card', () => {
-	it('links list_trips, get_trip and list_defects to the card and serves it', async () => {
+	it('links the trip, defect and vehicle tools to the card and serves it', async () => {
 		const tools = (await rpc(KEY, 'tools/list')).body.result
 			.tools as Array<{
 			name: string
 			_meta?: { ui?: { resourceUri?: string } }
 		}>
 		const uri = 'ui://pats-pretrips/trips-card.html'
-		for (const name of ['list_trips', 'get_trip', 'list_defects']) {
+		for (const name of [
+			'list_trips',
+			'get_trip',
+			'start_trip',
+			'update_trip',
+			'list_defects',
+			'list_vehicles',
+			'add_vehicle',
+			'update_vehicle',
+			'delete_vehicle',
+		]) {
 			expect(
 				tools.find((t) => t.name === name)?._meta?.ui?.resourceUri,
 			).toBe(uri)
@@ -436,6 +472,7 @@ describe('tools over HTTP', () => {
 		)
 		expect(mocks.revalidateTag.mock.calls).toEqual([
 			['trips:pat@x.com', { expire: 0 }],
+			['vehicles:pat@x.com', { expire: 0 }],
 		])
 	})
 
@@ -459,6 +496,10 @@ describe('tools over HTTP', () => {
 			{ trip_id: 1, defect: 'Cab', mechanic_name: 'Sam' },
 		],
 		['undo_defect_repair', { repair_id: 1 }],
+		['list_vehicles', {}],
+		['add_vehicle', { make: 'Volvo', model: 'VNL' }],
+		['update_vehicle', { vehicle_id: 3, name: 'Unit 7' }],
+		['delete_vehicle', { vehicle_id: 3 }],
 	])('serves %s', async (name, args) => {
 		mocks.getLatestTripDb.mockResolvedValue(undefined)
 		mocks.getTripDb.mockResolvedValue(undefined)

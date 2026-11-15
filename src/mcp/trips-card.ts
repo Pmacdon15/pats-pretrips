@@ -1,6 +1,7 @@
 /*
  * The trips card: a small HTML page AI apps show in the chat when the
- * assistant calls list_trips or get_trip, so the driver sees their trips as
+ * assistant calls list_trips, get_trip, start_trip or update_trip (and the
+ * vehicle tools, for saved vehicles), so the driver sees their trips as
  * cards instead of JSON, with each defect open or repaired (who fixed it,
  * when, the invoice). list_defects shows its open and repaired defects in it
  * too. It follows the MCP Apps extension
@@ -307,6 +308,45 @@ a:hover { text-decoration: underline; }
 		(repaired || []).forEach(function (r) { list.appendChild(defectCard(r, true)); });
 	}
 
+	// A saved vehicle from list_vehicles or the other vehicle tools.
+	function vehicleCard(v) {
+		var card = el('article', 'trip');
+		var top = el('div', 'row');
+		var model = [v.make, v.model].filter(Boolean).join(' ');
+		top.appendChild(el('span', 'title', v.name || model || 'Vehicle ' + v.vehicle_id));
+		top.appendChild(el('span', 'muted', 'Vehicle #' + v.vehicle_id));
+		card.appendChild(top);
+		var facts = el('div', 'facts');
+		if (v.name && model) facts.appendChild(fact('Truck', model));
+		if (v.truck_plate) facts.appendChild(fact('Plate', v.truck_plate));
+		if (v.trailer_plate_a) facts.appendChild(fact('Trailer A', v.trailer_plate_a));
+		if (v.trailer_plate_b) facts.appendChild(fact('Trailer B', v.trailer_plate_b));
+		if (facts.childNodes.length) card.appendChild(facts);
+		var foot = el('div', 'row');
+		foot.style.marginTop = '8px';
+		foot.appendChild(el('span', 'muted', ''));
+		foot.appendChild(linkTo('Manage vehicles →', SITE + '/vehicles'));
+		card.appendChild(foot);
+		return card;
+	}
+
+	function renderVehicles(data, list, heading, count) {
+		var one = isObject(data.vehicle);
+		var vehicles = (one ? [data.vehicle] : data.vehicles).filter(isObject);
+		if (one) {
+			heading.textContent = data.status === 'deleted' ? 'Vehicle deleted' : 'Vehicle #' + data.vehicle.vehicle_id;
+			count.textContent = '';
+		} else {
+			heading.textContent = 'Saved vehicles';
+			count.textContent = vehicles.length + ' vehicle' + (vehicles.length === 1 ? '' : 's');
+		}
+		if (!vehicles.length) {
+			list.appendChild(el('div', 'empty', 'No saved vehicles yet.'));
+		} else {
+			vehicles.forEach(function (v) { list.appendChild(vehicleCard(v)); });
+		}
+	}
+
 	function renderTrips(data, list, heading, count) {
 		var one = isObject(data.trip);
 		var trips = (one ? [data.trip] : data.trips).filter(isObject);
@@ -332,13 +372,15 @@ a:hover { text-decoration: underline; }
 	function render(data) {
 		if (!isObject(data)) return;
 		var defects = Array.isArray(data.open) || Array.isArray(data.repaired);
-		if (!defects && !Array.isArray(data.trips) && !isObject(data.trip)) return;
+		var vehicles = Array.isArray(data.vehicles) || isObject(data.vehicle);
+		if (!defects && !vehicles && !Array.isArray(data.trips) && !isObject(data.trip)) return;
 		var list = document.getElementById('list');
 		var heading = document.getElementById('heading');
 		var count = document.getElementById('count');
 		var built = document.createDocumentFragment();
 		try {
 			if (defects) renderDefects(data, built, heading, count);
+			else if (vehicles && !isObject(data.trip) && !Array.isArray(data.trips)) renderVehicles(data, built, heading, count);
 			else renderTrips(data, built, heading, count);
 		} catch (e) {
 			heading.textContent = "Pat's PreTrips";

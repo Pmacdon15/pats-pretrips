@@ -51,3 +51,8 @@ export const STORED_DEFECTS_MAX = 2000
  * ordinary notes.
  */
 export const STORED_REMARKS_MAX = 10_000
+
+/** A saved vehicle's name (pt_vehicles.name VARCHAR(100)), e.g. "Unit 42". */
+export const VEHICLE_NAME_MAX = 100
+/** Most vehicles one driver can save. */
+export const VEHICLES_MAX = 50

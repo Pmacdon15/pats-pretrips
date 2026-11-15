@@ -72,3 +72,10 @@ export const TRIP_WRITES: Limit = {
 	max: 60,
 	windowSeconds: HOUR,
 }
+
+/** Saved vehicles added, changed or deleted, from the web app and AI apps. */
+export const VEHICLE_WRITES: Limit = {
+	name: 'vehicle-writes',
+	max: 60,
+	windowSeconds: HOUR,
+}
