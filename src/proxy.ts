@@ -5,6 +5,9 @@ const isPublicRoute = createRouteMatcher([
 	'/privacy',
 	'/termsOfService',
 	'/manifest.webmanifest',
+	// Crawlers must read these without signing in (Search Console fetches).
+	'/robots.txt',
+	'/sitemap(.*).xml',
 	'/sign-in(.*)',
 	'/sign-up(.*)',
 	// The MCP server checks its own Clerk OAuth access token, and answers

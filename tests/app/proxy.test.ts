@@ -37,6 +37,9 @@ describe('proxy', () => {
 		'/sign-up/verify-email-address',
 		'/api/mcp',
 		'/.well-known/oauth-protected-resource/api/mcp',
+		'/robots.txt',
+		'/sitemap.xml',
+		'/sitemap-0.xml',
 	])('leaves %s public', async (path) => {
 		expect(await visit(path)).toBe(false)
 	})
