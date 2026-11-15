@@ -10,6 +10,13 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+
+/** Shown with labels on wide screens; on phones they move into the avatar menu. */
+const secondaryLink = cn(
+	buttonVariants({ variant: 'ghost', size: 'sm' }),
+	'hidden lg:inline-flex',
+)
 
 /** Sign in, or the signed-in driver's links, from Clerk's client session. */
 export function HeaderNav() {
@@ -50,42 +57,59 @@ export function HeaderNav() {
 			</Link>
 			<Link
 				aria-label="Email pre-trips"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/email"
 			>
 				<Mail />
-				<span className="hidden sm:inline">Email</span>
+				Email
 			</Link>
 			<Link
 				aria-label="Your signature"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/signature"
 			>
 				<PenLine />
-				<span className="hidden sm:inline">Signature</span>
+				Signature
 			</Link>
 			<Link
 				aria-label="Connect your AI"
-				className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+				className={secondaryLink}
 				href="/connect"
 			>
 				<Bot />
-				<span className="hidden sm:inline">Connect AI</span>
+				Connect AI
 			</Link>
 			<SignOutButton redirectUrl="/">
 				<button
 					aria-label="Sign out"
-					className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+					className={secondaryLink}
 					type="button"
 				>
 					<LogOut />
-					<span className="hidden sm:inline">Sign out</span>
+					Sign out
 				</button>
 			</SignOutButton>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
-				<UserButton
-					appearance={{ elements: { avatarBox: 'size-8' } }}
-				/>
+				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
+					{/* On small screens these live only here; the menu already has Sign out. */}
+					<UserButton.MenuItems>
+						<UserButton.Link
+							href="/email"
+							label="Email pre-trips"
+							labelIcon={<Mail className="size-4" />}
+						/>
+						<UserButton.Link
+							href="/signature"
+							label="Your signature"
+							labelIcon={<PenLine className="size-4" />}
+						/>
+						<UserButton.Link
+							href="/connect"
+							label="Connect your AI"
+							labelIcon={<Bot className="size-4" />}
+						/>
+					</UserButton.MenuItems>
+				</UserButton>
 			</div>
 		</nav>
 	)
