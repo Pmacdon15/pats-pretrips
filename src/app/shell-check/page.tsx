@@ -8,7 +8,7 @@ import type { Metadata } from 'next'
  */
 
 export const metadata: Metadata = {
-	title: "Shell check · Pat's PreTrips",
+	title: 'Shell check',
 	robots: { index: false, follow: false },
 }
 

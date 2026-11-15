@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card'
 import { getEmailAccessDAL } from '@/lib/DAL/email'
 
-export const metadata = { title: "Email pre-trips · Pat's PreTrips" }
+export const metadata = { title: 'Email pre-trips' }
 
 export default function Page() {
 	return (

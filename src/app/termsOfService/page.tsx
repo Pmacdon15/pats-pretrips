@@ -1,4 +1,12 @@
+import type { Metadata } from 'next'
 import { Disclaimer } from '@/components/disclaimer/disclaimer'
+
+export const metadata: Metadata = {
+	title: 'Terms of Service',
+	description:
+		"The terms for using Pat's PreTrips, the pre-trip inspection and daily vehicle inspection report app.",
+	alternates: { canonical: '/termsOfService' },
+}
 
 export default function Page() {
 	return (

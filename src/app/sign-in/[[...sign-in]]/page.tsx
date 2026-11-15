@@ -4,7 +4,10 @@ import AuthShell from '@/components/auth/auth-shell'
 import { authPageAppearance } from '@/lib/clerk-appearance'
 
 export const metadata: Metadata = {
-	title: "Sign in — Pat's PreTrips",
+	title: 'Sign in',
+	description:
+		"Sign in to Pat's PreTrips to log today's pre-trip inspection and see your trip history.",
+	alternates: { canonical: '/sign-in' },
 }
 
 /** Prerenders /sign-in itself; Clerk's own sub-paths render on demand. */

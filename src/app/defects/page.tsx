@@ -3,7 +3,7 @@ import { BackLink } from '@/components/links/back-home-button'
 import { DefectRecordView } from '@/components/repairs/defect-record'
 import { fetchDefectRecord } from '@/lib/DAL/repairs'
 
-export const metadata = { title: "Defects & repairs · Pat's PreTrips" }
+export const metadata = { title: 'Defects & repairs' }
 
 export default function Page() {
 	return (

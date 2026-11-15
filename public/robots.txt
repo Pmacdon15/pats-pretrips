@@ -1,6 +1,15 @@
 # *
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /pretrip
+Disallow: /defects
+Disallow: /vehicles
+Disallow: /carriers
+Disallow: /email
+Disallow: /signature
+Disallow: /connect
+Disallow: /shell-check
 
 # Host
 Host: https://patspretrips.ca

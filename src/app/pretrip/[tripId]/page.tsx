@@ -6,6 +6,8 @@ import { getEmailAccessDAL } from '@/lib/DAL/email'
 import { fetchTripRepairs } from '@/lib/DAL/repairs'
 import { fetchTrip } from '@/lib/DAL/trips'
 
+export const metadata = { title: 'Pre-trip' }
+
 export default function Page(props: PageProps<'/pretrip/[tripId]'>) {
 	const tripPromise = props.params.then((params) =>
 		fetchTrip(Number(params.tripId)),

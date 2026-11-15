@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card'
 import { VehicleList } from '@/components/vehicles/vehicle-list'
 
-export const metadata = { title: "Vehicles · Pat's PreTrips" }
+export const metadata = { title: 'Vehicles' }
 
 export default function Page() {
 	return (

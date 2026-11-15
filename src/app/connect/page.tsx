@@ -1,6 +1,6 @@
 import { ConnectAi } from '@/components/connect/connect-ai'
 
-export const metadata = { title: "Connect your AI · Pat's PreTrips" }
+export const metadata = { title: 'Connect your AI' }
 
 /** Static: how to connect an AI app. Nothing on this page loads data. */
 export default function Page() {

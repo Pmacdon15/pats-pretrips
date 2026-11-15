@@ -8,7 +8,7 @@ import {
 	CardTitle,
 } from '@/components/ui/card'
 
-export const metadata = { title: "Signature · Pat's PreTrips" }
+export const metadata = { title: 'Signature' }
 
 export default function Page() {
 	return (

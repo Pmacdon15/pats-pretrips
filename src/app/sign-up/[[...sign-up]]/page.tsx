@@ -4,7 +4,10 @@ import AuthShell from '@/components/auth/auth-shell'
 import { authPageAppearance } from '@/lib/clerk-appearance'
 
 export const metadata: Metadata = {
-	title: "Create account — Pat's PreTrips",
+	title: 'Create account',
+	description:
+		"Create a free Pat's PreTrips account and record pre-trip inspections from your phone.",
+	alternates: { canonical: '/sign-up' },
 }
 
 /** Prerenders /sign-up itself; Clerk's own sub-paths render on demand. */

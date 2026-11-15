@@ -9,6 +9,13 @@ import Header from '@/components/header/header'
 import Providers from '@/components/providers/Providers'
 import ServiceWorkerRegister from '@/components/pwa/service-worker-register'
 import { clerkAppearance } from '@/lib/clerk-appearance'
+import {
+	SITE_DESCRIPTION,
+	SITE_KEYWORDS,
+	SITE_NAME,
+	SITE_TAGLINE,
+	SITE_URL,
+} from '@/lib/site'
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -20,14 +27,30 @@ const geistMono = Geist_Mono({
 	subsets: ['latin'],
 })
 
-const description =
-	'Record pre-trip inspections, flag defects and keep a clean history of every trip — right from your phone.'
-
 export const metadata: Metadata = {
-	metadataBase: new URL('https://patspretrips.ca'),
-	title: "Pat's PreTrips",
-	description,
-	applicationName: "Pat's PreTrips",
+	metadataBase: new URL(SITE_URL),
+	title: {
+		default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+		template: `%s · ${SITE_NAME}`,
+	},
+	description: SITE_DESCRIPTION,
+	applicationName: SITE_NAME,
+	keywords: SITE_KEYWORDS,
+	authors: [{ name: SITE_NAME, url: SITE_URL }],
+	creator: SITE_NAME,
+	publisher: SITE_NAME,
+	category: 'business',
+	alternates: { canonical: '/' },
+	robots: {
+		index: true,
+		follow: true,
+		googleBot: {
+			index: true,
+			follow: true,
+			'max-image-preview': 'large',
+			'max-snippet': -1,
+		},
+	},
 	appleWebApp: {
 		capable: true,
 		title: 'PreTrips',
@@ -36,15 +59,16 @@ export const metadata: Metadata = {
 	formatDetection: { telephone: false },
 	openGraph: {
 		type: 'website',
-		siteName: "Pat's PreTrips",
-		title: "Pat's PreTrips — Pre-trips done in minutes",
-		description,
+		siteName: SITE_NAME,
+		locale: 'en_CA',
+		title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+		description: SITE_DESCRIPTION,
 		url: '/',
 	},
 	twitter: {
 		card: 'summary_large_image',
-		title: "Pat's PreTrips — Pre-trips done in minutes",
-		description,
+		title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+		description: SITE_DESCRIPTION,
 	},
 }
 
