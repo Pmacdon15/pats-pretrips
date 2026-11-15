@@ -64,6 +64,10 @@ Pat's PreTrips is a web application designed to help truck drivers manage and do
 
     REVERSE_GEOCODING_API_KEY=
    ```
+   `.env.sample` lists every variable. `REVERSE_GEOCODING_API_KEY` is a Google
+   Geocoding API key, used to prefill the inspection address; see
+   [docs/geocoding.md](docs/geocoding.md) for how to restrict it and cap its
+   cost in Google Cloud.
  
 4. Set up the database
    Run `src/lib/sql/makeDb.sql` (the trips table), then every dated file in
@@ -97,8 +101,8 @@ This project is ready to deploy on [Vercel](https://vercel.com):
 1. Push your code to GitHub or GitLab
 2. Import the project in Vercel
 3. Create a Neon Db
-4. Sign up for [geoapify.com](https:.geoapify.com)
-5. Configure environment variables with geoapify, and O Auth credentials
+4. Create a Google Geocoding API key, restricted and capped as in [docs/geocoding.md](docs/geocoding.md)
+5. Configure environment variables (the Google key, Neon and Clerk credentials)
 6. Deploy
  
 ## Running Tests
