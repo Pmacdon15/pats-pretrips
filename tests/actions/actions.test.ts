@@ -146,16 +146,37 @@ describe('getAddress', () => {
 	const ok = (body: unknown) =>
 		fetchMock.mockResolvedValue({ ok: true, json: async () => body })
 	const place = { formatted_address: '1 Main St, Calgary' }
+	// The driver's position, and what the logs must never show.
+	const LAT = 51.04473
+	const LNG = -114.07109
+	const PRIVATE = ['51.04473', '114.07109', '1 Main St', 'key123']
+
+	/** Everything written to the console, as one string. */
+	const logged = () =>
+		(['log', 'info', 'warn', 'error'] as const)
+			.flatMap((level) => vi.mocked(console[level]).mock.calls.flat())
+			.map(String)
+			.join('\n')
+
+	const expectNothingPrivateLogged = () => {
+		for (const value of PRIVATE) expect(logged()).not.toContain(value)
+	}
+
+	beforeEach(() => {
+		vi.spyOn(console, 'info').mockImplementation(() => {})
+	})
 
 	it('reverse-geocodes the coordinates with Google Maps', async () => {
 		const body = { status: 'OK', results: [place] }
 		ok(body)
 
-		await expect(getAddress(51, -114)).resolves.toEqual({ data: body })
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
 		expect(fetchMock).toHaveBeenCalledWith(
-			'https://maps.googleapis.com/maps/api/geocode/json?latlng=51,-114&key=key123',
+			'https://maps.googleapis.com/maps/api/geocode/json?latlng=51.04473,-114.07109&key=key123',
 			{ cache: 'no-cache' },
 		)
+		// A lookup that works logs nothing at all.
+		expect(logged()).toBe('')
 		expect(mocks.rateLimit).toHaveBeenCalledWith(
 			expect.objectContaining({ name: 'geocode' }),
 			'pat@x.com',
@@ -184,10 +205,13 @@ describe('getAddress', () => {
 
 	it('returns an OK response with no results as is', async () => {
 		ok({ status: 'OK', results: [] })
-		await expect(getAddress(1, 2)).resolves.toEqual({
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({
 			data: { status: 'OK', results: [] },
 		})
-		expect(console.warn).toHaveBeenCalled()
+		expect(console.warn).toHaveBeenCalledWith(
+			'getAddress: Google returned OK with no results',
+		)
+		expectNothingPrivateLogged()
 	})
 
 	it('returns an OK response with no results field as is', async () => {
@@ -202,18 +226,42 @@ describe('getAddress', () => {
 		{ status: 'ZERO_RESULTS', results: [] },
 	])('returns a non-OK status ($status) without results', async (body) => {
 		ok(body)
-		await expect(getAddress(1, 2)).resolves.toEqual({ data: body })
-		expect(console.error).toHaveBeenCalled()
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
+		expect(console.error).toHaveBeenCalledWith(
+			`getAddress: Google returned ${body.status}`,
+			body.error_message ?? '',
+		)
+		expectNothingPrivateLogged()
 	})
 
-	it('returns no data when the request fails', async () => {
+	it.each([
+		`Invalid request. Invalid 'latlng' parameter: ${LAT},${LNG}`,
+		`The provided API key key123 is invalid for latlng=${LAT}%2C${LNG}`,
+		`Near ${LAT} ${LNG}`,
+	])("keeps the key and position out of Google's message: %s", async (message) => {
+		const body = { status: 'INVALID_REQUEST', error_message: message }
+		ok(body)
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: body })
+		expect(console.error).toHaveBeenCalledWith(
+			'getAddress: Google returned INVALID_REQUEST',
+			expect.stringContaining('[position]'),
+		)
+		expectNothingPrivateLogged()
+	})
+
+	it('returns no data when the request fails, logging only the status', async () => {
 		fetchMock.mockResolvedValue({
 			ok: false,
 			status: 500,
 			statusText: 'Server Error',
-			text: async () => 'oops',
+			text: async () =>
+				`<p>The requested URL /maps/api/geocode/json?latlng=${LAT},${LNG}&key=key123 failed</p>`,
 		})
-		await expect(getAddress(1, 2)).resolves.toEqual({ data: undefined })
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: undefined })
+		expect(vi.mocked(console.error).mock.calls).toEqual([
+			['getAddress: Google answered HTTP 500'],
+		])
+		expectNothingPrivateLogged()
 	})
 
 	it.each([
@@ -221,13 +269,38 @@ describe('getAddress', () => {
 		'offline',
 	])('returns no data when fetch throws %s', async (error) => {
 		fetchMock.mockRejectedValue(error)
-		await expect(getAddress(1, 2)).resolves.toEqual({ data: undefined })
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: undefined })
+		expect(console.error).toHaveBeenCalledWith(
+			'getAddress: the Google request failed:',
+			'offline',
+		)
+	})
+
+	it('keeps the key and position out of a failure that quotes the request', async () => {
+		fetchMock.mockResolvedValue({
+			ok: true,
+			json: async () => {
+				throw new SyntaxError(
+					`Unexpected token '<', "<a href=/geocode/json?latlng=${LAT},${LNG}&key=key123>" is not valid JSON`,
+				)
+			},
+		})
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: undefined })
+		expect(console.error).toHaveBeenCalledWith(
+			'getAddress: the Google request failed:',
+			expect.stringContaining('latlng=[position]'),
+		)
+		expectNothingPrivateLogged()
 	})
 
 	it('returns no data without an API key', async () => {
 		vi.stubEnv('REVERSE_GEOCODING_API_KEY', '')
-		await expect(getAddress(1, 2)).resolves.toEqual({ data: undefined })
+		await expect(getAddress(LAT, LNG)).resolves.toEqual({ data: undefined })
 		expect(fetchMock).not.toHaveBeenCalled()
+		expect(console.error).toHaveBeenCalledWith(
+			'getAddress: REVERSE_GEOCODING_API_KEY is not set',
+		)
+		expectNothingPrivateLogged()
 	})
 
 	it('requires a signed-in driver', async () => {

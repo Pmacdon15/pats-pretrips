@@ -1,5 +1,6 @@
 import { getDriverEmail } from '@/lib/auth'
 import { getTripDb, listTripsDb } from '@/lib/db/trips'
+import { errorForLog } from '@/lib/log'
 import type { Trip } from '@/lib/types/types'
 
 /*
@@ -20,7 +21,7 @@ export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 	try {
 		return await listTripsDb(email, 'current', page, limit)
 	} catch (error) {
-		console.error('Error fetching trips:', error)
+		console.error('Error fetching trips:', errorForLog(error))
 		throw error
 	}
 }
@@ -30,7 +31,7 @@ export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 	try {
 		return await listTripsDb(email, 'past', page, limit)
 	} catch (error) {
-		console.error('error:', error)
+		console.error('Error fetching past trips:', errorForLog(error))
 		return { trips: [] as Trip[], hasMore: false }
 	}
 }
@@ -40,6 +41,6 @@ export async function fetchTrip(tripId: number) {
 	try {
 		return await getTripDb(tripId, email)
 	} catch (error: unknown) {
-		console.log('Error', error)
+		console.error('Error fetching trip:', errorForLog(error))
 	}
 }

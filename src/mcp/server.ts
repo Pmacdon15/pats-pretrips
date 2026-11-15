@@ -1,6 +1,7 @@
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { expireDriverTrips } from '@/lib/cache/revalidate'
+import { errorForLog } from '@/lib/log'
 import { rateLimitAll, rateLimitMessage } from '@/lib/rate-limit'
 import {
 	type Limit,
@@ -141,7 +142,7 @@ export async function run(
 				isError: true,
 			})
 		}
-		console.error(error)
+		console.error('MCP: a tool failed:', errorForLog(error))
 		return respond({
 			summary:
 				"Something went wrong in Pat's PreTrips. Try again shortly.",

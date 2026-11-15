@@ -2,6 +2,7 @@ import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
 import { getDriver } from '@/lib/auth'
 import { recordOwner } from '@/lib/db/owner-stamps'
+import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { TRIP_WRITES } from '@/lib/rate-limit/limits'
 import {
@@ -62,7 +63,7 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 		)
 		return okAsync(trip)
 	} catch (e) {
-		console.error('Db error adding trip: ', e)
+		console.error('Db error adding trip: ', errorForLog(e))
 		return errAsync({
 			reason: 'Could not save your trip. Please try again.',
 		})
@@ -129,7 +130,7 @@ export async function addOnRouteDefectsDAL(
 		await recordOwner(driver, { table: 'trip', tripId })
 		return okAsync(trip)
 	} catch (e) {
-		console.error('Error updating trip:', e)
+		console.error('Error updating trip:', errorForLog(e))
 		return errAsync({ reason: TOO_OLD } as const)
 	}
 }

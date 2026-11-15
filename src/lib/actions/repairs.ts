@@ -3,6 +3,7 @@
 import { getDriver, getDriverEmail } from '@/lib/auth'
 import { revalidateDriverTrips } from '@/lib/cache/revalidate'
 import type { Repair } from '@/lib/db/repairs'
+import { errorForLog } from '@/lib/log'
 import { rateLimit, rateLimitMessage } from '@/lib/rate-limit'
 import { REPAIR_UPLOADS } from '@/lib/rate-limit/limits'
 import { fromBase64 } from '@/lib/repairs/compress'
@@ -64,7 +65,7 @@ export async function markDefectRepaired(
 		revalidateDriverTrips(email)
 		return { value: result.repair }
 	} catch (error) {
-		console.error('Error saving repair:', error)
+		console.error('Error saving repair:', errorForLog(error))
 		return { errorMessage: 'Could not save the repair. Please try again.' }
 	}
 }
@@ -80,7 +81,7 @@ export async function undoDefectRepair(
 		revalidateDriverTrips(email)
 		return { value: { id: removed.id } }
 	} catch (error) {
-		console.error('Error undoing repair:', error)
+		console.error('Error undoing repair:', errorForLog(error))
 		return { errorMessage: 'Could not undo the repair. Please try again.' }
 	}
 }
