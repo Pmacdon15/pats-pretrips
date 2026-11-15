@@ -1,11 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { getAddress } from '../actions/actions'
+import { getCarriers } from '../actions/carriers'
 import { getSignatureStatus } from '../actions/signatures'
 import { getVehicles } from '../actions/vehicles'
 
 export const SIGNATURE_STATUS_KEY = ['signatureStatus']
 export const VEHICLES_KEY = ['vehicles']
+export const CARRIERS_KEY = ['carriers']
+
+/** The driver's saved carriers, for the Carriers page and the trip form. */
+export const useCarriers = () => {
+	return useQuery({
+		queryKey: CARRIERS_KEY,
+		queryFn: () => getCarriers(),
+		staleTime: 5 * 60 * 1000,
+	})
+}
 
 /** The driver's saved vehicles, for the Vehicles page and the trip form. */
 export const useVehicles = () => {

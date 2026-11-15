@@ -4,6 +4,7 @@ import { LocateFixed } from 'lucide-react'
 import { startTransition, useEffect, useState } from 'react'
 import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
+import { CarrierPicker } from '@/components/carriers/carrier-picker'
 import { DriverSignatureField } from '@/components/signature/driver-signature-field'
 import { VehiclePicker } from '@/components/vehicles/vehicle-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
@@ -127,6 +128,13 @@ export default function AddTripForm({
 			}}
 		>
 			<FormSection title="Carrier">
+				<CarrierPicker
+					key={saves}
+					onPick={(c) => {
+						form.setFieldValue('carrier', c.name)
+						form.setFieldValue('carrierAddress', c.address)
+					}}
+				/>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<ControlledTextInput
 						form={form}

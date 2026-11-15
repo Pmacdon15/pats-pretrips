@@ -56,3 +56,6 @@ export const STORED_REMARKS_MAX = 10_000
 export const VEHICLE_NAME_MAX = 100
 /** Most vehicles one driver can save. */
 export const VEHICLES_MAX = 50
+
+/** Most carriers one driver can save. */
+export const CARRIERS_MAX = 50

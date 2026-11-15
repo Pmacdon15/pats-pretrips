@@ -2,11 +2,31 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { queryWrapper } from '../helpers/query'
 
-const mocks = vi.hoisted(() => ({ getAddress: vi.fn(), getVehicles: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+	getAddress: vi.fn(),
+	getVehicles: vi.fn(),
+	getCarriers: vi.fn(),
+}))
 vi.mock('@/lib/actions/actions', () => ({ getAddress: mocks.getAddress }))
 vi.mock('@/lib/actions/vehicles', () => ({ getVehicles: mocks.getVehicles }))
+vi.mock('@/lib/actions/carriers', () => ({ getCarriers: mocks.getCarriers }))
 
-import { useGetAddress, useGetLocation, useVehicles } from '@/lib/hooks/hooks'
+import {
+	useCarriers,
+	useGetAddress,
+	useGetLocation,
+	useVehicles,
+} from '@/lib/hooks/hooks'
+
+describe('useCarriers', () => {
+	it("reads the driver's saved carriers", async () => {
+		mocks.getCarriers.mockResolvedValue([{ id: 5 }])
+		const { result } = renderHook(() => useCarriers(), {
+			wrapper: queryWrapper(),
+		})
+		await waitFor(() => expect(result.current.data).toEqual([{ id: 5 }]))
+	})
+})
 
 describe('useVehicles', () => {
 	it("reads the driver's saved vehicles", async () => {

@@ -79,3 +79,10 @@ export const VEHICLE_WRITES: Limit = {
 	max: 60,
 	windowSeconds: HOUR,
 }
+
+/** Saved carriers added, changed or deleted, from the web app. */
+export const CARRIER_WRITES: Limit = {
+	name: 'carrier-writes',
+	max: 60,
+	windowSeconds: HOUR,
+}

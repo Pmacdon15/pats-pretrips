@@ -39,6 +39,9 @@ vi.mock('@/components/email/email-settings', () => ({
 vi.mock('@/components/signature/signature-settings', () => ({
 	SignatureSettings: () => <p data-testid="signature-settings" />,
 }))
+vi.mock('@/components/carriers/carrier-list', () => ({
+	CarrierList: () => <p data-testid="carrier-list" />,
+}))
 vi.mock('@/components/vehicles/vehicle-list', () => ({
 	VehicleList: () => <p data-testid="vehicle-list" />,
 }))
@@ -101,6 +104,7 @@ vi.mock('@/components/home/home-page-buttons', () => ({
 	default: () => <div data-testid="home-buttons" />,
 }))
 
+import CarriersPage, { metadata as carriersMeta } from '@/app/carriers/page'
 import ConnectPage from '@/app/connect/page'
 import DefectsPage, { metadata as defectsMeta } from '@/app/defects/page'
 import EmailPage from '@/app/email/page'
@@ -207,6 +211,15 @@ describe('/vehicles', () => {
 		expect(screen.getByText('Your vehicles')).toBeInTheDocument()
 		expect(screen.getByTestId('vehicle-list')).toBeInTheDocument()
 		expect(vehiclesMeta.title).toMatch('Vehicles')
+	})
+})
+
+describe('/carriers', () => {
+	it("is a static page around the driver's saved carriers", async () => {
+		await renderAsync(<CarriersPage />)
+		expect(screen.getByText('Your carriers')).toBeInTheDocument()
+		expect(screen.getByTestId('carrier-list')).toBeInTheDocument()
+		expect(carriersMeta.title).toMatch('Carriers')
 	})
 })
 

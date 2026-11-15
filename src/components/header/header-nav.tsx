@@ -2,6 +2,7 @@
 import { SignInButton, SignOutButton, UserButton, useAuth } from '@clerk/nextjs'
 import {
 	Bot,
+	Building2,
 	ClipboardCheck,
 	LogOut,
 	Mail,
@@ -26,6 +27,7 @@ const secondaryLink = cn(
 export const NAV_LINKS = [
 	{ href: '/pretrips', label: 'My Trips', icon: ClipboardCheck },
 	{ href: '/vehicles', label: 'Vehicles', icon: Truck },
+	{ href: '/carriers', label: 'Carriers', icon: Building2 },
 	{ href: '/defects', label: 'Defects', icon: Wrench },
 	{ href: '/email', label: 'Email', icon: Mail },
 	{ href: '/signature', label: 'Signature', icon: PenLine },
@@ -78,6 +80,14 @@ export function HeaderNav() {
 				<span className="hidden sm:inline">Defects</span>
 			</Link>
 			<Link
+				aria-label="Your carriers"
+				className={secondaryLink}
+				href="/carriers"
+			>
+				<Building2 />
+				Carriers
+			</Link>
+			<Link
 				aria-label="Email pre-trips"
 				className={secondaryLink}
 				href="/email"
@@ -113,7 +123,7 @@ export function HeaderNav() {
 			</SignOutButton>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
-					{/* Every page; Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}
+					{/* Every page; Carriers, Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}
 					<UserButton.MenuItems>
 						{NAV_LINKS.map(({ href, label, icon: Icon }) => (
 							<UserButton.Link
