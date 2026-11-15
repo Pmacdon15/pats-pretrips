@@ -30,7 +30,26 @@ vi.mock('@clerk/nextjs', () => {
 		SignInButton: wrap('sign-in'),
 		SignOutButton: wrap('sign-out'),
 		SignUpButton: wrap('sign-up'),
-		UserButton: () => <span data-testid="user-button" />,
+		UserButton: Object.assign(
+			({ children }: { children?: React.ReactNode }) => (
+				<span data-testid="user-button">{children}</span>
+			),
+			{
+				MenuItems: ({ children }: { children: React.ReactNode }) => (
+					<span data-testid="user-menu">{children}</span>
+				),
+				Link: (p: {
+					href: string
+					label: string
+					labelIcon: React.ReactNode
+				}) => (
+					<span data-href={p.href} data-menu-link>
+						{p.labelIcon}
+						{p.label}
+					</span>
+				),
+			},
+		),
 		useAuth: clerk.useAuth,
 	}
 })
@@ -179,5 +198,23 @@ describe('Header', () => {
 		expect(signOut.parentElement).toHaveAttribute('data-action', 'sign-out')
 		expect(signOut.parentElement).toHaveAttribute('data-redirect', '/')
 		expect(screen.getByTestId('user-button')).toBeInTheDocument()
+	})
+
+	it("lists the driver's pages in the profile menu too", async () => {
+		clerk.useAuth.mockReturnValue({ isLoaded: true, isSignedIn: true })
+		await renderHeader()
+		const menu = screen.getByTestId('user-menu')
+		const links = [...menu.querySelectorAll('[data-menu-link]')].map(
+			(a) => [a.textContent, a.getAttribute('data-href')],
+		)
+		expect(links).toEqual([
+			['My Trips', '/pretrips'],
+			['Vehicles', '/vehicles'],
+			['Defects', '/defects'],
+			['Email', '/email'],
+			['Signature', '/signature'],
+			['Connect AI', '/connect'],
+		])
+		expect(menu.querySelectorAll('svg')).toHaveLength(6)
 	})
 })

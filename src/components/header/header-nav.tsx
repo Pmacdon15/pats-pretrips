@@ -19,6 +19,19 @@ const secondaryLink = cn(
 	'hidden lg:inline-flex',
 )
 
+/**
+ * Every page of the app, listed in the avatar menu so each one is a tap away
+ * on a phone, where the header shows only some of them.
+ */
+export const NAV_LINKS = [
+	{ href: '/pretrips', label: 'My Trips', icon: ClipboardCheck },
+	{ href: '/vehicles', label: 'Vehicles', icon: Truck },
+	{ href: '/defects', label: 'Defects', icon: Wrench },
+	{ href: '/email', label: 'Email', icon: Mail },
+	{ href: '/signature', label: 'Signature', icon: PenLine },
+	{ href: '/connect', label: 'Connect AI', icon: Bot },
+] as const
+
 /** Sign in, or the signed-in driver's links, from Clerk's client session. */
 export function HeaderNav() {
 	const { isLoaded, isSignedIn } = useAuth()
@@ -100,23 +113,16 @@ export function HeaderNav() {
 			</SignOutButton>
 			<div className="flex size-9 items-center justify-center sm:ml-1">
 				<UserButton appearance={{ elements: { avatarBox: 'size-8' } }}>
-					{/* On small screens these live only here; the menu already has Sign out. */}
+					{/* Every page; Email, Signature and Connect AI live only here on small screens. The menu already has Sign out. */}
 					<UserButton.MenuItems>
-						<UserButton.Link
-							href="/email"
-							label="Email pre-trips"
-							labelIcon={<Mail className="size-4" />}
-						/>
-						<UserButton.Link
-							href="/signature"
-							label="Your signature"
-							labelIcon={<PenLine className="size-4" />}
-						/>
-						<UserButton.Link
-							href="/connect"
-							label="Connect your AI"
-							labelIcon={<Bot className="size-4" />}
-						/>
+						{NAV_LINKS.map(({ href, label, icon: Icon }) => (
+							<UserButton.Link
+								href={href}
+								key={href}
+								label={label}
+								labelIcon={<Icon className="size-4" />}
+							/>
+						))}
 					</UserButton.MenuItems>
 				</UserButton>
 			</div>
