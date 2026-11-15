@@ -107,6 +107,18 @@ h1 { font-size: 15px; margin: 0; }
 .remarks { margin-top: 8px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 a { color: var(--accent); font-size: 12px; text-decoration: none; }
 a:hover { text-decoration: underline; }
+.trip.compact { padding: 0; }
+.trip.compact > summary { list-style: none; cursor: pointer; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+.trip.compact > summary::-webkit-details-marker { display: none; }
+.trip.compact > summary .sum { flex: 1; min-width: 0; }
+.trip.compact > summary .sub { display: flex; align-items: center; gap: 8px; margin-top: 2px; min-width: 0; }
+.trip.compact > summary .sub .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.trip.compact > summary .chev { display: inline-block; color: var(--muted); transition: transform .15s; flex: none; }
+.trip.compact[open] > summary .chev { transform: rotate(90deg); }
+.trip.compact > .body { padding: 0 12px 10px; border-top: 1px solid var(--border); }
+.pill { border-radius: 999px; padding: 1px 7px; font-size: 11px; font-weight: 600; background: var(--chip-bg); white-space: nowrap; flex: none; }
+.pill.ok { background: var(--ok-bg); color: var(--ok-text); }
+.pill.bad { background: var(--bad-bg); color: var(--bad-text); }
 .empty { padding: 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
 </style>
 </head>
@@ -212,12 +224,58 @@ a:hover { text-decoration: underline; }
 		return row;
 	}
 
+	function tripTitle(t) {
+		return [t.make, t.model].filter(Boolean).join(' ') || 'Trip ' + t.trip_id;
+	}
+
+	// With several trips, each one is a short row (truck, time, plate and
+	// how many defects are still open) that opens to the full card on a tap,
+	// so the list stays short enough for the chat instead of being cut off.
+	function compactTrip(t) {
+		var card = el('details', 'trip compact');
+		var summary = el('summary');
+		var sum = el('div', 'sum');
+		var top = el('div', 'row');
+		top.appendChild(el('span', 'title', tripTitle(t)));
+		top.appendChild(el('span', 'muted', when(t.date)));
+		sum.appendChild(top);
+		var sub = el('div', 'sub');
+		var defects = Array.isArray(t.defects) ? t.defects : [];
+		var statuses = Array.isArray(t.defect_status) ? t.defect_status : [];
+		var open = defects.filter(function (d) {
+			return !statuses.some(function (x) {
+				return x && x.status === 'repaired' && x.repair && String(x.defect).toLowerCase() === String(d).toLowerCase();
+			});
+		}).length;
+		var pill = !defects.length ? ['ok', 'No defects']
+			: open ? ['bad', open + (open === 1 ? ' defect open' : ' defects open')]
+			: ['ok', 'Defects repaired'];
+		sub.appendChild(el('span', 'pill ' + pill[0], pill[1]));
+		sub.appendChild(el('span', 'muted', [t.truck_plate, 'Trip #' + t.trip_id].filter(Boolean).join(' · ')));
+		sum.appendChild(sub);
+		summary.appendChild(sum);
+		summary.appendChild(el('span', 'chev', '›'));
+		card.appendChild(summary);
+		var body = el('div', 'body');
+		tripDetails(t, null, body);
+		card.appendChild(body);
+		card.addEventListener('toggle', reportSize);
+		return card;
+	}
+
 	function tripCard(t, status) {
 		var card = el('article', 'trip');
 		var top = el('div', 'row');
-		top.appendChild(el('span', 'title', [t.make, t.model].filter(Boolean).join(' ') || 'Trip ' + t.trip_id));
+		top.appendChild(el('span', 'title', tripTitle(t)));
 		top.appendChild(el('span', 'muted', when(t.date)));
 		card.appendChild(top);
+		tripDetails(t, status, card);
+		return card;
+	}
+
+	// Everything on a trip below its title: plates, defects, repairs,
+	// remarks and the link to the trip page.
+	function tripDetails(t, status, card) {
 
 		var facts = el('div', 'facts');
 		if (t.truck_plate) facts.appendChild(fact('Truck', t.truck_plate));
@@ -256,7 +314,6 @@ a:hover { text-decoration: underline; }
 		foot.appendChild(el('span', 'muted', 'Trip #' + t.trip_id));
 		foot.appendChild(linkTo('Open in PreTrips →', tripUrl(t.trip_id)));
 		card.appendChild(foot);
-		return card;
 	}
 
 	// A defect from list_defects: still open, or repaired with its repair.
@@ -361,7 +418,9 @@ a:hover { text-decoration: underline; }
 		if (!trips.length) {
 			list.appendChild(el('div', 'empty', data.when === 'past' ? 'No older trips.' : 'No trips in the last 24 hours.'));
 		} else {
-			trips.forEach(function (t) { list.appendChild(tripCard(t, one ? data.defect_status : null)); });
+			trips.forEach(function (t) {
+				list.appendChild(trips.length > 1 ? compactTrip(t) : tripCard(t, one ? data.defect_status : null));
+			});
 		}
 	}
 
