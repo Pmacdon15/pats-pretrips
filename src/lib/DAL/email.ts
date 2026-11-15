@@ -183,10 +183,10 @@ export async function emailTripDAL(data: {
 				signature,
 			)
 		} catch (e) {
-			await releaseEmailSend(slot.id)
+			await releaseEmailSend(driver.email, slot.id)
 			throw e
 		}
-		await confirmEmailSend(slot.id, messageId)
+		await confirmEmailSend(driver.email, slot.id, messageId)
 		await recordEmailSendOwner(driver, slot.id)
 		return okAsync({ sentTo: parsed.data.recipients })
 	} catch (e) {
@@ -232,10 +232,10 @@ export async function prepareAutoEmailDAL() {
 				[],
 				await tripSignature(trip, driver.email),
 			)
-			await confirmEmailSend(slot.id, messageId)
+			await confirmEmailSend(driver.email, slot.id, messageId)
 			await recordEmailSendOwner(driver, slot.id)
 		} catch (e) {
-			await releaseEmailSend(slot.id)
+			await releaseEmailSend(driver.email, slot.id)
 			console.error('Error auto-emailing trip: ', errorForLog(e))
 		}
 	}

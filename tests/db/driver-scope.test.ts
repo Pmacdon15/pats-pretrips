@@ -101,16 +101,6 @@ const ALLOW: AllowEntry[] = [
 		fn: 'pendingRows',
 		why: 'the operator-run Clerk user ID backfill counts every driver’s unstamped rows; never reachable from a request',
 	},
-	{
-		file: 'src/lib/db/email-sends.ts',
-		fn: 'confirmEmailSendDb',
-		why: 'id is the row reserveEmailSendDb just created for this driver, never request input (follow-up: also filter by driver_email)',
-	},
-	{
-		file: 'src/lib/db/email-sends.ts',
-		fn: 'releaseEmailSendDb',
-		why: 'id is the row reserveEmailSendDb just created for this driver, never request input (follow-up: also filter by driver_email)',
-	},
 ]
 
 const report = checkSources(sourceFiles(['src', 'scripts']), TABLES, ALLOW)
@@ -163,8 +153,6 @@ describe('driver scoping of the app’s SQL', () => {
 			'src/lib/backfill/clerk-user-ids.ts pendingRows#pt_email_sends',
 			'src/lib/backfill/clerk-user-ids.ts pendingRows#pt_email_settings',
 			'src/lib/backfill/clerk-user-ids.ts pendingRows#pt_trip_signatures',
-			'src/lib/db/email-sends.ts confirmEmailSendDb',
-			'src/lib/db/email-sends.ts releaseEmailSendDb',
 		])
 	})
 
