@@ -1,6 +1,6 @@
 'use client'
 import { useForm } from '@tanstack/react-form'
-import { LocateFixed } from 'lucide-react'
+import { CircleCheck, LocateFixed } from 'lucide-react'
 import { startTransition, useEffect, useRef, useState } from 'react'
 import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
@@ -24,6 +24,10 @@ import { ControlledTextArea } from './controlled-text-area'
 import { ControlledTextInput } from './controlled-text-input'
 
 type TripForm = z.infer<typeof schemaAddTripForm>
+
+/** The remark filled in when the driver finds nothing wrong. */
+export const NOTHING_TO_REPORT =
+	'Nothing to report. No defects found during the inspection.'
 
 export default function AddTripForm({
 	onDone,
@@ -273,6 +277,32 @@ export default function AddTripForm({
 						/>
 					)}
 				</form.Field>
+				<form.Subscribe
+					selector={(state) => ({
+						defects: state.values.defects,
+						remarks: state.values.remarks,
+					})}
+				>
+					{({ defects, remarks }) =>
+						!defects.trim() && (
+							<Button
+								className="h-11 self-start"
+								disabled={remarks === NOTHING_TO_REPORT}
+								onClick={() =>
+									form.setFieldValue(
+										'remarks',
+										NOTHING_TO_REPORT,
+									)
+								}
+								type="button"
+								variant="outline"
+							>
+								<CircleCheck />
+								Nothing to report
+							</Button>
+						)
+					}
+				</form.Subscribe>
 				<ControlledTextArea
 					form={form}
 					label="Remarks"
