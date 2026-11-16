@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddDefectForm } from '@/components/add-defect/add-defect-form/AddDefectForm'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
-import AddTripForm from '@/components/forms/add-a-trip-form'
+import AddTripForm, {
+	NOTHING_TO_REPORT,
+} from '@/components/forms/add-a-trip-form'
 import AddTripContainer from '@/components/trips/add-trip/addTripContainer'
 import { trip } from '../helpers/fixtures'
 
@@ -365,6 +367,19 @@ describe('AddTripForm', () => {
 			'aria-invalid',
 			'false',
 		)
+	})
+
+	it('fills a nothing-to-report remark when there are no defects', async () => {
+		const { user } = setup()
+		const button = screen.getByRole('button', { name: 'Nothing to report' })
+		await user.click(button)
+		expect(screen.getByLabelText('Remarks')).toHaveValue(NOTHING_TO_REPORT)
+		expect(button).toBeDisabled()
+
+		await user.click(chip('Horn'))
+		expect(
+			screen.queryByRole('button', { name: 'Nothing to report' }),
+		).not.toBeInTheDocument()
 	})
 
 	it('cancels and resets', async () => {
