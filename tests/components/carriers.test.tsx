@@ -298,6 +298,47 @@ describe('CarrierList', () => {
 	})
 })
 
+describe('CarrierList sites', () => {
+	const site = () => carrier({ name: 'North Shop' })
+	beforeEach(() => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		mocks.getCarriers.mockResolvedValue([site()])
+	})
+
+	it("edits one of an organization's sites", async () => {
+		mocks.updateCarrier.mockResolvedValue({ value: site() })
+		const user = setup()
+		await user.click(
+			await screen.findByRole('button', { name: 'Edit North Shop' }),
+		)
+		expect(
+			screen.getByRole('form', { name: 'Edit site' }),
+		).toBeInTheDocument()
+		expect(screen.getByLabelText('Site name')).toHaveValue('North Shop')
+		await user.click(screen.getByRole('button', { name: 'Save changes' }))
+		await waitFor(() =>
+			expect(mocks.toast.success).toHaveBeenCalledWith('Site updated'),
+		)
+	})
+
+	it("deletes one of an organization's sites", async () => {
+		mocks.deleteCarrier.mockResolvedValue({ value: site() })
+		const user = setup()
+		await user.click(
+			await screen.findByRole('button', { name: 'Delete North Shop' }),
+		)
+		await user.click(screen.getByRole('button', { name: 'Delete' }))
+		await waitFor(() =>
+			expect(mocks.toast.success).toHaveBeenCalledWith('Site deleted'),
+		)
+	})
+})
+
 describe('CarriersHeader', () => {
 	it('is about carriers in the personal space', () => {
 		render(<CarriersHeader />)
@@ -315,6 +356,19 @@ describe('CarriersHeader', () => {
 		expect(screen.getByText('Your sites')).toBeInTheDocument()
 		expect(
 			screen.getByText(/Acme Freight is the carrier on every pre-trip/),
+		).toBeInTheDocument()
+	})
+
+	it('names the organization generically until its name loads', () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: null,
+			inOrg: true,
+			canManage: true,
+		}
+		render(<CarriersHeader />)
+		expect(
+			screen.getByText(/Your organization is the carrier on every/),
 		).toBeInTheDocument()
 	})
 })

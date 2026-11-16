@@ -83,10 +83,10 @@ export default function AddTripForm({
 	// Keep the carrier set to the organization while working in one, and
 	// clear it when the driver switches back to their personal space.
 	useEffect(() => {
-		const current = form.getFieldValue('carrier')
 		if (orgName) {
-			if (current !== orgName) form.setFieldValue('carrier', orgName)
-		} else if (current && lockedCarrier.current === current) {
+			form.setFieldValue('carrier', orgName)
+		} else if (lockedCarrier.current) {
+			// Leaving an organization: its name was locked in, so clear it.
 			form.setFieldValue('carrier', '')
 		}
 		lockedCarrier.current = orgName

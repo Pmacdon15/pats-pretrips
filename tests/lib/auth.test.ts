@@ -130,6 +130,11 @@ describe("the organization's name", () => {
 		})
 	})
 
+	it('is null when the organization has no name', async () => {
+		mocks.getOrganization.mockResolvedValue({ name: '  ' })
+		await expect(getOrgName('org_1')).resolves.toBeNull()
+	})
+
 	it("is null, logged, when Clerk can't be reached", async () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 		mocks.getOrganization.mockRejectedValue(new Error('down'))
