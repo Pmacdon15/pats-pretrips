@@ -8,8 +8,12 @@ const mocks = vi.hoisted(() => ({
 	getVehicles: vi.fn(),
 	getCarriers: vi.fn(),
 	useAuth: vi.fn(),
+	useOrganization: vi.fn(),
 }))
-vi.mock('@clerk/nextjs', () => ({ useAuth: mocks.useAuth }))
+vi.mock('@clerk/nextjs', () => ({
+	useAuth: mocks.useAuth,
+	useOrganization: mocks.useOrganization,
+}))
 vi.mock('@/lib/actions/actions', () => ({ getAddress: mocks.getAddress }))
 vi.mock('@/lib/actions/vehicles', () => ({ getVehicles: mocks.getVehicles }))
 vi.mock('@/lib/actions/carriers', () => ({ getCarriers: mocks.getCarriers }))
@@ -26,6 +30,7 @@ import { useSpace } from '@/lib/hooks/space'
 
 beforeEach(() => {
 	mocks.useAuth.mockReturnValue({ orgId: null, has: () => false })
+	mocks.useOrganization.mockReturnValue({ organization: null })
 })
 
 describe('useSpace', () => {
@@ -33,6 +38,7 @@ describe('useSpace', () => {
 		const { result } = renderHook(() => useSpace())
 		expect(result.current).toEqual({
 			orgId: null,
+			orgName: null,
 			inOrg: false,
 			canManage: true,
 		})
@@ -41,8 +47,12 @@ describe('useSpace', () => {
 	it("is an organization's space, managed only by its admins", () => {
 		const has = vi.fn((p: { role?: string }) => p.role === 'org:admin')
 		mocks.useAuth.mockReturnValue({ orgId: 'org_1', has })
+		mocks.useOrganization.mockReturnValue({
+			organization: { name: 'Acme Freight' },
+		})
 		expect(renderHook(() => useSpace()).result.current).toEqual({
 			orgId: 'org_1',
+			orgName: 'Acme Freight',
 			inOrg: true,
 			canManage: true,
 		})

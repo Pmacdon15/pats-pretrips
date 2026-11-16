@@ -71,6 +71,7 @@ vi.mock('@clerk/nextjs', () => ({
 	),
 	// The personal space (no active organization).
 	useAuth: () => ({ orgId: null, has: () => false }),
+	useOrganization: () => ({ organization: null }),
 }))
 vi.mock('@/components/header/header', () => ({
 	default: () => <header>header</header>,

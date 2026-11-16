@@ -1,5 +1,5 @@
 'use client'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth, useOrganization } from '@clerk/nextjs'
 import { ORG_ADMIN_ROLE } from '@/lib/space-roles'
 
 /*
@@ -10,10 +10,16 @@ import { ORG_ADMIN_ROLE } from '@/lib/space-roles'
  */
 export function useSpace() {
 	const { orgId, has } = useAuth()
+	const { organization } = useOrganization()
 	const inOrg = Boolean(orgId)
 	return {
 		/** The active organization's ID; null in the personal space. */
 		orgId: orgId ?? null,
+		/**
+		 * The active organization's name, the carrier on every pre-trip
+		 * started in its space; null in the personal space or while loading.
+		 */
+		orgName: (inOrg && organization?.name) || null,
 		inOrg,
 		/** A solo user always manages their own space; in an org, its admins do. */
 		canManage: !inOrg || Boolean(has?.({ role: ORG_ADMIN_ROLE })),

@@ -1,5 +1,6 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { EMAIL_FEATURE } from '@/lib/email/config'
+import { errorForLog } from '@/lib/log'
 import { ORG_ADMIN_ROLE } from '@/lib/space-roles'
 
 export { ORG_ADMIN_ROLE }
@@ -66,6 +67,28 @@ export async function getSpace(): Promise<Space | null> {
 	if (!userId) return null
 	if (!orgId) return { kind: 'personal', isAdmin: true }
 	return { kind: 'org', orgId, isAdmin: has({ role: ORG_ADMIN_ROLE }) }
+}
+
+/**
+ * The organization's name, from Clerk: the carrier on every pre-trip started
+ * in its space. Null when it can't be read (logged), so the caller can fall
+ * back to the carrier the driver typed.
+ */
+export async function getOrgName(orgId: string): Promise<string | null> {
+	try {
+		const client = await clerkClient()
+		const org = await client.organizations.getOrganization({
+			organizationId: orgId,
+		})
+		return org.name?.trim() || null
+	} catch (error) {
+		console.error(
+			'Organizations: could not read the name of',
+			orgId,
+			errorForLog(error),
+		)
+		return null
+	}
 }
 
 /**

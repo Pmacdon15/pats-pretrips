@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +20,13 @@ const mocks = vi.hoisted(() => ({
 	address: { data: undefined as unknown, isFetching: false },
 	vehicles: { data: [] as unknown[], isPending: false },
 	carriers: { data: [] as unknown[], isPending: false },
+	// The active space, as Clerk's client session gives it.
+	space: {
+		orgId: null as string | null,
+		orgName: null as string | null,
+		inOrg: false,
+		canManage: true,
+	},
 	signatureStatus: {
 		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' } as
 			| undefined
@@ -30,6 +37,7 @@ vi.mock('@/lib/mutations/mutations', () => ({
 	useAddTrip: () => ({ mutateAsync: mocks.addTrip }),
 	useAddDefectOnRoute: () => ({ mutateAsync: mocks.addDefect }),
 }))
+vi.mock('@/lib/hooks/space', () => ({ useSpace: () => mocks.space }))
 vi.mock('@/lib/hooks/hooks', () => ({
 	useGetLocation: () => mocks.location,
 	useGetAddress: () => mocks.address,
@@ -42,6 +50,7 @@ vi.mock('@/lib/hooks/hooks', () => ({
 beforeEach(() => {
 	mocks.vehicles = { data: [], isPending: false }
 	mocks.carriers = { data: [], isPending: false }
+	mocks.space = { orgId: null, orgName: null, inOrg: false, canManage: true }
 	mocks.addTrip.mockResolvedValue({})
 	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
@@ -217,6 +226,148 @@ describe('AddTripForm', () => {
 		expect(
 			screen.getByRole('link', { name: 'Manage carriers' }),
 		).toHaveAttribute('href', '/carriers')
+	})
+
+	it('makes the organization the carrier, and fills the address from one of its sites', async () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
+		mocks.carriers = {
+			data: [
+				{ id: 5, name: 'North Shop', address: '1 Shop Rd' },
+				{ id: 6, name: 'South Base', address: '9 Base Ave' },
+			],
+			isPending: false,
+		}
+		const { user } = setup()
+		const carrier = screen.getByLabelText('Carrier')
+		expect(carrier).toHaveValue('Acme Freight')
+		expect(carrier).toHaveAttribute('readonly')
+		expect(
+			screen.getByText('Your organization is the carrier.'),
+		).toBeInTheDocument()
+
+		const picker = screen.getByLabelText('Site')
+		expect(
+			screen.getByRole('option', { name: 'South Base — 9 Base Ave' }),
+		).toBeInTheDocument()
+		await user.selectOptions(picker, '6')
+		expect(carrier).toHaveValue('Acme Freight')
+		expect(screen.getByLabelText('Carrier address')).toHaveValue(
+			'9 Base Ave',
+		)
+		// Only admins manage the sites.
+		expect(screen.queryByRole('link', { name: 'Manage sites' })).toBeNull()
+	})
+
+	it("links an organization's admin to its sites", () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		mocks.carriers = {
+			data: [{ id: 5, name: 'North Shop', address: '1 Shop Rd' }],
+			isPending: false,
+		}
+		setup()
+		expect(
+			screen.getByRole('link', { name: 'Manage sites' }),
+		).toHaveAttribute('href', '/carriers')
+	})
+
+	it('follows the space: the organization as carrier, cleared on leaving it', async () => {
+		const org = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
+		mocks.space = org
+		const props = { onDone: vi.fn(), setOptimisticCurrentTrips: vi.fn() }
+		const view = render(<AddTripForm {...props} />)
+		const user = userEvent.setup()
+		const carrier = screen.getByLabelText('Carrier')
+		expect(carrier).toHaveValue('Acme Freight')
+
+		// Cancelling keeps the organization as the carrier.
+		await user.click(screen.getByRole('button', { name: 'Cancel' }))
+		expect(carrier).toHaveValue('Acme Freight')
+
+		// Another organization: its name replaces the first.
+		mocks.space = { ...org, orgId: 'org_2', orgName: 'Bolt Haul' }
+		view.rerender(<AddTripForm {...props} />)
+		expect(carrier).toHaveValue('Bolt Haul')
+
+		// Back to the personal space: the locked name is cleared.
+		mocks.space = {
+			orgId: null,
+			orgName: null,
+			inOrg: false,
+			canManage: true,
+		}
+		view.rerender(<AddTripForm {...props} />)
+		expect(carrier).toHaveValue('')
+		expect(carrier).not.toHaveAttribute('readonly')
+
+		// A carrier the driver typed stays when nothing changes.
+		await user.type(carrier, 'Mine')
+		view.rerender(<AddTripForm {...props} />)
+		expect(carrier).toHaveValue('Mine')
+	})
+
+	it('saves with the organization as carrier, and keeps it for the next trip', async () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
+		const { user } = setup()
+		await user.type(screen.getByLabelText('Carrier address'), '1 Shop Rd')
+		await user.type(
+			screen.getByLabelText('Inspection address'),
+			'1 Shop Rd',
+		)
+		await user.type(screen.getByLabelText('Make'), 'Volvo')
+		await user.type(screen.getByLabelText('Model'), 'VNL')
+		await user.type(screen.getByLabelText('Odometer'), '1500')
+		await user.click(chip('Horn'))
+		await user.type(screen.getByLabelText('Remarks'), 'All good')
+		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
+		await waitFor(() =>
+			expect(mocks.addTrip).toHaveBeenCalledWith({
+				data: expect.objectContaining({ carrier: 'Acme Freight' }),
+			}),
+		)
+		expect(screen.getByLabelText('Carrier')).toHaveValue('Acme Freight')
+		expect(screen.getByLabelText('Carrier address')).toHaveValue('')
+	})
+
+	it("offers an organization's admin to save its sites", () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		const first = render(
+			<AddTripForm
+				onDone={vi.fn()}
+				setOptimisticCurrentTrips={vi.fn()}
+			/>,
+		)
+		expect(
+			screen.getByRole('link', { name: 'Save your sites' }),
+		).toHaveAttribute('href', '/carriers')
+		first.unmount()
+		mocks.space = { ...mocks.space, canManage: false }
+		setup()
+		expect(screen.queryByText(/Save your sites/)).toBeNull()
 	})
 
 	it('suggests saving carriers, or shows nothing while they load', () => {

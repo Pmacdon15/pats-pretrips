@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CarrierList } from '@/components/carriers/carrier-list'
+import { CarriersHeader } from '@/components/carriers/carriers-header'
 import { queryWrapper } from '../helpers/query'
 
 const mocks = vi.hoisted(() => ({
@@ -11,7 +12,12 @@ const mocks = vi.hoisted(() => ({
 	deleteCarrier: vi.fn(),
 	toast: { success: vi.fn(), error: vi.fn() },
 	// The active space, as Clerk's client session gives it.
-	space: { orgId: null as string | null, inOrg: false, canManage: true },
+	space: {
+		orgId: null as string | null,
+		orgName: null as string | null,
+		inOrg: false,
+		canManage: true,
+	},
 }))
 vi.mock('@/lib/hooks/space', () => ({ useSpace: () => mocks.space }))
 vi.mock('@/lib/actions/carriers', () => ({
@@ -32,7 +38,7 @@ const carrier = (over = {}) => ({
 })
 
 beforeEach(() => {
-	mocks.space = { orgId: null, inOrg: false, canManage: true }
+	mocks.space = { orgId: null, orgName: null, inOrg: false, canManage: true }
 	mocks.getCarriers.mockResolvedValue([carrier()])
 })
 
@@ -203,7 +209,12 @@ describe('CarrierList', () => {
 	})
 
 	it("shows an organization's carriers read-only to a member who isn't an admin", async () => {
-		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
 		setup()
 		expect(await screen.findByText('Acme Freight')).toBeInTheDocument()
 		expect(
@@ -221,30 +232,143 @@ describe('CarrierList', () => {
 	})
 
 	it('says when an organization has no carriers, without offering to add one', async () => {
-		mocks.space = { orgId: 'org_1', inOrg: true, canManage: false }
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
 		mocks.getCarriers.mockResolvedValue([])
 		setup()
 		expect(
 			await screen.findByText(
-				'Your organization has no saved carriers yet.',
+				'Your organization has no saved sites yet.',
 			),
 		).toBeInTheDocument()
 		expect(screen.queryByText(/No saved carriers yet/)).toBeNull()
 	})
 
-	it("lets an organization's admin manage its carriers", async () => {
-		mocks.space = { orgId: 'org_1', inOrg: true, canManage: true }
+	it("lets an organization's admin manage its sites", async () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
 		setup()
 		expect(
 			await screen.findByText(
-				/shared with everyone in your organization/,
+				/These sites are shared with everyone in your organization/,
 			),
 		).toBeInTheDocument()
-		expect(
-			screen.getByRole('button', { name: 'Add a carrier' }),
-		).toBeEnabled()
+		expect(screen.getByRole('button', { name: 'Add a site' })).toBeEnabled()
 		expect(
 			screen.getByRole('button', { name: 'Edit Acme Freight' }),
+		).toBeInTheDocument()
+	})
+
+	it('adds a site, by its name and address, in an organization', async () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		mocks.getCarriers.mockResolvedValue([])
+		mocks.addCarrier.mockResolvedValue({ value: carrier() })
+		setup()
+		await userEvent.click(
+			await screen.findByRole('button', { name: 'Add a site' }),
+		)
+		const form = screen.getByRole('form', { name: 'Add a site' })
+		expect(form).toBeInTheDocument()
+		await userEvent.type(screen.getByLabelText('Site name'), 'North Shop')
+		await userEvent.type(
+			screen.getByLabelText('Address'),
+			'1 Shop Rd, Calgary AB',
+		)
+		await userEvent.click(screen.getByRole('button', { name: 'Save site' }))
+		await waitFor(() =>
+			expect(mocks.addCarrier).toHaveBeenCalledWith({
+				name: 'North Shop',
+				address: '1 Shop Rd, Calgary AB',
+			}),
+		)
+		expect(mocks.toast.success).toHaveBeenCalledWith('Site saved')
+	})
+})
+
+describe('CarrierList sites', () => {
+	const site = () => carrier({ name: 'North Shop' })
+	beforeEach(() => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		mocks.getCarriers.mockResolvedValue([site()])
+	})
+
+	it("edits one of an organization's sites", async () => {
+		mocks.updateCarrier.mockResolvedValue({ value: site() })
+		const user = setup()
+		await user.click(
+			await screen.findByRole('button', { name: 'Edit North Shop' }),
+		)
+		expect(
+			screen.getByRole('form', { name: 'Edit site' }),
+		).toBeInTheDocument()
+		expect(screen.getByLabelText('Site name')).toHaveValue('North Shop')
+		await user.click(screen.getByRole('button', { name: 'Save changes' }))
+		await waitFor(() =>
+			expect(mocks.toast.success).toHaveBeenCalledWith('Site updated'),
+		)
+	})
+
+	it("deletes one of an organization's sites", async () => {
+		mocks.deleteCarrier.mockResolvedValue({ value: site() })
+		const user = setup()
+		await user.click(
+			await screen.findByRole('button', { name: 'Delete North Shop' }),
+		)
+		await user.click(screen.getByRole('button', { name: 'Delete' }))
+		await waitFor(() =>
+			expect(mocks.toast.success).toHaveBeenCalledWith('Site deleted'),
+		)
+	})
+})
+
+describe('CarriersHeader', () => {
+	it('is about carriers in the personal space', () => {
+		render(<CarriersHeader />)
+		expect(screen.getByText('Your carriers')).toBeInTheDocument()
+	})
+
+	it("is about the organization's sites in its space", () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		render(<CarriersHeader />)
+		expect(screen.getByText('Your sites')).toBeInTheDocument()
+		expect(
+			screen.getByText(/Acme Freight is the carrier on every pre-trip/),
+		).toBeInTheDocument()
+	})
+
+	it('names the organization generically until its name loads', () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: null,
+			inOrg: true,
+			canManage: true,
+		}
+		render(<CarriersHeader />)
+		expect(
+			screen.getByText(/Your organization is the carrier on every/),
 		).toBeInTheDocument()
 	})
 })

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
 	rateLimit: vi.fn(),
 	recordOwner: vi.fn(),
 	recordEvents: vi.fn(),
+	getSpace: vi.fn(),
+	getOrgName: vi.fn(),
 }))
 vi.mock('@/lib/rate-limit', async (original) => ({
 	...(await original<typeof import('@/lib/rate-limit')>()),
@@ -28,6 +30,8 @@ vi.mock('@/lib/auth', () => ({
 				}
 			: null
 	},
+	getSpace: mocks.getSpace,
+	getOrgName: mocks.getOrgName,
 }))
 vi.mock('@/lib/db/owner-stamps', () => ({ recordOwner: mocks.recordOwner }))
 // The real event builder, with the insert itself mocked.
@@ -56,6 +60,8 @@ beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
 	mocks.resolveSignature.mockResolvedValue({ ok: true, file: PNG })
 	mocks.rateLimit.mockResolvedValue({ ok: true })
+	mocks.getSpace.mockResolvedValue({ kind: 'personal', isAdmin: true })
+	mocks.getOrgName.mockResolvedValue(null)
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -101,6 +107,38 @@ const form = {
 const signedForm = { ...form, signature: 'saved' }
 
 describe('addTripDAL', () => {
+	it("makes the organization the carrier in an organization's space", async () => {
+		mocks.createTripDb.mockResolvedValue({ tripid: 1 })
+		mocks.getSpace.mockResolvedValue({
+			kind: 'org',
+			orgId: 'org_1',
+			isAdmin: false,
+		})
+		mocks.getOrgName.mockResolvedValue('Acme Freight')
+		await addTripDAL({ ...signedForm, carrier: 'Something else' })
+		expect(mocks.getOrgName).toHaveBeenCalledWith('org_1')
+		expect(mocks.createTripDb).toHaveBeenCalledWith(
+			{ ...form, carrier: 'Acme Freight' },
+			'pat@x.com',
+			SIGNED,
+		)
+	})
+
+	it("keeps the typed carrier when the organization's name can't be read", async () => {
+		mocks.createTripDb.mockResolvedValue({ tripid: 1 })
+		mocks.getSpace.mockResolvedValue({
+			kind: 'org',
+			orgId: 'org_1',
+			isAdmin: false,
+		})
+		await addTripDAL(signedForm)
+		expect(mocks.createTripDb).toHaveBeenCalledWith(
+			form,
+			'pat@x.com',
+			SIGNED,
+		)
+	})
+
 	it('saves the trip for the signed-in driver', async () => {
 		const trip = { tripid: 1 }
 		mocks.createTripDb.mockResolvedValue(trip)
