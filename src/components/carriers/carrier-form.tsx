@@ -15,14 +15,21 @@ import { schemaCarrier } from '@/lib/ZOD/schemas'
 
 type CarrierForm = z.infer<typeof schemaCarrier>
 
-/** Adds a carrier, or edits `carrier` when given. */
+/**
+ * Adds a carrier, or edits `carrier` when given. With `site`, it's one of an
+ * organization's sites (a shop, yard or depot): the organization is the
+ * carrier, so the name is the site's, like "North Shop".
+ */
 export function CarrierForm({
 	carrier,
 	onDone,
+	site = false,
 }: {
 	carrier?: Carrier
 	onDone: () => void
+	site?: boolean
 }) {
+	const what = site ? 'site' : 'carrier'
 	const queryClient = useQueryClient()
 	const [pending, startTransition] = useTransition()
 
@@ -38,13 +45,21 @@ export function CarrierForm({
 					? await updateCarrier(carrier.id, value)
 					: await addCarrier(value)
 				if ('errorMessage' in res) {
-					toast.error('Could not save the carrier', {
+					toast.error(`Could not save the ${what}`, {
 						description: res.errorMessage,
 					})
 					return
 				}
 				await queryClient.invalidateQueries({ queryKey: CARRIERS_KEY })
-				toast.success(carrier ? 'Carrier updated' : 'Carrier saved')
+				toast.success(
+					site
+						? carrier
+							? 'Site updated'
+							: 'Site saved'
+						: carrier
+							? 'Carrier updated'
+							: 'Carrier saved',
+				)
 				form.reset()
 				onDone()
 			}),
@@ -52,7 +67,7 @@ export function CarrierForm({
 
 	return (
 		<form
-			aria-label={carrier ? 'Edit carrier' : 'Add a carrier'}
+			aria-label={carrier ? `Edit ${what}` : `Add a ${what}`}
 			className="flex flex-col gap-4"
 			noValidate
 			onSubmit={(e) => {
@@ -64,10 +79,10 @@ export function CarrierForm({
 			<div className="grid gap-4 sm:grid-cols-2">
 				<ControlledTextInput
 					form={form}
-					label="Carrier name"
+					label={site ? 'Site name' : 'Carrier name'}
 					maxLength={CARRIER_MAX}
 					name="name"
-					placeholder="e.g. Acme Freight"
+					placeholder={site ? 'e.g. North Shop' : 'e.g. Acme Freight'}
 				/>
 				<ControlledTextInput
 					form={form}
@@ -93,7 +108,7 @@ export function CarrierForm({
 						? 'Saving…'
 						: carrier
 							? 'Save changes'
-							: 'Save carrier'}
+							: `Save ${what}`}
 				</Button>
 			</div>
 		</form>

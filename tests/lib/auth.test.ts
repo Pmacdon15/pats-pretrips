@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), currentUser: vi.fn() }))
+const mocks = vi.hoisted(() => ({
+	auth: vi.fn(),
+	currentUser: vi.fn(),
+	getOrganization: vi.fn(),
+	clerkClient: vi.fn(),
+}))
 vi.mock('@clerk/nextjs/server', () => mocks)
 
 import {
@@ -8,6 +13,7 @@ import {
 	driverName,
 	getDriver,
 	getDriverEmail,
+	getOrgName,
 	getSpace,
 	isSpaceAdmin,
 	ORG_ADMIN_ROLE,
@@ -106,5 +112,28 @@ describe('spaces and admin checks', () => {
 		mocks.auth.mockResolvedValue({ userId: null, has: vi.fn() })
 		await expect(getSpace()).resolves.toBeNull()
 		await expect(isSpaceAdmin()).resolves.toBe(false)
+	})
+})
+
+describe("the organization's name", () => {
+	beforeEach(() => {
+		mocks.clerkClient.mockResolvedValue({
+			organizations: { getOrganization: mocks.getOrganization },
+		})
+	})
+
+	it('comes from Clerk', async () => {
+		mocks.getOrganization.mockResolvedValue({ name: ' Acme Freight ' })
+		await expect(getOrgName('org_1')).resolves.toBe('Acme Freight')
+		expect(mocks.getOrganization).toHaveBeenCalledWith({
+			organizationId: 'org_1',
+		})
+	})
+
+	it("is null, logged, when Clerk can't be reached", async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		mocks.getOrganization.mockRejectedValue(new Error('down'))
+		await expect(getOrgName('org_1')).resolves.toBeNull()
+		expect(error).toHaveBeenCalled()
 	})
 })

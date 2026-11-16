@@ -18,6 +18,13 @@ const mocks = vi.hoisted(() => ({
 	address: { data: undefined as unknown, isFetching: false },
 	vehicles: { data: [] as unknown[], isPending: false },
 	carriers: { data: [] as unknown[], isPending: false },
+	// The active space, as Clerk's client session gives it.
+	space: {
+		orgId: null as string | null,
+		orgName: null as string | null,
+		inOrg: false,
+		canManage: true,
+	},
 	signatureStatus: {
 		data: { saved: true, updatedAt: '2026-01-01T00:00:00.000Z' } as
 			| undefined
@@ -28,6 +35,7 @@ vi.mock('@/lib/mutations/mutations', () => ({
 	useAddTrip: () => ({ mutateAsync: mocks.addTrip }),
 	useAddDefectOnRoute: () => ({ mutateAsync: mocks.addDefect }),
 }))
+vi.mock('@/lib/hooks/space', () => ({ useSpace: () => mocks.space }))
 vi.mock('@/lib/hooks/hooks', () => ({
 	useGetLocation: () => mocks.location,
 	useGetAddress: () => mocks.address,
@@ -40,6 +48,7 @@ vi.mock('@/lib/hooks/hooks', () => ({
 beforeEach(() => {
 	mocks.vehicles = { data: [], isPending: false }
 	mocks.carriers = { data: [], isPending: false }
+	mocks.space = { orgId: null, orgName: null, inOrg: false, canManage: true }
 	mocks.addTrip.mockResolvedValue({})
 	mocks.addDefect.mockResolvedValue({})
 	mocks.location = { location: null, status: 'ready' }
@@ -215,6 +224,63 @@ describe('AddTripForm', () => {
 		expect(
 			screen.getByRole('link', { name: 'Manage carriers' }),
 		).toHaveAttribute('href', '/carriers')
+	})
+
+	it('makes the organization the carrier, and fills the address from one of its sites', async () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: false,
+		}
+		mocks.carriers = {
+			data: [
+				{ id: 5, name: 'North Shop', address: '1 Shop Rd' },
+				{ id: 6, name: 'South Base', address: '9 Base Ave' },
+			],
+			isPending: false,
+		}
+		const { user } = setup()
+		const carrier = screen.getByLabelText('Carrier')
+		expect(carrier).toHaveValue('Acme Freight')
+		expect(carrier).toHaveAttribute('readonly')
+		expect(
+			screen.getByText('Your organization is the carrier.'),
+		).toBeInTheDocument()
+
+		const picker = screen.getByLabelText('Site')
+		expect(
+			screen.getByRole('option', { name: 'South Base — 9 Base Ave' }),
+		).toBeInTheDocument()
+		await user.selectOptions(picker, '6')
+		expect(carrier).toHaveValue('Acme Freight')
+		expect(screen.getByLabelText('Carrier address')).toHaveValue(
+			'9 Base Ave',
+		)
+		// Only admins manage the sites.
+		expect(screen.queryByRole('link', { name: 'Manage sites' })).toBeNull()
+	})
+
+	it("offers an organization's admin to save its sites", () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme Freight',
+			inOrg: true,
+			canManage: true,
+		}
+		const first = render(
+			<AddTripForm
+				onDone={vi.fn()}
+				setOptimisticCurrentTrips={vi.fn()}
+			/>,
+		)
+		expect(
+			screen.getByRole('link', { name: 'Save your sites' }),
+		).toHaveAttribute('href', '/carriers')
+		first.unmount()
+		mocks.space = { ...mocks.space, canManage: false }
+		setup()
+		expect(screen.queryByText(/Save your sites/)).toBeNull()
 	})
 
 	it('suggests saving carriers, or shows nothing while they load', () => {

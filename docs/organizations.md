@@ -7,11 +7,29 @@ switcher in the header:
 | | Personal space | An organization's space |
 | --- | --- | --- |
 | When | No active organization (Clerk's "Personal account") | The organization picked in the switcher |
-| Saved vehicles and carriers | The driver's own (`pt_vehicles`, `pt_carriers`) | The organization's fleet (`pt_org_vehicles`, `pt_org_carriers`), shared by every member |
+| Saved vehicles and carriers | The driver's own (`pt_vehicles`, `pt_carriers`) | The organization's fleet (`pt_org_vehicles`) and sites (`pt_org_carriers`), shared by every member |
+| Carrier on a new pre-trip | Typed, or picked from saved carriers | Always the organization's name |
 | Email settings (who new pre-trips go to, auto-send) | The driver's own (`pt_email_settings`) | The organization's (`pt_org_email_settings`), used for every member's trips |
 | Who can change those | The driver: a solo user is the admin of their own space | Only the organization's admins (Clerk role `org:admin`) |
 | Plan that unlocks emailing pre-trips | The driver's own plan (`u:email_pretrips`) | The organization's plan (`o:email_pretrips`) |
 | Trips, repairs, signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
+
+## The organization is the carrier
+
+In an organization's space the organization itself is the carrier on every
+pre-trip. The new pre-trip form fills the **Carrier** field with the
+organization's name (from Clerk) and locks it; the server sets it again
+when the trip is saved (`addTripDAL` in `src/lib/DAL/inserts.ts`, via
+`getOrgName()` in `src/lib/auth.ts`), so a member can't send another name.
+If Clerk can't be reached the typed carrier is kept, so a trip can always be
+saved.
+
+What an organization saves on the Carriers page are therefore its **sites**:
+the shops, yards and depots its drivers start from ("North Shop", "South
+Base"), each with its address. They live in `pt_org_carriers` (the `name`
+column is the site's name), so no new migration is needed. Picking a site on
+a new pre-trip fills in the carrier address; the carrier stays the
+organization. Admins add, change and delete sites; members pick them.
 
 For a solo user nothing changes: with no organization, the app reads and
 writes exactly the tables and rows it did before.
