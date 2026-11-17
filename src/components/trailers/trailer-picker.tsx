@@ -1,0 +1,75 @@
+'use client'
+
+import Link from 'next/link'
+import { useId, useState } from 'react'
+import { Label } from '@/components/ui/label'
+import type { Trailer } from '@/lib/db/trailers'
+import { useTrailers } from '@/lib/hooks/hooks'
+import { useSpace } from '@/lib/hooks/space'
+
+/**
+ * Picks one of the space's saved trailers for one trailer slot on a new
+ * pre-trip; `onPick` fills that slot's plate, which the driver can still
+ * edit. Until the space has saved trailers it shows nothing, or with `hint`
+ * a link to save some.
+ */
+export function TrailerPicker({
+	label,
+	onPick,
+	hint = false,
+}: {
+	label: string
+	onPick: (trailer: Trailer) => void
+	/** Suggest saving trailers when there are none (once per form). */
+	hint?: boolean
+}) {
+	const { data: trailers = [], isPending } = useTrailers()
+	const { inOrg, canManage } = useSpace()
+	const [picked, setPicked] = useState('')
+	const id = useId()
+
+	if (isPending) return null
+
+	if (trailers.length === 0) {
+		if (!hint || (inOrg && !canManage)) return null
+		return (
+			<p className="text-muted-foreground text-xs">
+				Pull the same trailers often?{' '}
+				<Link className="underline" href="/vehicles#trailers">
+					Save your trailers
+				</Link>{' '}
+				to pick their plates with a tap.
+			</p>
+		)
+	}
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			<Label htmlFor={id}>{label}</Label>
+			<select
+				className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+				id={id}
+				onChange={(e) => {
+					setPicked(e.target.value)
+					const trailer = trailers.find(
+						(t) => String(t.id) === e.target.value,
+					)
+					if (trailer) onPick(trailer)
+				}}
+				value={picked}
+			>
+				<option value="">Choose a trailer…</option>
+				{trailers.map((t) => (
+					<option key={t.id} value={t.id}>
+						{trailerLabel(t)}
+					</option>
+				))}
+			</select>
+		</div>
+	)
+}
+
+/** A trailer as the picker lists it: its name and plate, or just the plate. */
+export function trailerLabel(t: Pick<Trailer, 'name' | 'plate'>) {
+	return t.name ? `${t.name} · ${t.plate}` : t.plate
+}

@@ -32,8 +32,6 @@ export function VehicleForm({
 			make: vehicle?.make ?? '',
 			model: vehicle?.model ?? '',
 			truckPlate: vehicle?.truck_plate ?? '',
-			trailerPlateA: vehicle?.trailer_plate_a ?? '',
-			trailerPlateB: vehicle?.trailer_plate_b ?? '',
 		} as VehicleForm,
 		validators: { onChange: schemaVehicle, onSubmit: schemaVehicle },
 		onSubmit: ({ value }) =>
@@ -89,29 +87,13 @@ export function VehicleForm({
 					placeholder="e.g. Cascadia"
 				/>
 			</div>
-			<div className="grid gap-4 sm:grid-cols-3">
+			<div className="grid gap-4 sm:grid-cols-2">
 				<ControlledTextInput
 					autoCapitalize="characters"
 					form={form}
 					label="Truck plate"
 					maxLength={PLATE_MAX}
 					name="truckPlate"
-					optional
-				/>
-				<ControlledTextInput
-					autoCapitalize="characters"
-					form={form}
-					label="Trailer plate"
-					maxLength={PLATE_MAX}
-					name="trailerPlateA"
-					optional
-				/>
-				<ControlledTextInput
-					autoCapitalize="characters"
-					form={form}
-					label="Trailer B plate"
-					maxLength={PLATE_MAX}
-					name="trailerPlateB"
 					optional
 				/>
 			</div>

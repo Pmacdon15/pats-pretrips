@@ -8,7 +8,7 @@ import { useVehicles } from '@/lib/hooks/hooks'
 
 /**
  * Picks one of the driver's saved vehicles on a new pre-trip; `onPick` fills
- * the form's make, model and plates from it, which the driver can still edit.
+ * the form's make, model and truck plate from it, which the driver can still edit.
  */
 export function VehiclePicker({
 	onPick,
@@ -56,7 +56,7 @@ export function VehiclePicker({
 				))}
 			</select>
 			<p className="text-muted-foreground text-xs">
-				Fills in the make, model and plates.{' '}
+				Fills in the make, model and truck plate.{' '}
 				<Link className="underline" href="/vehicles">
 					Manage vehicles
 				</Link>

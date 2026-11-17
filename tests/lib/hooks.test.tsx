@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	getAddress: vi.fn(),
 	getVehicles: vi.fn(),
 	getCarriers: vi.fn(),
+	getTrailers: vi.fn(),
 	useAuth: vi.fn(),
 	useOrganization: vi.fn(),
 }))
@@ -17,12 +18,14 @@ vi.mock('@clerk/nextjs', () => ({
 vi.mock('@/lib/actions/actions', () => ({ getAddress: mocks.getAddress }))
 vi.mock('@/lib/actions/vehicles', () => ({ getVehicles: mocks.getVehicles }))
 vi.mock('@/lib/actions/carriers', () => ({ getCarriers: mocks.getCarriers }))
+vi.mock('@/lib/actions/trailers', () => ({ getTrailers: mocks.getTrailers }))
 
 import {
 	CARRIERS_KEY,
 	useCarriers,
 	useGetAddress,
 	useGetLocation,
+	useTrailers,
 	useVehicles,
 	VEHICLES_KEY,
 } from '@/lib/hooks/hooks'
@@ -89,6 +92,16 @@ describe('space lists', () => {
 		expect(
 			result.current.getQueryData([...VEHICLES_KEY, 'personal']),
 		).toBeUndefined()
+	})
+})
+
+describe('useTrailers', () => {
+	it("reads the space's saved trailers, keyed per space", async () => {
+		mocks.getTrailers.mockResolvedValue([{ id: 7 }])
+		const { result } = renderHook(() => useTrailers(), {
+			wrapper: queryWrapper(),
+		})
+		await waitFor(() => expect(result.current.data).toEqual([{ id: 7 }]))
 	})
 })
 

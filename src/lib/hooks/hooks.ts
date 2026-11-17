@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { getAddress } from '../actions/actions'
 import { getCarriers } from '../actions/carriers'
 import { getSignatureStatus } from '../actions/signatures'
+import { getTrailers } from '../actions/trailers'
 import { getVehicles } from '../actions/vehicles'
 import { useSpace } from './space'
 
@@ -11,6 +12,8 @@ export const SIGNATURE_STATUS_KEY = ['signatureStatus']
 export const VEHICLES_KEY = ['vehicles']
 /** Every space's carriers; each space's list is keyed under it. */
 export const CARRIERS_KEY = ['carriers']
+/** Every space's trailers; each space's list is keyed under it. */
+export const TRAILERS_KEY = ['trailers']
 
 /** The cache key of one space's list, so switching spaces never shows another's. */
 const spaceKey = (orgId: string | null) => orgId ?? 'personal'
@@ -31,6 +34,16 @@ export const useVehicles = () => {
 	return useQuery({
 		queryKey: [...VEHICLES_KEY, spaceKey(orgId)],
 		queryFn: () => getVehicles(),
+		staleTime: 5 * 60 * 1000,
+	})
+}
+
+/** The space's saved trailers, for the Vehicles page and the trip form. */
+export const useTrailers = () => {
+	const { orgId } = useSpace()
+	return useQuery({
+		queryKey: [...TRAILERS_KEY, spaceKey(orgId)],
+		queryFn: () => getTrailers(),
 		staleTime: 5 * 60 * 1000,
 	})
 }

@@ -86,3 +86,10 @@ export const CARRIER_WRITES: Limit = {
 	max: 60,
 	windowSeconds: HOUR,
 }
+
+/** Saved trailers added, changed or deleted, from the web app. */
+export const TRAILER_WRITES: Limit = {
+	name: 'trailer-writes',
+	max: 60,
+	windowSeconds: HOUR,
+}

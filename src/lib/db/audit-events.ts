@@ -49,6 +49,9 @@ export const AUDIT_ACTIONS = [
 	'carrier.created',
 	'carrier.updated',
 	'carrier.deleted',
+	'trailer.created',
+	'trailer.updated',
+	'trailer.deleted',
 ] as const
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]

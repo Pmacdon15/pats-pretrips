@@ -6,6 +6,7 @@ import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { CarrierPicker } from '@/components/carriers/carrier-picker'
 import { DriverSignatureField } from '@/components/signature/driver-signature-field'
+import { TrailerPicker } from '@/components/trailers/trailer-picker'
 import { VehiclePicker } from '@/components/vehicles/vehicle-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useSpace } from '@/lib/hooks/space'
@@ -207,14 +208,6 @@ export default function AddTripForm({
 						form.setFieldValue('make', v.make)
 						form.setFieldValue('model', v.model)
 						form.setFieldValue('truckPlate', v.truck_plate ?? '')
-						form.setFieldValue(
-							'trailerPlateA',
-							v.trailer_plate_a ?? '',
-						)
-						form.setFieldValue(
-							'trailerPlateB',
-							v.trailer_plate_b ?? '',
-						)
 					}}
 				/>
 				<div className="grid gap-4 sm:grid-cols-3">
@@ -249,22 +242,46 @@ export default function AddTripForm({
 						name="truckPlate"
 						optional
 					/>
-					<ControlledTextInput
-						autoCapitalize="characters"
-						form={form}
-						label="Trailer plate"
-						maxLength={PLATE_MAX}
-						name="trailerPlateA"
-						optional
-					/>
-					<ControlledTextInput
-						autoCapitalize="characters"
-						form={form}
-						label="Trailer B plate"
-						maxLength={PLATE_MAX}
-						name="trailerPlateB"
-						optional
-					/>
+				</div>
+			</FormSection>
+
+			<FormSection title="Trailers">
+				<div className="grid gap-4 sm:grid-cols-2">
+					<div className="flex flex-col gap-4">
+						<TrailerPicker
+							hint
+							key={saves}
+							label="Saved trailer"
+							onPick={(t) =>
+								form.setFieldValue('trailerPlateA', t.plate)
+							}
+						/>
+						<ControlledTextInput
+							autoCapitalize="characters"
+							form={form}
+							label="Trailer plate"
+							maxLength={PLATE_MAX}
+							name="trailerPlateA"
+							optional
+						/>
+					</div>
+					<div className="flex flex-col gap-4">
+						<TrailerPicker
+							key={saves}
+							label="Saved trailer B"
+							onPick={(t) =>
+								form.setFieldValue('trailerPlateB', t.plate)
+							}
+						/>
+						<ControlledTextInput
+							autoCapitalize="characters"
+							form={form}
+							label="Trailer B plate"
+							maxLength={PLATE_MAX}
+							name="trailerPlateB"
+							optional
+						/>
+					</div>
 				</div>
 			</FormSection>
 

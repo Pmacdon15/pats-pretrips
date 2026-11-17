@@ -114,14 +114,16 @@ export async function updateVehicleDAL(vehicleId: number, data: unknown) {
 	}
 	const { fields, error } = parseFields(data)
 	if (error) return errAsync(error)
-	// The form sends every field: an empty name or plate clears it.
+	// The form sends every field: an empty name or plate clears it. Trailer
+	// plates are saved as trailers now (src/lib/db/trailers.ts), so the form
+	// no longer sends them; any a vehicle still has are changed only when given.
 	const changes = {
 		name: fields.name ?? '',
 		make: fields.make,
 		model: fields.model,
 		truckPlate: fields.truckPlate ?? '',
-		trailerPlateA: fields.trailerPlateA ?? '',
-		trailerPlateB: fields.trailerPlateB ?? '',
+		trailerPlateA: fields.trailerPlateA,
+		trailerPlateB: fields.trailerPlateB,
 	}
 	try {
 		const updated = await (w.orgId
