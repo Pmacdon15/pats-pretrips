@@ -93,8 +93,29 @@ organization's ID from Clerk, never a value from the request). Their
 ## AI apps (MCP)
 
 The MCP server (`/api/mcp`) authenticates with a Clerk OAuth access token,
-which carries the user but no active organization. Its vehicle tools
-therefore always use the driver's personal vehicles, as before.
+which carries the user but no active organization, so the tools name the
+space themselves (`src/mcp/spaces.ts`):
+
+- `list_organizations` reads the driver's memberships from Clerk
+  (`users.getOrganizationMembershipList`) with each one's `organization_id`,
+  role and `is_admin`.
+- `list_vehicles`, `add_vehicle`, `update_vehicle`, `delete_vehicle`,
+  `list_trailers`, `add_trailer`, `update_trailer` and `delete_trailer`
+  take an optional `organization_id`. Without it they use the driver's
+  personal `pt_vehicles` / `pt_trailers`, as before. With it they use the
+  organization's `pt_org_vehicles` / `pt_org_trailers`.
+- Membership and role are read from Clerk on every call, for the verified
+  caller, never taken from the arguments: an id the driver isn't a member of
+  answers `not_a_member`; any member can list; only an `org:admin` can add,
+  change or delete (`not_org_admin` otherwise), the same rule as the web
+  app's DALs. An admin of several organizations manages each one's fleet by
+  passing its id.
+- `get_trip_defaults` and `start_trip` take `organization_id` too: the
+  suggested vehicles and trailers, and `start_trip`'s `vehicle_id`, are then
+  the organization's, and the organization's name is the trip's carrier.
+  The trip stays the driver's own.
+- Writes clear the organization's cached vehicle and trailer lists, so the
+  web app shows them straight away, and are audited with `details.org_id`.
 
 ## Audit trail
 

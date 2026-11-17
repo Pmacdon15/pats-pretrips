@@ -122,6 +122,7 @@ describe('run', () => {
 		expect(mocks.revalidateTag.mock.calls).toEqual([
 			['trips:pat@x.com', { expire: 0 }],
 			['vehicles:pat@x.com', { expire: 0 }],
+			['trailers:pat@x.com', { expire: 0 }],
 		])
 		mocks.revalidateTag.mockClear()
 		const failed = await run(server(), signedIn, () => ({
@@ -131,6 +132,24 @@ describe('run', () => {
 		}))
 		expect(failed.isError).toBe(true)
 		expect(mocks.revalidateTag).not.toHaveBeenCalled()
+	})
+
+	it("also clears an organization's fleet after a write in it, without sending its id", async () => {
+		const signedIn = auth({ email: 'pat@x.com' })
+		const result = await run(server('x'), signedIn, () => ({
+			summary: 'ok',
+			data: {},
+			orgId: 'org_1',
+		}))
+		expect(mocks.revalidateTag.mock.calls).toEqual([
+			['trips:pat@x.com', { expire: 0 }],
+			['vehicles:pat@x.com', { expire: 0 }],
+			['trailers:pat@x.com', { expire: 0 }],
+			['org-vehicles:org_1', { expire: 0 }],
+			['org-trailers:org_1', { expire: 0 }],
+		])
+		expect(result).not.toHaveProperty('orgId')
+		expect(result.structuredContent).toEqual({})
 	})
 
 	it('reports invalid input and unexpected errors readably', async () => {

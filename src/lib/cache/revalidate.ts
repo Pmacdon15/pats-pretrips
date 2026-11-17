@@ -56,3 +56,18 @@ export function revalidateDriverTrailers(email: string) {
 export function revalidateOrgTrailers(orgId: string) {
 	updateTag(CACHE_TAGS.orgTrailers(orgId))
 }
+
+/** From a route handler (the MCP server): the trailer list expires now. */
+export function expireDriverTrailers(email: string) {
+	revalidateTag(CACHE_TAGS.driverTrailers(email), { expire: 0 })
+}
+
+/** From a route handler (the MCP server): an organization's vehicles expire now. */
+export function expireOrgVehicles(orgId: string) {
+	revalidateTag(CACHE_TAGS.orgVehicles(orgId), { expire: 0 })
+}
+
+/** From a route handler (the MCP server): an organization's trailers expire now. */
+export function expireOrgTrailers(orgId: string) {
+	revalidateTag(CACHE_TAGS.orgTrailers(orgId), { expire: 0 })
+}

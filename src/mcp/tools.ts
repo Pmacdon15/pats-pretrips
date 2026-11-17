@@ -12,7 +12,7 @@ import {
 	type TripChanges,
 	updateTripDb,
 } from '@/lib/db/trips'
-import { getVehicleDb, listVehiclesOrNone } from '@/lib/db/vehicles'
+import { getVehicleDb } from '@/lib/db/vehicles'
 import { appUrl, tripUrl } from '@/lib/email/config'
 import { aiSigningAllowed } from '@/lib/signatures/signatures'
 import {
@@ -31,7 +31,15 @@ import {
 import type { Trip } from '@/lib/types/types'
 import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
-import { vehicleView } from './vehicle-tools'
+import {
+	isToolResult,
+	type McpSpace,
+	organizationId,
+	resolveSpace,
+	spaceView,
+} from './spaces'
+import { spaceTrailers, trailerView } from './trailer-tools'
+import { spaceVehicles, vehicleView } from './vehicle-tools'
 
 /*
  * What each MCP tool does, apart from MCP itself (src/mcp/server.ts). Every
@@ -51,6 +59,11 @@ export type ToolResult = {
 	summary: string
 	data: Record<string, unknown>
 	isError?: boolean
+	/**
+	 * The organization whose shared vehicles or trailers a write changed, so
+	 * run() clears their cached lists too. Never sent to the client.
+	 */
+	orgId?: string
 }
 
 const text = (max: number) => z.string().trim().min(1).max(max)
@@ -182,6 +195,9 @@ export const getTripDefaultsInputSchema = z.object({
 		.describe(
 			'The truck plate read from a photo, to look up that truck’s make, model and last odometer',
 		),
+	organization_id: organizationId.describe(
+		"An organization's id (org_...) from list_organizations, when the driver is driving for it: its fleet's vehicles and trailers are suggested, and it is the trip's carrier. Leave it out for the driver's own.",
+	),
 })
 
 /**
@@ -194,18 +210,38 @@ export async function getTripDefaults(
 	args: z.infer<typeof getTripDefaultsInputSchema>,
 ): Promise<ToolResult> {
 	const input = getTripDefaultsInputSchema.parse(args)
-	const [latest, truck, signing, vehicles] = await Promise.all([
+	const space = await resolveSpace(caller, input.organization_id)
+	if (isToolResult(space)) return space
+	const [latest, truck, signing, vehicles, trailers] = await Promise.all([
 		getLatestTripDb(caller.email),
 		input.truck_plate
 			? getLatestTripForPlateDb(caller.email, input.truck_plate)
 			: undefined,
 		signatureForAi(caller.email),
-		listVehiclesOrNone(caller.email),
+		spaceVehicles(caller, space),
+		spaceTrailers(caller, space),
 	])
 	const savedVehicles = vehicles.map(vehicleView)
-	const vehiclesNote = vehicles.length
-		? `The driver has ${vehicles.length} saved vehicle${vehicles.length === 1 ? '' : 's'} (vehicles): offer them, and pass the one they pick as vehicle_id to start_trip.`
-		: ''
+	const savedTrailers = trailers.map(trailerView)
+	const whose = space.kind === 'org' ? space.name : 'The driver'
+	const vehiclesNote = [
+		vehicles.length
+			? `${whose} has ${vehicles.length} saved vehicle${vehicles.length === 1 ? '' : 's'} (vehicles): offer them, and pass the one they pick as vehicle_id to start_trip${space.kind === 'org' ? ' with this organization_id' : ''}.`
+			: '',
+		trailers.length
+			? `${whose} has ${trailers.length} saved trailer${trailers.length === 1 ? '' : 's'} (trailers): offer their plates for trailer_plate_a and trailer_plate_b.`
+			: '',
+		space.kind === 'org'
+			? `${space.name} is the carrier on trips started with this organization_id.`
+			: '',
+	]
+		.filter(Boolean)
+		.join(' ')
+	const spaceData = {
+		...spaceView(space),
+		vehicles: savedVehicles,
+		trailers: savedTrailers,
+	}
 	const savedSignature = signing.status !== 'no_saved_signature'
 	const aiSigningAllowedNow = signing.status === 'allowed'
 	const signatureNote = aiSigningAllowedNow
@@ -226,7 +262,7 @@ export async function getTripDefaults(
 			data: {
 				last_trip: null,
 				truck: null,
-				vehicles: savedVehicles,
+				...spaceData,
 				saved_signature: savedSignature,
 				ai_signing_allowed: aiSigningAllowedNow,
 			},
@@ -275,7 +311,7 @@ export async function getTripDefaults(
 				date: new Date(latest.date).toISOString(),
 			},
 			truck: truckInfo,
-			vehicles: savedVehicles,
+			...spaceData,
 			saved_signature: savedSignature,
 			ai_signing_allowed: aiSigningAllowedNow,
 		},
@@ -323,8 +359,11 @@ export const startTripInputSchema = z.object({
 		.positive()
 		.optional()
 		.describe(
-			'One of the driver’s saved vehicles (list_vehicles or get_trip_defaults): fills make, model and plates. Any of those passed as well take its place.',
+			'One of the driver’s saved vehicles (list_vehicles or get_trip_defaults), or of the organization’s fleet when organization_id is given: fills make, model and plates. Any of those passed as well take its place.',
 		),
+	organization_id: organizationId.describe(
+		"An organization's id (org_...) from list_organizations, when the driver is driving for it: vehicle_id is then one of its fleet's, and the organization is the trip's carrier (carrier is then ignored). Leave it out for the driver's own vehicles.",
+	),
 	truck_plate: plate.optional(),
 	trailer_plate_a: plate.optional(),
 	trailer_plate_b: plate.optional(),
@@ -338,7 +377,11 @@ export const startTripInputSchema = z.object({
 		.describe(
 			'Vehicle model, e.g. "Cascadia". Required unless vehicle_id is given.',
 		),
-	carrier: text(CARRIER_MAX),
+	carrier: text(CARRIER_MAX)
+		.optional()
+		.describe(
+			'Who the driver is hauling for. Required unless organization_id is given (the organization is then the carrier).',
+		),
 	carrier_address: text(ADDRESS_MAX),
 	inspection_address: z
 		.string()
@@ -363,6 +406,16 @@ export const startTripInputSchema = z.object({
 		),
 })
 
+/** A saved vehicle of the space by id: the driver's own, or the organization's. */
+async function findVehicle(
+	caller: McpCaller,
+	space: McpSpace,
+	vehicleId: number,
+) {
+	if (space.kind === 'personal') return getVehicleDb(vehicleId, caller.email)
+	return (await spaceVehicles(caller, space)).find((v) => v.id === vehicleId)
+}
+
 /** Odometer readings lower than the truck's last one are worth a second look. */
 async function odometerWarning(
 	email: string,
@@ -384,12 +437,14 @@ export async function startTrip(
 	args: z.input<typeof startTripInputSchema>,
 ): Promise<ToolResult> {
 	const parsed = startTripInputSchema.parse(args)
+	const space = await resolveSpace(caller, parsed.organization_id)
+	if (isToolResult(space)) return space
 	const vehicle = parsed.vehicle_id
-		? await getVehicleDb(parsed.vehicle_id, caller.email)
+		? await findVehicle(caller, space, parsed.vehicle_id)
 		: undefined
 	if (parsed.vehicle_id && !vehicle) {
 		return {
-			summary: `Vehicle ${parsed.vehicle_id} wasn't found, so no trip was started. Use list_vehicles to find the vehicle's id.`,
+			summary: `Vehicle ${parsed.vehicle_id} wasn't found${space.kind === 'org' ? ` in ${space.name}'s fleet` : ''}, so no trip was started. Use list_vehicles${space.kind === 'org' ? ' with the same organization_id' : ''} to find the vehicle's id.`,
 			data: { status: 'vehicle_not_found' },
 			isError: true,
 		}
@@ -404,6 +459,17 @@ export async function startTrip(
 			parsed.trailer_plate_a ?? (vehicle?.trailer_plate_a || undefined),
 		trailer_plate_b:
 			parsed.trailer_plate_b ?? (vehicle?.trailer_plate_b || undefined),
+	}
+	// In an organization the organization is the carrier, as in the web app.
+	const carrier =
+		space.kind === 'org' ? space.name.slice(0, CARRIER_MAX) : input.carrier
+	if (!carrier) {
+		return {
+			summary:
+				'Pass the carrier (who the driver hauls for), or an organization_id (list_organizations) to make the organization the carrier. No trip was started.',
+			data: { status: 'carrier_required' },
+			isError: true,
+		}
 	}
 	const { make, model } = input
 	if (!make || !model) {
@@ -424,7 +490,7 @@ export async function startTrip(
 	const signature = signing?.status === 'allowed' ? signing.file : undefined
 	const trip = await createTripDb(
 		{
-			carrier: input.carrier,
+			carrier,
 			carrierAddress: input.carrier_address,
 			inspectionAddress: input.inspection_address,
 			make,
@@ -470,6 +536,7 @@ export async function startTrip(
 				signed: Boolean(signature),
 				signing: status,
 				...(vehicle ? { vehicle_id: vehicle.id } : {}),
+				...(space.kind === 'org' ? { org_id: space.orgId } : {}),
 				defects,
 				remarks_length: input.remarks.length,
 			},
