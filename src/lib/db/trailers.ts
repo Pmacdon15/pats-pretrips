@@ -167,9 +167,7 @@ function splitUpdated(
 
 /** The fields an update really changed, by column name. */
 export function trailerChangedFields({ trailer, before }: UpdatedTrailer) {
-	return TRAILER_COLUMNS.filter(
-		(c) => (before[c] ?? null) !== (trailer[c] ?? null),
-	)
+	return TRAILER_COLUMNS.filter((c) => before[c] !== trailer[c])
 }
 
 /** Deletes one of the driver's trailers; the deleted row, or undefined. */

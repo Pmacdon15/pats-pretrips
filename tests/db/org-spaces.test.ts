@@ -33,6 +33,13 @@ import {
 	saveOrgEmailSettingsDb,
 } from '@/lib/db/email-settings'
 import {
+	createOrgTrailerDb,
+	deleteOrgTrailerDb,
+	listOrgTrailersOrNone,
+	resetOrgTrailerWarnings,
+	updateOrgTrailerDb,
+} from '@/lib/db/trailers'
+import {
 	createOrgVehicleDb,
 	deleteOrgVehicleDb,
 	listOrgVehiclesOrNone,
@@ -50,6 +57,7 @@ beforeEach(() => {
 	vi.stubEnv('DATABASE_URL', 'postgres://test')
 	resetOrgVehicleWarnings()
 	resetOrgCarrierWarnings()
+	resetOrgTrailerWarnings()
 	resetOrgEmailSettingsWarnings()
 })
 
@@ -220,6 +228,78 @@ describe("an organization's carriers", () => {
 		).resolves.toBeUndefined()
 		await expect(deleteOrgCarrierDb(5, 'org_2')).resolves.toBeUndefined()
 		expect(sql.queries().at(-1)?.values).toEqual([5, 'org_2'])
+	})
+})
+
+const trailer = {
+	id: 7,
+	name: "53' dry van",
+	plate: 'TR1',
+	created_at: '2026-11-01T00:00:00.000Z',
+	updated_at: '2026-11-01T00:00:00.000Z',
+}
+
+describe("an organization's trailers", () => {
+	it('lists them, cached per organization, or none before the migration', async () => {
+		sql.respond(() => [trailer])
+		await expect(listOrgTrailersOrNone('org_1')).resolves.toEqual([trailer])
+		expect(mocks.cacheTag).toHaveBeenCalledWith('org-trailers:org_1')
+		expect(sql.queries()[0].text).toContain('FROM pt_org_trailers')
+
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+		sql.respond(() => missing())
+		await expect(listOrgTrailersOrNone('org_1')).resolves.toEqual([])
+		expect(log.mock.calls[0][0]).toMatch(/pt_org_trailers table is missing/)
+		await listOrgTrailersOrNone('org_1')
+		expect(log).toHaveBeenCalledTimes(1)
+		sql.respond(() => new Error('down'))
+		await expect(listOrgTrailersOrNone('org_1')).resolves.toEqual([])
+		expect(log.mock.calls[1][0]).toMatch(/could not list them/)
+	})
+
+	it('adds, changes and deletes them under the organization', async () => {
+		sql.respond(() => [trailer])
+		await expect(
+			createOrgTrailerDb('org_1', admin, {
+				name: " 53' dry van ",
+				plate: ' TR1 ',
+			}),
+		).resolves.toEqual(trailer)
+		expect(sql.queries()[0].values.slice(0, 5)).toEqual([
+			'org_1',
+			'boss@x.com',
+			'user_9',
+			"53' dry van",
+			'TR1',
+		])
+
+		sql.respond(() => [
+			{ ...trailer, before_name: null, before_plate: 'OLD1' },
+		])
+		await expect(
+			updateOrgTrailerDb(7, 'org_1', {
+				name: "53' dry van",
+				plate: 'TR1',
+			}),
+		).resolves.toEqual({
+			trailer,
+			before: { name: null, plate: 'OLD1' },
+		})
+
+		sql.respond(() => [])
+		await expect(
+			createOrgTrailerDb(
+				'org_1',
+				{ email: 'boss@x.com', userId: null },
+				{ plate: 'P' },
+			),
+		).resolves.toBe('too_many')
+		expect(sql.queries().at(-1)?.values.slice(2, 4)).toEqual([null, null])
+		await expect(
+			updateOrgTrailerDb(7, 'org_2', { plate: 'P' }),
+		).resolves.toBeUndefined()
+		await expect(deleteOrgTrailerDb(7, 'org_2')).resolves.toBeUndefined()
+		expect(sql.queries().at(-1)?.values).toEqual([7, 'org_2'])
 	})
 })
 
