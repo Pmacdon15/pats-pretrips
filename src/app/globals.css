@@ -97,4 +97,14 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+	/* Native <select> lists otherwise open in the browser's light colors,
+	   leaving light text on white in dark mode. */
+	select {
+		color: var(--foreground);
+		background-color: var(--background);
+	}
+	select option {
+		color: var(--popover-foreground);
+		background-color: var(--popover);
+	}
 }
