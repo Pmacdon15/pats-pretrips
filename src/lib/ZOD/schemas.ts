@@ -10,6 +10,7 @@ import {
 	ODOMETER_MAX,
 	PLATE_MAX,
 	REMARKS_MAX,
+	TRAILER_NAME_MAX,
 	VEHICLE_NAME_MAX,
 } from '@/lib/trip-limits'
 import { parseDefects } from '@/lib/utils-defects'
@@ -171,6 +172,31 @@ export const schemaCarrier = z.object({
 	name: schemaTripFields.shape.carrier,
 	address: schemaTripFields.shape.carrierAddress,
 })
+
+/** A saved trailer, from the Vehicles page: a name (optional) and a plate. */
+export const schemaTrailer = z.object({
+	name: z
+		.string()
+		.trim()
+		.max(
+			TRAILER_NAME_MAX,
+			`Name is too long (${n(TRAILER_NAME_MAX)} characters at most)`,
+		)
+		.optional(),
+	plate: z
+		.string()
+		.trim()
+		.min(1, 'Trailer plate is required')
+		.max(
+			PLATE_MAX,
+			`Trailer plate is too long (${n(PLATE_MAX)} characters at most)`,
+		),
+})
+
+export const schemaTrailerId = z
+	.number()
+	.int('Choose a trailer')
+	.positive('Choose a trailer')
 
 export const schemaCarrierId = z
 	.number()

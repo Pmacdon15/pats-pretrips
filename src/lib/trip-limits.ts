@@ -59,3 +59,8 @@ export const VEHICLES_MAX = 50
 
 /** Most carriers one driver can save. */
 export const CARRIERS_MAX = 50
+
+/** A saved trailer's name (pt_trailers.name VARCHAR(100)), e.g. "53' dry van". */
+export const TRAILER_NAME_MAX = 100
+/** Most trailers one driver can save. */
+export const TRAILERS_MAX = 50

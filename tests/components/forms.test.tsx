@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 	address: { data: undefined as unknown, isFetching: false },
 	vehicles: { data: [] as unknown[], isPending: false },
 	carriers: { data: [] as unknown[], isPending: false },
+	trailers: { data: [] as unknown[], isPending: false },
 	// The active space, as Clerk's client session gives it.
 	space: {
 		orgId: null as string | null,
@@ -44,12 +52,14 @@ vi.mock('@/lib/hooks/hooks', () => ({
 	useSignatureStatus: () => mocks.signatureStatus,
 	useVehicles: () => mocks.vehicles,
 	useCarriers: () => mocks.carriers,
+	useTrailers: () => mocks.trailers,
 	SIGNATURE_STATUS_KEY: ['signatureStatus'],
 }))
 
 beforeEach(() => {
 	mocks.vehicles = { data: [], isPending: false }
 	mocks.carriers = { data: [], isPending: false }
+	mocks.trailers = { data: [], isPending: false }
 	mocks.space = { orgId: null, orgName: null, inOrg: false, canManage: true }
 	mocks.addTrip.mockResolvedValue({})
 	mocks.addDefect.mockResolvedValue({})
@@ -179,13 +189,14 @@ describe('AddTripForm', () => {
 		expect(screen.getByLabelText('Make')).toHaveValue('Volvo')
 		expect(screen.getByLabelText('Model')).toHaveValue('VNL')
 		expect(screen.getByLabelText(/^Truck plate/)).toHaveValue('TRK1')
-		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('A1')
+		// Trailers are picked on their own, not from the vehicle.
+		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('')
 		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('')
 
 		await user.selectOptions(picker, '4')
 		expect(screen.getByLabelText('Make')).toHaveValue('Mack')
 		expect(screen.getByLabelText(/^Truck plate/)).toHaveValue('')
-		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('B2')
+		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('')
 
 		// Back to "Choose a vehicle…" leaves what's filled in.
 		await user.selectOptions(picker, '')
@@ -193,6 +204,61 @@ describe('AddTripForm', () => {
 		expect(
 			screen.getByRole('link', { name: 'Manage vehicles' }),
 		).toHaveAttribute('href', '/vehicles')
+	})
+
+	it("fills each trailer plate from the driver's saved trailers", async () => {
+		mocks.trailers = {
+			data: [
+				{ id: 7, name: "53' dry van", plate: 'TR1' },
+				{ id: 8, name: null, plate: 'TR2' },
+			],
+			isPending: false,
+		}
+		const { user } = setup()
+		expect(
+			screen.getAllByRole('option', { name: "53' dry van · TR1" }),
+		).toHaveLength(2)
+		expect(screen.getAllByRole('option', { name: 'TR2' })).toHaveLength(2)
+
+		await user.selectOptions(screen.getByLabelText('Saved trailer'), '7')
+		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('TR1')
+		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('')
+
+		await user.selectOptions(screen.getByLabelText('Saved trailer B'), '8')
+		expect(screen.getByLabelText(/^Trailer B plate/)).toHaveValue('TR2')
+		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('TR1')
+
+		// Back to "Choose a trailer…" leaves the plate, which stays editable.
+		await user.selectOptions(screen.getByLabelText('Saved trailer'), '')
+		expect(screen.getByLabelText(/^Trailer plate/)).toHaveValue('TR1')
+	})
+
+	it('suggests saving trailers once, or shows nothing while they load', () => {
+		setup()
+		expect(
+			screen.getByRole('link', { name: 'Save your trailers' }),
+		).toHaveAttribute('href', '/vehicles#trailers')
+		expect(screen.queryByLabelText('Saved trailer')).not.toBeInTheDocument()
+		cleanup()
+
+		mocks.trailers = { data: [], isPending: true }
+		setup()
+		expect(
+			screen.queryByRole('link', { name: 'Save your trailers' }),
+		).not.toBeInTheDocument()
+	})
+
+	it("hides the trailer hint from an organization's drivers", () => {
+		mocks.space = {
+			orgId: 'org_1',
+			orgName: 'Acme',
+			inOrg: true,
+			canManage: false,
+		}
+		setup()
+		expect(
+			screen.queryByRole('link', { name: 'Save your trailers' }),
+		).not.toBeInTheDocument()
 	})
 
 	it("fills the carrier from one of the driver's saved carriers", async () => {

@@ -181,6 +181,9 @@ describe('recordEvents', () => {
 			'carrier.created',
 			'carrier.updated',
 			'carrier.deleted',
+			'trailer.created',
+			'trailer.updated',
+			'trailer.deleted',
 		])
 		for (const action of AUDIT_ACTIONS) {
 			expect(action.length).toBeLessThanOrEqual(40)

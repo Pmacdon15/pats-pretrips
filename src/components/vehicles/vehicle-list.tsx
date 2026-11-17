@@ -15,7 +15,7 @@ import { VehicleForm } from './vehicle-form'
 /**
  * The space's saved vehicles (the driver's own, or their organization's):
  * add one, edit one or delete one, when the driver manages the space. Pick one on
- * a new pre-trip to fill in its make, model and plates.
+ * a new pre-trip to fill in its make, model and truck plate.
  */
 export function VehicleList() {
 	const { data: vehicles = [], isPending } = useVehicles()
@@ -123,11 +123,8 @@ function VehicleRow({
 			toast.success('Vehicle deleted')
 		})
 
-	const plates = [
-		v.truck_plate && `Truck ${v.truck_plate}`,
-		v.trailer_plate_a && `Trailer ${v.trailer_plate_a}`,
-		v.trailer_plate_b && `Trailer B ${v.trailer_plate_b}`,
-	].filter(Boolean)
+	// Trailers are saved on their own (the Trailers section), not on a vehicle.
+	const plates = [v.truck_plate && `Truck ${v.truck_plate}`].filter(Boolean)
 
 	return (
 		<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

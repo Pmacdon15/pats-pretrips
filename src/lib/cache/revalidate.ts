@@ -46,3 +46,13 @@ export function revalidateOrgVehicles(orgId: string) {
 export function revalidateOrgCarriers(orgId: string) {
 	updateTag(CACHE_TAGS.orgCarriers(orgId))
 }
+
+/** From a server action: the driver sees their saved trailers change now. */
+export function revalidateDriverTrailers(email: string) {
+	updateTag(CACHE_TAGS.driverTrailers(email))
+}
+
+/** From a server action: an organization's members see its trailers change now. */
+export function revalidateOrgTrailers(orgId: string) {
+	updateTag(CACHE_TAGS.orgTrailers(orgId))
+}

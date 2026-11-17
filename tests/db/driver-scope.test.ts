@@ -83,6 +83,7 @@ const TABLES: Tables = {
 	pt_email_sends: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_vehicles: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	pt_carriers: { kind: 'driver', owner: 'driver_email', key: 'id' },
+	pt_trailers: { kind: 'driver', owner: 'driver_email', key: 'id' },
 	// An organization's space (docs/organizations.md): owned by the Clerk
 	// organization, so every statement limits them to the active one
 	// (`clerk_org_id = ${orgId}`). driver_email there only notes who saved it.
@@ -93,6 +94,12 @@ const TABLES: Tables = {
 		identity: /orgId$/,
 	},
 	pt_org_carriers: {
+		kind: 'driver',
+		owner: 'clerk_org_id',
+		key: 'id',
+		identity: /orgId$/,
+	},
+	pt_org_trailers: {
 		kind: 'driver',
 		owner: 'clerk_org_id',
 		key: 'id',

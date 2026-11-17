@@ -15,6 +15,10 @@ export const CACHE_TAGS = {
 	driverCarriers: (email: string) => `carriers:${email.toLowerCase()}`,
 	/** One organization's shared vehicles (docs/organizations.md). */
 	orgVehicles: (orgId: string) => `org-vehicles:${orgId}`,
+	/** One driver's saved trailers. */
+	driverTrailers: (email: string) => `trailers:${email.toLowerCase()}`,
+	/** One organization's shared trailers. */
+	orgTrailers: (orgId: string) => `org-trailers:${orgId}`,
 	/** One organization's shared carriers. */
 	orgCarriers: (orgId: string) => `org-carriers:${orgId}`,
 } as const

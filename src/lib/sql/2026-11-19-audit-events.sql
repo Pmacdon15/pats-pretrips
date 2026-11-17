@@ -46,6 +46,11 @@
 --   carrier.updated              a saved carrier changed; details.changed names
 --                                the fields
 --   carrier.deleted              a saved carrier deleted
+--   trailer.created              a saved trailer added (2026-11-23-trailers.sql);
+--                                details.trailer_id names it
+--   trailer.updated              a saved trailer changed; details.changed names
+--                                the fields
+--   trailer.deleted              a saved trailer deleted
 --
 -- source is 'web', or the AI app as the row the change is in records it:
 -- for trips and their signatures the app's name (pt_trip_signatures.source),

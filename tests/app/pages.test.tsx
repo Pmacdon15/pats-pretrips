@@ -42,6 +42,9 @@ vi.mock('@/components/signature/signature-settings', () => ({
 vi.mock('@/components/carriers/carrier-list', () => ({
 	CarrierList: () => <p data-testid="carrier-list" />,
 }))
+vi.mock('@/components/trailers/trailer-list', () => ({
+	TrailerList: () => <p data-testid="trailer-list" />,
+}))
 vi.mock('@/components/vehicles/vehicle-list', () => ({
 	VehicleList: () => <p data-testid="vehicle-list" />,
 }))
@@ -215,6 +218,8 @@ describe('/vehicles', () => {
 		await renderAsync(<VehiclesPage />)
 		expect(screen.getByText('Your vehicles')).toBeInTheDocument()
 		expect(screen.getByTestId('vehicle-list')).toBeInTheDocument()
+		expect(screen.getByText('Your trailers')).toBeInTheDocument()
+		expect(screen.getByTestId('trailer-list')).toBeInTheDocument()
 		expect(vehiclesMeta.title).toMatch('Vehicles')
 	})
 })

@@ -60,9 +60,7 @@ describe('VehicleList', () => {
 		setup()
 		expect(await screen.findByText('Unit 42')).toBeInTheDocument()
 		expect(screen.getAllByText('Volvo VNL')).toHaveLength(2)
-		expect(
-			screen.getByText('Truck TRK1 · Trailer A1 · Trailer B B1'),
-		).toBeInTheDocument()
+		expect(screen.getByText('Truck TRK1')).toBeInTheDocument()
 		expect(screen.getAllByRole('listitem')).toHaveLength(2)
 	})
 
@@ -89,8 +87,6 @@ describe('VehicleList', () => {
 			make: 'Mack',
 			model: 'Anthem',
 			truckPlate: 'ZZ 9',
-			trailerPlateA: '',
-			trailerPlateB: '',
 		})
 		expect(
 			await screen.findByRole('button', { name: 'Add a vehicle' }),
@@ -142,7 +138,8 @@ describe('VehicleList', () => {
 		const name = screen.getByLabelText(/^Name/)
 		expect(name).toHaveValue('Unit 42')
 		await user.clear(name)
-		await user.clear(screen.getByLabelText(/^Trailer B plate/))
+		// Trailer plates are saved as trailers, not on the vehicle.
+		expect(screen.queryByLabelText(/^Trailer/)).not.toBeInTheDocument()
 		await user.click(screen.getByRole('button', { name: 'Save changes' }))
 		await waitFor(() =>
 			expect(mocks.toast.success).toHaveBeenCalledWith('Vehicle updated'),
@@ -152,8 +149,6 @@ describe('VehicleList', () => {
 			make: 'Volvo',
 			model: 'VNL',
 			truckPlate: 'TRK1',
-			trailerPlateA: 'A1',
-			trailerPlateB: '',
 		})
 	})
 

@@ -197,8 +197,9 @@ describe('updateVehicleDAL', () => {
 			make: 'Volvo',
 			model: 'VNL',
 			truckPlate: '',
-			trailerPlateA: '',
-			trailerPlateB: '',
+			// Left alone: trailers are saved on their own now.
+			trailerPlateA: undefined,
+			trailerPlateB: undefined,
 		})
 		expect(mocks.recordEvents).toHaveBeenCalledWith(driver, {
 			action: 'vehicle.updated',
