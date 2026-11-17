@@ -1,4 +1,3 @@
-import { PricingTable } from '@clerk/nextjs'
 import {
 	ClipboardList,
 	History,
@@ -10,6 +9,7 @@ import {
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
+import { SpacePricingTable } from '@/components/email/space-pricing'
 import HomePageButtons from '@/components/home/home-page-buttons'
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site'
 
@@ -177,7 +177,7 @@ export default function Home() {
 						a PDF to yourself, dispatch or your safety manager.
 					</p>
 				</div>
-				<PricingTable newSubscriptionRedirectUrl="/email" />
+				<SpacePricingTable />
 			</section>
 
 			<section className="mx-auto w-full max-w-5xl px-4 pt-20">

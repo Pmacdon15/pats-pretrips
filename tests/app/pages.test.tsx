@@ -254,6 +254,11 @@ describe('/', () => {
 			screen.getByRole('heading', { level: 2, name: 'Pricing' }),
 		).toBeInTheDocument()
 		expect(screen.getByTestId('pricing')).toHaveTextContent('/email')
+		// The active space's plans: the driver's own here (no organization).
+		expect(screen.getByTestId('pricing')).toHaveAttribute(
+			'data-for',
+			'user',
+		)
 		expect(
 			screen.getByRole('link', { name: 'Terms of Service' }),
 		).toHaveAttribute('href', '/termsOfService')
