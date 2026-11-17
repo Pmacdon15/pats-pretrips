@@ -36,7 +36,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@clerk/nextjs/server', () => ({
 	clerkClient: async () => ({
 		idPOAuthAccessToken: { verify: mocks.verify },
-		users: { getUser: mocks.getUser },
+		users: {
+			getUser: mocks.getUser,
+			getOrganizationMembershipList: vi.fn(async () => ({ data: [] })),
+		},
 	}),
 }))
 vi.mock('@/lib/db/rate-limits', () => ({ countHitDb: mocks.countHitDb }))
@@ -75,6 +78,23 @@ vi.mock('@/lib/db/vehicles', async (original) => ({
 		before: mocks.vehicle,
 	})),
 	deleteVehicleDb: vi.fn(async () => mocks.vehicle),
+}))
+const TRAILER = {
+	id: 3,
+	name: null,
+	plate: 'TRL 1',
+	created_at: '2026-11-01T00:00:00.000Z',
+	updated_at: '2026-11-01T00:00:00.000Z',
+}
+vi.mock('@/lib/db/trailers', async (original) => ({
+	...(await original<typeof import('@/lib/db/trailers')>()),
+	listTrailersOrNone: vi.fn(async () => [TRAILER]),
+	createTrailerDb: vi.fn(async () => TRAILER),
+	updateTrailerDb: vi.fn(async () => ({
+		trailer: { ...TRAILER, name: 'Van' },
+		before: TRAILER,
+	})),
+	deleteTrailerDb: vi.fn(async () => TRAILER),
 }))
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }))
 
@@ -328,6 +348,11 @@ describe('MCP endpoint auth', () => {
 			'add_vehicle',
 			'update_vehicle',
 			'delete_vehicle',
+			'list_organizations',
+			'list_trailers',
+			'add_trailer',
+			'update_trailer',
+			'delete_trailer',
 		])
 	})
 
@@ -473,6 +498,7 @@ describe('tools over HTTP', () => {
 		expect(mocks.revalidateTag.mock.calls).toEqual([
 			['trips:pat@x.com', { expire: 0 }],
 			['vehicles:pat@x.com', { expire: 0 }],
+			['trailers:pat@x.com', { expire: 0 }],
 		])
 	})
 
@@ -500,6 +526,11 @@ describe('tools over HTTP', () => {
 		['add_vehicle', { make: 'Volvo', model: 'VNL' }],
 		['update_vehicle', { vehicle_id: 3, name: 'Unit 7' }],
 		['delete_vehicle', { vehicle_id: 3 }],
+		['list_organizations', {}],
+		['list_trailers', {}],
+		['add_trailer', { plate: 'TRL 1' }],
+		['update_trailer', { trailer_id: 3, name: 'Van' }],
+		['delete_trailer', { trailer_id: 3 }],
 	])('serves %s', async (name, args) => {
 		mocks.getLatestTripDb.mockResolvedValue(undefined)
 		mocks.getTripDb.mockResolvedValue(undefined)

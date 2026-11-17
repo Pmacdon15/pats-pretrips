@@ -1,12 +1,19 @@
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { expireDriverTrips, expireDriverVehicles } from '@/lib/cache/revalidate'
+import {
+	expireDriverTrailers,
+	expireDriverTrips,
+	expireDriverVehicles,
+	expireOrgTrailers,
+	expireOrgVehicles,
+} from '@/lib/cache/revalidate'
 import { errorForLog } from '@/lib/log'
 import { rateLimitAll, rateLimitMessage } from '@/lib/rate-limit'
 import {
 	type Limit,
 	MCP_TOOL_CALLS,
 	REPAIR_UPLOADS,
+	TRAILER_WRITES,
 	VEHICLE_WRITES,
 } from '@/lib/rate-limit/limits'
 import { MCP_INSTRUCTIONS } from '@/mcp/instructions'
@@ -19,6 +26,7 @@ import {
 	undoDefectRepair,
 	undoDefectRepairInputSchema,
 } from '@/mcp/repair-tools'
+import { listOrganizations, listOrganizationsInputSchema } from '@/mcp/spaces'
 import {
 	getTrip,
 	getTripDefaults,
@@ -35,6 +43,16 @@ import {
 	updateTrip,
 	updateTripInputSchema,
 } from '@/mcp/tools'
+import {
+	addTrailer,
+	addTrailerInputSchema,
+	deleteTrailer,
+	deleteTrailerInputSchema,
+	listTrailers,
+	listTrailersInputSchema,
+	updateTrailer,
+	updateTrailerInputSchema,
+} from '@/mcp/trailer-tools'
 import {
 	MCP_APP_MIME_TYPE,
 	TRIPS_CARD_HTML,
@@ -90,7 +108,7 @@ export function callerFrom(
 const text = (value: string) => ({ type: 'text' as const, text: value })
 
 /** A tool's result as MCP content: the sentence first, then the data as JSON. */
-function respond(result: ToolResult) {
+function respond({ orgId: _orgId, ...result }: ToolResult) {
 	return {
 		content: [
 			text(result.summary),
@@ -144,6 +162,11 @@ export async function run(
 		if (!readOnly && !result.isError) {
 			expireDriverTrips(caller.email)
 			expireDriverVehicles(caller.email)
+			expireDriverTrailers(caller.email)
+			if (result.orgId) {
+				expireOrgVehicles(result.orgId)
+				expireOrgTrailers(result.orgId)
+			}
 		}
 		return respond(result)
 	} catch (error) {
@@ -212,7 +235,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Get suggestions for a new trip',
 			description:
-				"What to suggest for a new pre-trip: the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer, whether the driver has a saved signature (saved_signature) and whether they allow AI apps to sign with it (ai_signing_allowed). Call it before start_trip, then confirm everything with the driver.",
+				"What to suggest for a new pre-trip: the saved vehicles and trailers (the driver's own, or with organization_id that organization's fleet), the carrier, carrier address and inspection address from the driver's last trip and, given the truck plate read from a photo, that truck's make, model, trailer plates and last odometer, whether the driver has a saved signature (saved_signature) and whether they allow AI apps to sign with it (ai_signing_allowed). Call it before start_trip, then confirm everything with the driver.",
 			inputSchema: portable(getTripDefaultsInputSchema),
 			annotations: READ_ONLY,
 		},
@@ -371,15 +394,18 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'List saved vehicles',
 			description:
-				"The driver's saved vehicles (name, make, model, truck and trailer plates), each with a vehicle_id. Pass one as start_trip's vehicle_id to fill in its details.",
+				"Saved vehicles (name, make, model, truck and trailer plates), each with a vehicle_id: the driver's own, or with organization_id an organization's shared fleet (any member can list it). Pass one as start_trip's vehicle_id to fill in its details.",
 			inputSchema: portable(listVehiclesInputSchema),
 			annotations: READ_ONLY,
 			_meta: TRIPS_CARD_TOOL_META,
 		},
-		(_args, ctx) =>
-			run(server, ctx.http?.authInfo, (caller) => listVehicles(caller), {
-				readOnly: true,
-			}),
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => listVehicles(caller, args),
+				{ readOnly: true },
+			),
 	)
 
 	server.registerTool(
@@ -387,7 +413,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Save a vehicle',
 			description:
-				'Saves a vehicle the driver drives (make, model, optional name like "Unit 42" and plates), so later pre-trips can use it (start_trip with vehicle_id). Confirm the details with the driver first.',
+				'Saves a vehicle (make, model, optional name like "Unit 42" and plates), so later pre-trips can use it (start_trip with vehicle_id): in the driver\'s own vehicles, or with organization_id in that organization\'s fleet (only its admins can). Confirm the details with the driver first.',
 			inputSchema: portable(addVehicleInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -411,7 +437,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Edit a saved vehicle',
 			description:
-				'Changes one of the driver\'s saved vehicles: pass vehicle_id and only the fields that change ("" removes a name or plate). Trips already saved keep the details they were started with.',
+				'Changes a saved vehicle: pass vehicle_id and only the fields that change ("" removes a name or plate). With organization_id it changes that organization\'s fleet (only its admins can). Trips already saved keep the details they were started with.',
 			inputSchema: portable(updateVehicleInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -435,7 +461,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'Delete a saved vehicle',
 			description:
-				"Deletes one of the driver's saved vehicles. Trips already saved in it are unchanged. Only when the driver asks.",
+				"Deletes a saved vehicle: the driver's own, or with organization_id one of that organization's fleet (only its admins can). Trips already saved in it are unchanged. Only when the driver asks.",
 			inputSchema: portable(deleteVehicleInputSchema),
 			annotations: {
 				readOnlyHint: false,
@@ -451,6 +477,102 @@ export function registerPreTripTools(server: McpServer) {
 				ctx.http?.authInfo,
 				(caller) => deleteVehicle(caller, args),
 				{ limits: [VEHICLE_WRITES] },
+			),
+	)
+	const WRITE = (destructive: boolean, idempotent: boolean) => ({
+		readOnlyHint: false,
+		destructiveHint: destructive,
+		idempotentHint: idempotent,
+		openWorldHint: false,
+	})
+
+	server.registerTool(
+		'list_organizations',
+		{
+			title: 'List organizations',
+			description:
+				"The organizations (companies) the driver belongs to, each with its organization_id, their role and whether they are an admin (is_admin). Pass an organization_id to the vehicle and trailer tools to use that organization's shared fleet; only admins can change it.",
+			inputSchema: portable(listOrganizationsInputSchema),
+			annotations: READ_ONLY,
+		},
+		(_args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => listOrganizations(caller),
+				{ readOnly: true },
+			),
+	)
+
+	server.registerTool(
+		'list_trailers',
+		{
+			title: 'List saved trailers',
+			description:
+				"Saved trailers (name and plate), each with a trailer_id: the driver's own, or with organization_id an organization's (any member can list them). Offer their plates for start_trip's trailer_plate_a and trailer_plate_b.",
+			inputSchema: portable(listTrailersInputSchema),
+			annotations: READ_ONLY,
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => listTrailers(caller, args),
+				{ readOnly: true },
+			),
+	)
+
+	server.registerTool(
+		'add_trailer',
+		{
+			title: 'Save a trailer',
+			description:
+				"Saves a trailer (its plate and an optional name like \"53' dry van\"): in the driver's own trailers, or with organization_id in that organization's (only its admins can). Confirm the details with the driver first.",
+			inputSchema: portable(addTrailerInputSchema),
+			annotations: WRITE(false, false),
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => addTrailer(caller, args),
+				{ limits: [TRAILER_WRITES] },
+			),
+	)
+
+	server.registerTool(
+		'update_trailer',
+		{
+			title: 'Edit a saved trailer',
+			description:
+				'Changes a saved trailer: pass trailer_id and the name or plate that changes ("" removes the name). With organization_id it changes that organization\'s trailers (only its admins can). Trips already saved keep their plates.',
+			inputSchema: portable(updateTrailerInputSchema),
+			annotations: WRITE(true, true),
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => updateTrailer(caller, args),
+				{ limits: [TRAILER_WRITES] },
+			),
+	)
+
+	server.registerTool(
+		'delete_trailer',
+		{
+			title: 'Delete a saved trailer',
+			description:
+				"Deletes a saved trailer: the driver's own, or with organization_id one of that organization's (only its admins can). Trips already saved with it are unchanged. Only when the driver asks.",
+			inputSchema: portable(deleteTrailerInputSchema),
+			annotations: WRITE(true, true),
+		},
+		(args, ctx) =>
+			run(
+				server,
+				ctx.http?.authInfo,
+				(caller) => deleteTrailer(caller, args),
+				{ limits: [TRAILER_WRITES] },
 			),
 	)
 }
