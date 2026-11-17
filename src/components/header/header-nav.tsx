@@ -26,9 +26,12 @@ const primaryLink = cn(
 	'hidden sm:inline-flex',
 )
 
-/** Shown with labels on wide screens; on phones they move into the avatar menu. */
+/**
+ * Icon-only on wide screens, so with every link showing there is still room
+ * for the organization switcher; on phones they move into the avatar menu.
+ */
 const secondaryLink = cn(
-	buttonVariants({ variant: 'ghost', size: 'sm' }),
+	buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
 	'hidden lg:inline-flex',
 )
 
@@ -95,42 +98,47 @@ export function HeaderNav() {
 				aria-label="Your carriers"
 				className={secondaryLink}
 				href="/carriers"
+				title="Carriers"
 			>
 				<Building2 />
-				Carriers
+				<span className="sr-only">Carriers</span>
 			</Link>
 			<Link
 				aria-label="Email pre-trips"
 				className={secondaryLink}
 				href="/email"
+				title="Email"
 			>
 				<Mail />
-				Email
+				<span className="sr-only">Email</span>
 			</Link>
 			<Link
 				aria-label="Your signature"
 				className={secondaryLink}
 				href="/signature"
+				title="Signature"
 			>
 				<PenLine />
-				Signature
+				<span className="sr-only">Signature</span>
 			</Link>
 			<Link
 				aria-label="Connect your AI"
 				className={secondaryLink}
 				href="/connect"
+				title="Connect AI"
 			>
 				<Bot />
-				Connect AI
+				<span className="sr-only">Connect AI</span>
 			</Link>
 			<SignOutButton redirectUrl="/">
 				<button
 					aria-label="Sign out"
 					className={secondaryLink}
+					title="Sign out"
 					type="button"
 				>
 					<LogOut />
-					Sign out
+					<span className="sr-only">Sign out</span>
 				</button>
 			</SignOutButton>
 			{/*
@@ -138,7 +146,7 @@ export function HeaderNav() {
 			 * organizations (docs/organizations.md). Switching changes whose
 			 * vehicles, carriers, email settings and plan the app uses.
 			 */}
-			<div className="flex min-w-0 max-w-40 items-center overflow-hidden sm:ml-1 sm:max-w-44">
+			<div className="flex min-w-24 max-w-40 items-center overflow-hidden sm:ml-1 sm:max-w-44">
 				<OrganizationSwitcher
 					afterCreateOrganizationUrl="/vehicles"
 					appearance={{
