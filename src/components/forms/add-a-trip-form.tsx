@@ -6,7 +6,10 @@ import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { CarrierPicker } from '@/components/carriers/carrier-picker'
 import { DriverSignatureField } from '@/components/signature/driver-signature-field'
-import { TrailerPicker } from '@/components/trailers/trailer-picker'
+import {
+	SaveTrailersHint,
+	TrailerPicker,
+} from '@/components/trailers/trailer-picker'
 import { VehiclePicker } from '@/components/vehicles/vehicle-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
 import { useSpace } from '@/lib/hooks/space'
@@ -246,10 +249,10 @@ export default function AddTripForm({
 			</FormSection>
 
 			<FormSection title="Trailers">
+				<SaveTrailersHint />
 				<div className="grid gap-4 sm:grid-cols-2">
 					<div className="flex flex-col gap-4">
 						<TrailerPicker
-							hint
 							key={saves}
 							label="Saved trailer"
 							onPick={(t) =>

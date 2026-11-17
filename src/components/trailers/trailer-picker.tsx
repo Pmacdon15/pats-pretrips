@@ -8,40 +8,42 @@ import { useTrailers } from '@/lib/hooks/hooks'
 import { useSpace } from '@/lib/hooks/space'
 
 /**
+ * Suggests saving trailers while the space has none, so their plates can be
+ * picked with a tap. Shows nothing while they load, once some are saved, or
+ * to an organization's drivers, who can't save them.
+ */
+export function SaveTrailersHint() {
+	const { data: trailers = [], isPending } = useTrailers()
+	const { inOrg, canManage } = useSpace()
+	if (isPending || trailers.length > 0 || (inOrg && !canManage)) return null
+	return (
+		<p className="text-muted-foreground text-xs">
+			Pull the same trailers often?{' '}
+			<Link className="underline" href="/vehicles#trailers">
+				Save your trailers
+			</Link>{' '}
+			to pick their plates with a tap.
+		</p>
+	)
+}
+
+/**
  * Picks one of the space's saved trailers for one trailer slot on a new
  * pre-trip; `onPick` fills that slot's plate, which the driver can still
- * edit. Until the space has saved trailers it shows nothing, or with `hint`
- * a link to save some.
+ * edit. Until the space has saved trailers it shows nothing.
  */
 export function TrailerPicker({
 	label,
 	onPick,
-	hint = false,
 }: {
 	label: string
 	onPick: (trailer: Trailer) => void
-	/** Suggest saving trailers when there are none (once per form). */
-	hint?: boolean
 }) {
 	const { data: trailers = [], isPending } = useTrailers()
-	const { inOrg, canManage } = useSpace()
 	const [picked, setPicked] = useState('')
 	const id = useId()
 
-	if (isPending) return null
-
-	if (trailers.length === 0) {
-		if (!hint || (inOrg && !canManage)) return null
-		return (
-			<p className="text-muted-foreground text-xs">
-				Pull the same trailers often?{' '}
-				<Link className="underline" href="/vehicles#trailers">
-					Save your trailers
-				</Link>{' '}
-				to pick their plates with a tap.
-			</p>
-		)
-	}
+	if (isPending || trailers.length === 0) return null
 
 	return (
 		<div className="flex flex-col gap-1.5">
