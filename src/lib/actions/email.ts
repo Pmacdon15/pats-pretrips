@@ -5,6 +5,7 @@ import { emailTripDAL, saveEmailSettingsDAL } from '../DAL/email'
 export async function emailTrip(data: {
 	tripId: number
 	recipients: string
+	copyToMe?: boolean
 	timeZone?: string
 }) {
 	const result = await emailTripDAL(data)

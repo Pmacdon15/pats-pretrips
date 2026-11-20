@@ -117,6 +117,7 @@ describe('getEmailAccessDAL', () => {
 			space: 'personal',
 			canEdit: true,
 			settings,
+			driverEmail: 'pat@x.com',
 		})
 		expect(mocks.getEmailSettingsDb).toHaveBeenCalledWith('pat@x.com')
 	})
@@ -261,10 +262,34 @@ describe('emailTripDAL', () => {
 
 	it('refuses bad input and a server without SES', async () => {
 		expect(await reason(emailTripDAL({ ...data, recipients: '' }))).toBe(
-			'Add at least one email address',
+			'Add an email address, or check “Email me a copy”',
 		)
 		vi.stubEnv('SES_FROM_EMAIL', '')
 		expect(await reason(emailTripDAL(data))).toMatch(/isn’t set up/)
+	})
+
+	it("sends a copy to the driver's own address from their session", async () => {
+		const result = await emailTripDAL({ ...data, copyToMe: true })
+		expect(result._unsafeUnwrap()).toEqual({
+			sentTo: ['a@x.com', 'pat@x.com'],
+		})
+		expect(mocks.sendTripEmail.mock.calls[0][2]).toEqual([
+			'a@x.com',
+			'pat@x.com',
+		])
+		expect(mocks.reserveEmailSend).toHaveBeenCalledWith('pat@x.com', {
+			tripId: 1,
+			recipients: 2,
+			kind: 'manual',
+		})
+
+		// Just the copy, with nobody else typed in.
+		const mine = await emailTripDAL({
+			...data,
+			recipients: '',
+			copyToMe: true,
+		})
+		expect(mine._unsafeUnwrap()).toEqual({ sentTo: ['pat@x.com'] })
 	})
 
 	it("can't email someone else's trip", async () => {
@@ -625,6 +650,7 @@ describe("in an organization's space", () => {
 			space: 'org',
 			canEdit: false,
 			settings: orgSettings,
+			driverEmail: 'pat@x.com',
 		})
 		expect(mocks.getOrgEmailSettingsOrNone).toHaveBeenCalledWith('org_1')
 		expect(mocks.getEmailSettingsDb).not.toHaveBeenCalled()
