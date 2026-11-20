@@ -110,3 +110,68 @@ export async function canEmailPretrips() {
 	if (!userId) return false
 	return has({ feature: `${orgId ? 'o' : 'u'}:${EMAIL_FEATURE}` })
 }
+
+/** Who pays for a space's plan: a driver (personal space) or an organization. */
+export type PlanPayer = { userId: string } | { orgId: string }
+
+/**
+ * Whether a driver's or an organization's own Clerk plan includes emailing
+ * pre-trips, read from Clerk Billing. For callers with no Clerk session to
+ * call `has()` on, such as AI apps over MCP (an OAuth access token carries
+ * no plan features). Same scoping as canEmailPretrips: a driver's plan
+ * covers their personal space, an organization's plan its own. False, and
+ * logged, when Clerk can't be read: a plan check never fails a trip save.
+ */
+export async function planIncludesEmail(payer: PlanPayer): Promise<boolean> {
+	try {
+		const client = await clerkClient()
+		const subscription =
+			'orgId' in payer
+				? await client.billing.getOrganizationBillingSubscription(
+						payer.orgId,
+					)
+				: await client.billing.getUserBillingSubscription(payer.userId)
+		return subscription.subscriptionItems.some(
+			(item) =>
+				item.status === 'active' &&
+				(item.plan?.features ?? []).some(
+					(feature) => feature.slug === EMAIL_FEATURE,
+				),
+		)
+	} catch (error) {
+		console.error(
+			'Billing: could not read the plan of',
+			'orgId' in payer ? payer.orgId : payer.userId,
+			errorForLog(error),
+		)
+		return false
+	}
+}
+
+/**
+ * A driver from their Clerk user ID, for callers without a session (AI
+ * apps). Trips belong to `email` (the verified caller's), so that is kept;
+ * the name is read from Clerk, and left out when Clerk can't be read.
+ */
+export async function getDriverById(
+	userId: string,
+	email: string,
+): Promise<Driver> {
+	try {
+		const client = await clerkClient()
+		const user = await client.users.getUser(userId)
+		return {
+			userId,
+			email,
+			givenName: user.firstName,
+			familyName: user.lastName,
+		}
+	} catch (error) {
+		console.error(
+			'Clerk: could not read the name of',
+			userId,
+			errorForLog(error),
+		)
+		return { userId, email, givenName: null, familyName: null }
+	}
+}

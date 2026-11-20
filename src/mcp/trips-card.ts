@@ -85,14 +85,11 @@ body {
 	color: var(--text);
 	font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 	padding: 12px;
-	display: flex;
-	flex-direction: column;
-	max-height: 100vh;
 }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
 .muted { color: var(--muted); font-size: 12px; }
-.list { display: grid; gap: 8px; align-content: start; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.list { display: grid; gap: 8px; align-content: start; }
 .trip { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .title { font-weight: 600; font-size: 14px; }
@@ -460,29 +457,28 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
-	// The card is never taller than its frame (max-height: 100vh), so when
-	// the host gives it less room than it asks for, the list scrolls inside
-	// the frame instead of being cut off. The height asked for is the full
-	// height of the content, whatever the frame is now: what is on screen
-	// plus what the list has scrolled out of view.
+	// The card is always its full height, never clipped to its frame: a
+	// host that sizes the frame by measuring the page sees all of it, and
+	// one that gives it a shorter frame lets the page scroll. The height
+	// asked for is that full height, told both ways hosts listen: the MCP
+	// Apps notification and ChatGPT's notifyIntrinsicHeight.
 	var lastHeight = -1;
 	function reportSize() {
-		var list = document.getElementById('list');
-		var hidden = list ? Math.max(0, list.scrollHeight - list.clientHeight) : 0;
-		var h = Math.ceil(document.documentElement.getBoundingClientRect().height + hidden);
+		var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
 		if (h === lastHeight) return;
 		lastHeight = h;
 		notify('ui/notifications/size-changed', { height: h });
+		if (window.openai && typeof window.openai.notifyIntrinsicHeight === 'function') {
+			try { window.openai.notifyIntrinsicHeight(h); } catch (e) {}
+		}
 	}
 
-	// An opened trip whose details fall below the bottom of a scrolling
-	// list is scrolled into view, so opening it visibly does something.
+	// An opened trip whose details fall below the bottom of the frame is
+	// scrolled into view, so opening it visibly does something.
 	function reveal(card) {
-		var list = document.getElementById('list');
-		if (!list || !card.open) return;
-		var over = card.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom;
-		var room = card.getBoundingClientRect().top - list.getBoundingClientRect().top;
-		if (over > 0) list.scrollTop += Math.min(over, Math.max(0, room));
+		if (card.open && typeof card.scrollIntoView === 'function') {
+			card.scrollIntoView({ block: 'nearest' });
+		}
 	}
 
 	// Only the frame that embeds the card speaks for the host: the host
@@ -533,12 +529,15 @@ a:hover { text-decoration: underline; }
 		var ctx = isObject(res.result) ? res.result.hostContext : null;
 		applyTheme(ctx);
 		notify('ui/notifications/initialized');
+		// Hosts may drop what the card sent before it was initialized (a
+		// result drawn early, from window.openai), so say the height again.
+		lastHeight = -1;
+		reportSize();
 	});
 
 	if (typeof ResizeObserver !== 'undefined') {
 		var sizes = new ResizeObserver(reportSize);
 		sizes.observe(document.body);
-		sizes.observe(document.getElementById('list'));
 	}
 	window.addEventListener('resize', reportSize);
 })();

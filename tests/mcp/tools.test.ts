@@ -51,8 +51,18 @@ vi.mock('@clerk/nextjs/server', () => ({
 		},
 	}),
 }))
-const ownerMocks = vi.hoisted(() => ({ recordOwner: vi.fn() }))
+const ownerMocks = vi.hoisted(() => ({
+	recordOwner: vi.fn(),
+	// Runs the task now, as it does outside a request.
+	afterResponse: vi.fn(async (task: () => Promise<void>) => task()),
+}))
 vi.mock('@/lib/db/owner-stamps', () => ownerMocks)
+const emailMocks = vi.hoisted(() => ({
+	prepareCallerAutoEmailDAL: vi.fn(
+		async (..._args: unknown[]): Promise<unknown> => null,
+	),
+}))
+vi.mock('@/lib/DAL/email', () => emailMocks)
 // The real event builder, with the insert itself mocked.
 const auditMocks = vi.hoisted(() => ({ recordEvents: vi.fn() }))
 vi.mock('@/lib/db/audit-events', async (original) => ({
@@ -1283,6 +1293,85 @@ describe('the audit trail', () => {
 		await updateTrip(pat, { trip_id: 1, odometer: 2 })
 		// Nothing was saved, so the (null) event is skipped.
 		expect(auditMocks.recordEvents).toHaveBeenCalledWith(pat, null)
+	})
+})
+
+describe('startTrip emails the new trip', () => {
+	const orgCaller = { ...caller, userId: 'user_1' }
+
+	it("sends it like the web app does, to the space's recipients", async () => {
+		const send = vi.fn(async () => {})
+		emailMocks.prepareCallerAutoEmailDAL.mockResolvedValueOnce({
+			recipients: 2,
+			send,
+		})
+		const saved = recent({ tripid: 5 })
+		mocks.getLatestTripForPlateDb.mockResolvedValue(undefined)
+		mocks.createTripDb.mockResolvedValue(saved)
+		const result = await startTrip(orgCaller, start)
+		expect(emailMocks.prepareCallerAutoEmailDAL).toHaveBeenCalledWith(
+			orgCaller,
+			{ kind: 'personal' },
+			'Claude',
+		)
+		expect(ownerMocks.afterResponse).toHaveBeenCalled()
+		expect(send).toHaveBeenCalledWith(saved)
+		expect(result.data.emailed_to).toBe(2)
+		expect(result.summary).toContain(
+			'A copy is being emailed to the 2 addresses on the Email page.',
+		)
+	})
+
+	it('says one address in the singular', async () => {
+		emailMocks.prepareCallerAutoEmailDAL.mockResolvedValueOnce({
+			recipients: 1,
+			send: vi.fn(async () => {}),
+		})
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(orgCaller, start)
+		expect(result.summary).toContain(
+			'A copy is being emailed to the address on the Email page.',
+		)
+	})
+
+	it("uses the organization's email settings in its space", async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue({
+			data: [
+				{
+					role: 'org:member',
+					organization: {
+						id: 'org_1',
+						name: 'Acme Fleet',
+						slug: null,
+					},
+				},
+			],
+		})
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		await startTrip(orgCaller, { ...start, organization_id: 'org_1' })
+		expect(
+			emailMocks.prepareCallerAutoEmailDAL.mock.calls[0][1],
+		).toMatchObject({ kind: 'org', orgId: 'org_1' })
+	})
+
+	it('saves the trip, says nothing of email, when none goes out', async () => {
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(orgCaller, start)
+		expect(result.data.emailed_to).toBe(0)
+		expect(result.summary).not.toContain('email')
+		expect(ownerMocks.afterResponse).not.toHaveBeenCalled()
+	})
+
+	it('still saves the trip when the email check fails', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		emailMocks.prepareCallerAutoEmailDAL.mockRejectedValueOnce(
+			new Error('db down'),
+		)
+		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
+		const result = await startTrip(orgCaller, start)
+		expect(result.isError).toBeUndefined()
+		expect(result.data.emailed_to).toBe(0)
+		expect(error).toHaveBeenCalled()
 	})
 })
 

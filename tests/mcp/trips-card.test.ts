@@ -117,14 +117,13 @@ describe('trips card', () => {
 		expect(window.document.querySelectorAll('.chip.bad')).toHaveLength(2)
 	})
 
-	it('asks for its full height, including what the list scrolls out of view', () => {
+	it('asks for its full height, and is never clipped to its frame', () => {
 		const { window, sent, deliver } = load()
-		const list = window.document.getElementById('list') as HTMLElement
-		// A frame shorter than the content: 300px of the list is scrolled away.
-		Object.defineProperty(list, 'scrollHeight', { get: () => 700 })
-		Object.defineProperty(list, 'clientHeight', { get: () => 400 })
+		// The page is never capped at the frame's height, so a host that
+		// measures the page, or one that gives a shorter frame, sees it all.
+		expect(TRIPS_CARD_HTML).not.toMatch(/max-height|100vh|overflow-y/)
 		window.document.documentElement.getBoundingClientRect = () =>
-			({ height: 480 }) as DOMRect
+			({ height: 779.2 }) as DOMRect
 		deliver(toolResult({ trips: [trip(), trip({ trip_id: 8 })], page: 1 }))
 		const sizes = sent.filter(
 			(m) => m.method === 'ui/notifications/size-changed',
@@ -137,6 +136,82 @@ describe('trips card', () => {
 			params: { containerDimensions: { height: 350 } },
 		})
 		expect(window.document.body.style.maxHeight).toBe('')
+	})
+
+	it('says its height again once the host is initialized', async () => {
+		const { window, sent, deliver } = load((w) => {
+			Object.assign(w, { openai: { toolOutput: { trip: trip() } } })
+		})
+		window.document.documentElement.getBoundingClientRect = () =>
+			({ height: 300 }) as DOMRect
+		window.dispatchEvent(new window.Event('openai:set-globals'))
+		const count = () =>
+			sent.filter((m) => m.method === 'ui/notifications/size-changed')
+				.length
+		const before = count()
+		deliver({ jsonrpc: '2.0', id: 1, result: {} })
+		await flush()
+		expect(count()).toBe(before + 1)
+		const methods = sent.map((m) => m.method)
+		expect(methods.lastIndexOf('ui/notifications/size-changed')).toBe(
+			methods.indexOf('ui/notifications/initialized') + 1,
+		)
+		expect(sent.at(-1)).toMatchObject({ params: { height: 300 } })
+	})
+
+	it('tells ChatGPT its height with notifyIntrinsicHeight', () => {
+		const heights: number[] = []
+		const { window } = load((w) => {
+			Object.assign(w, {
+				openai: {
+					toolOutput: null,
+					notifyIntrinsicHeight: (h: number) => heights.push(h),
+				},
+			})
+		})
+		window.document.documentElement.getBoundingClientRect = () =>
+			({ height: 412 }) as DOMRect
+		const openai = (
+			window as unknown as { openai: Record<string, unknown> }
+		).openai
+		openai.toolOutput = { trip: trip() }
+		window.dispatchEvent(new window.Event('openai:set-globals'))
+		expect(heights.at(-1)).toBe(412)
+	})
+
+	it('keeps drawing when notifyIntrinsicHeight throws', () => {
+		const { window, errors } = load((w) => {
+			Object.assign(w, {
+				openai: {
+					toolOutput: { trip: trip() },
+					notifyIntrinsicHeight: () => {
+						throw new Error('nope')
+					},
+				},
+			})
+		})
+		expect(window.document.getElementById('heading')?.textContent).toBe(
+			'Trip #7',
+		)
+		expect(errors).toEqual([])
+	})
+
+	it('scrolls an opened trip into view', () => {
+		const { window, deliver } = load()
+		deliver(toolResult({ trips: [trip(), trip({ trip_id: 8 })], page: 1 }))
+		const card = window.document.querySelectorAll(
+			'details.trip',
+		)[1] as HTMLDetailsElement
+		const calls: unknown[] = []
+		card.scrollIntoView = ((o: unknown) => {
+			calls.push(o)
+		}) as typeof card.scrollIntoView
+		card.open = true
+		card.dispatchEvent(new window.Event('toggle'))
+		expect(calls).toEqual([{ block: 'nearest' }])
+		card.open = false
+		card.dispatchEvent(new window.Event('toggle'))
+		expect(calls).toHaveLength(1)
 	})
 
 	it('says a signed trip from the last 24 hours only takes defects', () => {
