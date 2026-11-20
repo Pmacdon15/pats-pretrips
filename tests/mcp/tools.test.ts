@@ -1020,9 +1020,14 @@ describe('listTrips', () => {
 	})
 
 	it('says when a page is empty', async () => {
+		mocks.listTripsDb.mockClear()
 		mocks.listTripsDb.mockResolvedValue({ trips: [], hasMore: false })
 		const result = await listTrips(caller, { when: 'past', page: 3 })
-		expect(result.summary).toBe('No trips older on page 3.')
+		expect(result.summary).toBe(
+			'No trips older in the personal space on page 3.',
+		)
+		// Only an empty first page looks in the driver's other spaces.
+		expect(mocks.listTripsDb).toHaveBeenCalledTimes(1)
 	})
 })
 
@@ -1435,6 +1440,91 @@ describe('startTrip and getTripDefaults in an organization', () => {
 			'No trips in the last 24 hours in Acme Fleet.',
 		)
 		expect(result.data).toMatchObject({ organization_id: 'org_1' })
+	})
+
+	it('says which other spaces have trips when the personal list is empty (issue #92)', async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
+			membership('org:member'),
+		)
+		mocks.listTripsDb.mockImplementation(
+			async (
+				_e: string,
+				_w: string,
+				_p: number,
+				_l: number,
+				org: unknown,
+			) =>
+				org === 'org_1'
+					? { trips: [recent({ tripid: 8 })], hasMore: false }
+					: { trips: [], hasMore: false },
+		)
+		const result = await listTrips(orgCaller, {})
+		expect(result.summary).toBe(
+			'No trips in the last 24 hours in the personal space. The driver does have trips in the last 24 hours elsewhere: 1 in Acme Fleet (organization_id org_1). Call list_trips again with that space before telling the driver they have none.',
+		)
+		expect(result.data).toMatchObject({
+			trips: [],
+			space: 'personal',
+			elsewhere: [
+				{
+					space: 'organization',
+					organization_id: 'org_1',
+					organization_name: 'Acme Fleet',
+					count: 1,
+					has_more: false,
+				},
+			],
+		})
+		mocks.listTripsDb.mockReset()
+	})
+
+	it('points an empty organization list at the personal space', async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
+			membership('org:member'),
+		)
+		mocks.listTripsDb.mockImplementation(
+			async (
+				_e: string,
+				_w: string,
+				_p: number,
+				_l: number,
+				org: unknown,
+			) =>
+				org === null
+					? { trips: [recent()], hasMore: true }
+					: { trips: [], hasMore: false },
+		)
+		const result = await listTrips(orgCaller, { organization_id: 'org_1' })
+		expect(mocks.listTripsDb).toHaveBeenCalledTimes(2)
+		expect(result.summary).toContain(
+			'1+ in their personal space (no organization_id)',
+		)
+		expect(result.data.elsewhere).toEqual([
+			{ space: 'personal', count: 1, has_more: true },
+		])
+		mocks.listTripsDb.mockReset()
+	})
+
+	it('still looks in the personal space when Clerk cannot be read', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		clerkMocks.getOrganizationMembershipList
+			.mockResolvedValueOnce(membership('org:member'))
+			.mockRejectedValueOnce(new Error('clerk down'))
+		mocks.listTripsDb.mockResolvedValue({ trips: [], hasMore: false })
+		const result = await listTrips(orgCaller, { organization_id: 'org_1' })
+		expect(result.summary).toBe(
+			'No trips in the last 24 hours in Acme Fleet.',
+		)
+		expect(mocks.listTripsDb).toHaveBeenLastCalledWith(
+			'pat@x.com',
+			'current',
+			1,
+			10,
+			null,
+		)
+		expect(error).toHaveBeenCalled()
+		error.mockRestore()
+		mocks.listTripsDb.mockReset()
 	})
 
 	it("won't list an organization the driver isn't a member of", async () => {

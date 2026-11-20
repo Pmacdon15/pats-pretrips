@@ -295,7 +295,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'List trips',
 			description:
-				'The driver\'s trips in one space, newest first, 10 per page: "current" (the last 24 hours, which can still be updated) or "past". Without organization_id it lists the trips started in their personal space; with one, the trips they started in that organization. Use it to find a trip_id.',
+				'The driver\'s trips in one space, newest first, 10 per page: "current" (the last 24 hours, which can still be updated) or "past". Without organization_id it lists the trips started in their personal space; with one, the trips they started in that organization. An empty list names the driver\'s other spaces that have trips (elsewhere). Use it to find a trip_id.',
 			inputSchema: portable(listTripsInputSchema),
 			annotations: READ_ONLY,
 			_meta: TRIPS_CARD_TOOL_META,

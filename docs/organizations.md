@@ -126,7 +126,10 @@ space themselves (`src/mcp/spaces.ts`):
   the organization's, and the organization's name is the trip's carrier.
   The trip stays the driver's own, recorded as started in that organization.
 - `list_trips` takes `organization_id`: without it, the trips started in
-  the personal space; with it, the ones started in that organization.
+  the personal space; with it, the ones started in that organization. When
+  the first page is empty, its `elsewhere` lists the driver's other spaces
+  with trips in the same window, so an assistant asks for the right space
+  instead of saying there are none (issue #92).
 - Writes clear the organization's cached vehicle and trailer lists, so the
   web app shows them straight away, and are audited with `details.org_id`.
 

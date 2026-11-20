@@ -68,6 +68,12 @@ const toolResult = (structuredContent: unknown) => ({
 	params: { structuredContent },
 })
 
+/** The card's full height, as the browser would measure it. */
+const setHeight = (window: JSDOM['window'], height: number) => {
+	const content = window.document.getElementById('content') as HTMLElement
+	content.getBoundingClientRect = () => ({ height }) as DOMRect
+}
+
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
 describe('trips card', () => {
@@ -117,33 +123,90 @@ describe('trips card', () => {
 		expect(window.document.querySelectorAll('.chip.bad')).toHaveLength(2)
 	})
 
-	it('asks for its full height, and is never clipped to its frame', () => {
+	it('asks for its full height, and scrolls inside itself only while the frame is shorter (issue #92)', () => {
 		const { window, sent, deliver } = load()
-		// The page is never capped at the frame's height, so a host that
-		// measures the page, or one that gives a shorter frame, sees it all.
-		expect(TRIPS_CARD_HTML).not.toMatch(/max-height|100vh|overflow-y/)
-		window.document.documentElement.getBoundingClientRect = () =>
-			({ height: 779.2 }) as DOMRect
+		const root = window.document.documentElement
+		Object.defineProperty(window, 'innerHeight', {
+			value: 600,
+			configurable: true,
+		})
+		setHeight(window, 779.2)
 		deliver(toolResult({ trips: [trip(), trip({ trip_id: 8 })], page: 1 }))
 		const sizes = sent.filter(
 			(m) => m.method === 'ui/notifications/size-changed',
 		)
+		// The full height, even while the frame is shorter.
 		expect(sizes.at(-1)).toMatchObject({ params: { height: 780 } })
+		expect(root.classList.contains('fit')).toBe(true)
+		// The host grows the frame: the card is shown whole, not scrolled.
+		Object.defineProperty(window, 'innerHeight', {
+			value: 780,
+			configurable: true,
+		})
+		window.dispatchEvent(new window.Event('resize'))
+		expect(root.classList.contains('fit')).toBe(false)
 		// The host's own dimensions never shrink the card.
 		deliver({
 			jsonrpc: '2.0',
 			method: 'ui/notifications/host-context-changed',
 			params: { containerDimensions: { height: 350 } },
 		})
-		expect(window.document.body.style.maxHeight).toBe('')
+		expect(root.classList.contains('fit')).toBe(false)
+	})
+
+	it('shows the space of an empty list and where the trips are instead (issue #92)', () => {
+		const { window, deliver } = load()
+		deliver(
+			toolResult({
+				trips: [],
+				has_more: false,
+				page: 1,
+				when: 'current',
+				space: 'personal',
+				elsewhere: [
+					{
+						space: 'organization',
+						organization_id: 'org_1',
+						organization_name: 'Alpine Gasses',
+						count: 1,
+						has_more: false,
+					},
+					{ space: 'personal', count: 10, has_more: true },
+					'junk',
+				],
+			}),
+		)
+		const text = window.document.body.textContent ?? ''
+		expect(text).toContain(
+			'No trips in the last 24 hours in your personal space.',
+		)
+		expect(text).toContain('1 trip in Alpine Gasses')
+		expect(text).toContain('10+ trips in your personal space')
+		expect(window.document.getElementById('count')?.textContent).toBe(
+			'0 trips · Personal',
+		)
+		deliver(
+			toolResult({
+				trips: [trip()],
+				page: 1,
+				space: 'organization',
+				organization_name: 'Alpine Gasses',
+			}),
+		)
+		expect(window.document.getElementById('count')?.textContent).toBe(
+			'1 trip · Alpine Gasses',
+		)
+		deliver(toolResult({ trips: [], page: 1, space: 'organization' }))
+		expect(window.document.body.textContent).toContain(
+			'No trips in the last 24 hours in Organization.',
+		)
 	})
 
 	it('says its height again once the host is initialized', async () => {
 		const { window, sent, deliver } = load((w) => {
 			Object.assign(w, { openai: { toolOutput: { trip: trip() } } })
 		})
-		window.document.documentElement.getBoundingClientRect = () =>
-			({ height: 300 }) as DOMRect
+		setHeight(window, 300)
 		window.dispatchEvent(new window.Event('openai:set-globals'))
 		const count = () =>
 			sent.filter((m) => m.method === 'ui/notifications/size-changed')
@@ -169,8 +232,7 @@ describe('trips card', () => {
 				},
 			})
 		})
-		window.document.documentElement.getBoundingClientRect = () =>
-			({ height: 412 }) as DOMRect
+		setHeight(window, 412)
 		const openai = (
 			window as unknown as { openai: Record<string, unknown> }
 		).openai

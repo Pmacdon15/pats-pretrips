@@ -35,6 +35,7 @@ import { defects as DEFECT_CATEGORIES, parseDefects } from '@/lib/utils-defects'
 import { tripDefectStatus } from './repair-tools'
 import {
 	isToolResult,
+	listCallerOrgs,
 	type McpSpace,
 	organizationId,
 	resolveSpace,
@@ -885,18 +886,84 @@ export async function listTrips(
 	)
 	const when = input.when === 'current' ? 'in the last 24 hours' : 'older'
 	const label = space.kind === 'org' ? `${when} in ${space.name}` : when
+	// An empty first page may only mean the trips are in another of the
+	// driver's spaces (issue #92): say where, so the assistant asks for that
+	// space instead of telling the driver they have no trips.
+	const elsewhere =
+		!trips.length && input.page === 1
+			? await tripsElsewhere(caller, space, input.when)
+			: []
+	const where = elsewhere
+		.map(
+			(e) =>
+				`${e.count}${e.has_more ? '+' : ''} in ${e.space === 'organization' ? `${e.organization_name} (organization_id ${e.organization_id})` : 'their personal space (no organization_id)'}`,
+		)
+		.join('; ')
 	return {
 		summary: trips.length
 			? `${trips.length} trip${trips.length === 1 ? '' : 's'} ${label}${hasMore ? `; more on page ${input.page + 1}` : ''}.`
-			: `No trips ${label}${input.page > 1 ? ` on page ${input.page}` : ''}.`,
+			: `No trips ${label}${space.kind === 'personal' ? ' in the personal space' : ''}${input.page > 1 ? ` on page ${input.page}` : ''}.${where ? ` The driver does have trips ${when} elsewhere: ${where}. Call list_trips again with that space before telling the driver they have none.` : ''}`,
 		data: {
 			trips: views,
 			has_more: hasMore,
 			page: input.page,
 			when: input.when,
 			...spaceView(space),
+			...(elsewhere.length ? { elsewhere } : {}),
 		},
 	}
+}
+
+/** Most other spaces looked in when a trip list comes back empty. */
+const ELSEWHERE_MAX = 10
+
+/**
+ * The driver's other spaces (personal, and each organization they belong
+ * to) that have trips in the same window, with how many. Best effort: when
+ * Clerk can't be read, only the personal space is looked in.
+ */
+async function tripsElsewhere(
+	caller: McpCaller,
+	space: McpSpace,
+	when: 'current' | 'past',
+) {
+	const orgs = await listCallerOrgs(caller).catch((error) => {
+		console.error(
+			'MCP: could not read the driver’s organizations:',
+			errorForLog(error),
+		)
+		return []
+	})
+	const others: McpSpace[] = [
+		...(space.kind === 'org' ? [{ kind: 'personal' } as const] : []),
+		...orgs
+			.filter((o) => space.kind === 'personal' || o.id !== space.orgId)
+			.map((o) => ({
+				kind: 'org' as const,
+				orgId: o.id,
+				name: o.name,
+				isAdmin: o.isAdmin,
+			})),
+	].slice(0, ELSEWHERE_MAX)
+	const found = await Promise.all(
+		others.map(async (other) => {
+			const { trips, hasMore } = await listTripsDb(
+				caller.email,
+				when,
+				1,
+				PAGE_SIZE,
+				other.kind === 'org' ? other.orgId : null,
+			)
+			return trips.length
+				? {
+						...spaceView(other),
+						count: trips.length,
+						has_more: hasMore,
+					}
+				: null
+		}),
+	)
+	return found.filter((f) => f !== null)
 }
 
 export const getTripInputSchema = z.object({

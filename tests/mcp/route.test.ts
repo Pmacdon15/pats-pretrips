@@ -508,7 +508,7 @@ describe('tools over HTTP', () => {
 		mocks.listTripsDb.mockResolvedValue({ trips: [], hasMore: false })
 		const res = await callTool('list_trips', {})
 		expect(res.body.result.content[0].text).toBe(
-			'No trips in the last 24 hours.',
+			'No trips in the last 24 hours in the personal space.',
 		)
 		expect(mocks.revalidateTag).not.toHaveBeenCalled()
 	})
