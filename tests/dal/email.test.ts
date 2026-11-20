@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
 	getDriver: vi.fn(),
 	getSpace: vi.fn(),
 	canEmailPretrips: vi.fn(),
+	planIncludesEmail: vi.fn(),
+	getDriverById: vi.fn(),
 	getEmailSettingsDb: vi.fn(),
 	saveEmailSettingsDb: vi.fn(),
 	getOrgEmailSettingsOrNone: vi.fn(),
@@ -39,6 +41,8 @@ vi.mock('@/lib/auth', () => ({
 	getDriver: mocks.getDriver,
 	getSpace: async () => ((await mocks.getDriver()) ? mocks.getSpace() : null),
 	canEmailPretrips: mocks.canEmailPretrips,
+	planIncludesEmail: mocks.planIncludesEmail,
+	getDriverById: mocks.getDriverById,
 	driverName: (d: { givenName: string | null; email: string }) =>
 		d.givenName ?? d.email,
 }))
@@ -57,6 +61,7 @@ import {
 	emailTripDAL,
 	getEmailAccessDAL,
 	prepareAutoEmailDAL,
+	prepareCallerAutoEmailDAL,
 	saveEmailSettingsDAL,
 } from '@/lib/DAL/email'
 
@@ -76,6 +81,13 @@ beforeEach(() => {
 	mocks.getDriver.mockResolvedValue(pat)
 	mocks.getSpace.mockReturnValue({ kind: 'personal', isAdmin: true })
 	mocks.canEmailPretrips.mockResolvedValue(true)
+	mocks.planIncludesEmail.mockResolvedValue(true)
+	mocks.getDriverById.mockImplementation(async (userId, email) => ({
+		userId,
+		email,
+		givenName: 'Pat',
+		familyName: null,
+	}))
 	mocks.getEmailSettingsDb.mockResolvedValue(settings)
 	mocks.saveEmailSettingsDb.mockImplementation(async (_e, s) => s)
 	mocks.getTripDb.mockResolvedValue(trip())
@@ -377,6 +389,89 @@ describe('prepareAutoEmailDAL', () => {
 		vi.stubEnv('SES_FROM_EMAIL', 'trips@x.com')
 		mocks.getDriver.mockResolvedValue(null)
 		await expect(prepareAutoEmailDAL()).resolves.toBeNull()
+	})
+})
+
+describe('prepareCallerAutoEmailDAL (trips started by AI apps)', () => {
+	const caller = { email: 'pat@x.com', userId: 'user_1' }
+
+	it("emails a new trip to the driver's own recipients, from the AI app", async () => {
+		const email = await prepareCallerAutoEmailDAL(
+			caller,
+			{ kind: 'personal' },
+			'Claude',
+		)
+		expect(email?.recipients).toBe(1)
+		expect(mocks.planIncludesEmail).toHaveBeenCalledWith({
+			userId: 'user_1',
+		})
+		expect(mocks.getEmailSettingsDb).toHaveBeenCalledWith('pat@x.com')
+		await email?.send(trip())
+		expect(mocks.sendTripEmail).toHaveBeenCalledWith(
+			trip(),
+			{ name: 'Pat', email: 'pat@x.com' },
+			['a@x.com'],
+			'UTC',
+			[],
+			null,
+		)
+		expect(mocks.reserveEmailSend).toHaveBeenCalledWith('pat@x.com', {
+			tripId: trip().tripid,
+			recipients: 1,
+			kind: 'auto',
+		})
+		expect(mocks.recordEvents).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: 'user_1', email: 'pat@x.com' }),
+			{
+				action: 'email.sent',
+				source: 'Claude',
+				tripId: 1,
+				details: { kind: 'auto', recipient_count: 1, send_id: '41' },
+			},
+		)
+	})
+
+	it("uses an organization's settings and plan in its space", async () => {
+		mocks.getOrgEmailSettingsOrNone.mockResolvedValue({
+			...settings,
+			recipients: ['ops@acme.com', 'fleet@acme.com'],
+		})
+		const email = await prepareCallerAutoEmailDAL(
+			caller,
+			{ kind: 'org', orgId: 'org_1' },
+			'Claude',
+		)
+		expect(email?.recipients).toBe(2)
+		expect(mocks.getOrgEmailSettingsOrNone).toHaveBeenCalledWith('org_1')
+		expect(mocks.planIncludesEmail).toHaveBeenCalledWith({ orgId: 'org_1' })
+	})
+
+	it('does nothing when it is off, has no one to send to, is not in the plan, or has no Clerk user', async () => {
+		const prepare = (
+			c: { email: string; userId?: string | null } = caller,
+		) => prepareCallerAutoEmailDAL(c, { kind: 'personal' }, 'Claude')
+		mocks.getEmailSettingsDb.mockResolvedValue({
+			...settings,
+			autoSend: false,
+		})
+		await expect(prepare()).resolves.toBeNull()
+		mocks.getEmailSettingsDb.mockResolvedValue({
+			...settings,
+			recipients: [],
+		})
+		await expect(prepare()).resolves.toBeNull()
+		expect(mocks.planIncludesEmail).not.toHaveBeenCalled()
+		mocks.getEmailSettingsDb.mockResolvedValue(settings)
+		mocks.planIncludesEmail.mockResolvedValue(false)
+		await expect(prepare()).resolves.toBeNull()
+		mocks.planIncludesEmail.mockResolvedValue(true)
+		await expect(prepare({ email: 'pat@x.com' })).resolves.toBeNull()
+		await expect(
+			prepare({ email: 'pat@x.com', userId: null }),
+		).resolves.toBeNull()
+		vi.stubEnv('SES_FROM_EMAIL', '')
+		await expect(prepare()).resolves.toBeNull()
+		expect(mocks.getDriverById).not.toHaveBeenCalled()
 	})
 })
 

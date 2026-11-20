@@ -4,7 +4,9 @@ Drivers on a paid plan can email a pre-trip as a PDF:
 
 - **When it's completed**: on `/email`, add up to 5 addresses and tick
   *Email each pre-trip when I complete it*. Every new pre-trip saved in the
-  web app is then sent to them, right after it's saved.
+  web app is then sent to them, right after it's saved. Pre-trips an AI app
+  starts over MCP (`start_trip`) are sent the same way, using the settings
+  and plan of the space the trip was started in.
 - **Any time**: every trip's page has an *Email this pre-trip* box.
 
 Each email has the pre-trip in the body (HTML and plain text) and the full
@@ -26,7 +28,12 @@ The feature is locked behind the Clerk Billing feature **`email_pretrips`**
    organization's), so the organization's plan covers all its members and a
    personal plan doesn't unlock email inside an organization. See
    [organizations.md](organizations.md).
-4. Drivers without it see Clerk's `<PricingTable />` on `/email` (the
+4. AI apps (MCP) have no Clerk session, so for their trips the plan is read
+   from Clerk Billing (`planIncludesEmail` in `src/lib/auth.ts`): an
+   active subscription item whose plan has the `email_pretrips` feature, on
+   the driver's own subscription in their personal space or the
+   organization's in an organization's.
+5. Drivers without it see Clerk's `<PricingTable />` on `/email` (the
    organization's plans while one is active) and a "See plans" button on
    each trip.
 

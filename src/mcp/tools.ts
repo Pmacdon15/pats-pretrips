@@ -1,6 +1,7 @@
 import { z } from 'zod'
+import { prepareCallerAutoEmailDAL } from '@/lib/DAL/email'
 import { recordEvents, tripUpdateEvent } from '@/lib/db/audit-events'
-import { recordOwner } from '@/lib/db/owner-stamps'
+import { afterResponse, recordOwner } from '@/lib/db/owner-stamps'
 import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
 	type CoreTripField,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/db/trips'
 import { getVehicleDb } from '@/lib/db/vehicles'
 import { appUrl, tripUrl } from '@/lib/email/config'
+import { errorForLog } from '@/lib/log'
 import { aiSigningAllowed } from '@/lib/signatures/signatures'
 import {
 	ADDRESS_MAX,
@@ -551,6 +553,7 @@ export async function startTrip(
 				}
 			: null,
 	)
+	const emailed = await autoEmail(caller, space, source, trip)
 	const signed =
 		status === 'allowed'
 			? "Signed with the driver's saved signature."
@@ -560,13 +563,38 @@ export async function startTrip(
 					? `Not signed: the driver has no saved signature. They can sign this trip in the app at ${tripUrl(trip.tripid)}, or save a signature and turn on "${AI_SIGNING_SETTING}" at ${signaturePage()}, then ask you to sign it (update_trip with sign: true).`
 					: 'Not signed, as the driver asked.'
 	return {
-		summary: `Started trip ${trip.tripid}: ${make} ${model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${warning ? ` ${warning}` : ''}`,
+		summary: `Started trip ${trip.tripid}: ${make} ${model}${input.truck_plate ? ` (${input.truck_plate})` : ''} at ${input.odometer} km, ${defects.length ? `defects: ${defects.join(', ')}` : 'no defects'}. ${signed}${emailed ? ` A copy is being emailed to the ${emailed === 1 ? 'address' : `${emailed} addresses`} on the Email page.` : ''}${warning ? ` ${warning}` : ''}`,
 		data: {
 			trip: tripView(trip),
 			signing: status === 'allowed' ? 'signed' : status,
+			emailed_to: emailed,
 			...(status === 'allowed' ? {} : { trip_url: tripUrl(trip.tripid) }),
 			...(warning ? { warning } : {}),
 		},
+	}
+}
+
+/**
+ * Emails a trip just started over MCP the way the web app emails a new
+ * pre-trip: to the space's recipients when it has "Email each pre-trip when
+ * I complete it" on and its plan includes email (docs/email.md). Sent after
+ * the response, so starting the trip stays fast. Answers how many addresses
+ * it goes to (0 when none); a problem is logged and never fails the trip.
+ */
+async function autoEmail(
+	caller: McpCaller,
+	space: McpSpace,
+	source: string,
+	trip: Trip,
+): Promise<number> {
+	try {
+		const email = await prepareCallerAutoEmailDAL(caller, space, source)
+		if (!email) return 0
+		await afterResponse(() => email.send(trip))
+		return email.recipients
+	} catch (e) {
+		console.error('MCP: could not check auto-email: ', errorForLog(e))
+		return 0
 	}
 }
 

@@ -12,11 +12,13 @@ import {
 	canEmailPretrips,
 	driverName,
 	getDriver,
+	getDriverById,
 	getDriverEmail,
 	getOrgName,
 	getSpace,
 	isSpaceAdmin,
 	ORG_ADMIN_ROLE,
+	planIncludesEmail,
 } from '@/lib/auth'
 
 beforeEach(() => {
@@ -139,6 +141,106 @@ describe("the organization's name", () => {
 		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 		mocks.getOrganization.mockRejectedValue(new Error('down'))
 		await expect(getOrgName('org_1')).resolves.toBeNull()
+		expect(error).toHaveBeenCalled()
+	})
+})
+
+describe('whether a plan includes email, from Clerk Billing', () => {
+	const billing = {
+		getUserBillingSubscription: vi.fn(),
+		getOrganizationBillingSubscription: vi.fn(),
+	}
+	const item = (status: string, slugs: string[] | null) => ({
+		status,
+		plan: slugs ? { features: slugs.map((slug) => ({ slug })) } : null,
+	})
+	beforeEach(() => {
+		mocks.clerkClient.mockResolvedValue({ billing })
+	})
+
+	it("reads a driver's own plan for their personal space", async () => {
+		billing.getUserBillingSubscription.mockResolvedValue({
+			subscriptionItems: [
+				item('active', ['other']),
+				item('active', ['email_pretrips']),
+			],
+		})
+		await expect(planIncludesEmail({ userId: 'user_1' })).resolves.toBe(
+			true,
+		)
+		expect(billing.getUserBillingSubscription).toHaveBeenCalledWith(
+			'user_1',
+		)
+		expect(
+			billing.getOrganizationBillingSubscription,
+		).not.toHaveBeenCalled()
+	})
+
+	it("reads an organization's plan for its space", async () => {
+		billing.getOrganizationBillingSubscription.mockResolvedValue({
+			subscriptionItems: [item('active', ['email_pretrips'])],
+		})
+		await expect(planIncludesEmail({ orgId: 'org_1' })).resolves.toBe(true)
+		expect(billing.getOrganizationBillingSubscription).toHaveBeenCalledWith(
+			'org_1',
+		)
+	})
+
+	it('is false without an active item that has the feature', async () => {
+		billing.getUserBillingSubscription.mockResolvedValue({
+			subscriptionItems: [
+				item('ended', ['email_pretrips']),
+				item('active', ['other']),
+				item('active', null),
+			],
+		})
+		await expect(planIncludesEmail({ userId: 'user_1' })).resolves.toBe(
+			false,
+		)
+	})
+
+	it("is false, logged, when Clerk can't be read", async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		billing.getOrganizationBillingSubscription.mockRejectedValue(
+			new Error('not found'),
+		)
+		billing.getUserBillingSubscription.mockRejectedValue(
+			new Error('not found'),
+		)
+		await expect(planIncludesEmail({ orgId: 'org_1' })).resolves.toBe(false)
+		await expect(planIncludesEmail({ userId: 'user_1' })).resolves.toBe(
+			false,
+		)
+		expect(error).toHaveBeenCalledTimes(2)
+	})
+})
+
+describe('a driver from their Clerk user ID', () => {
+	const getUser = vi.fn()
+	beforeEach(() => {
+		mocks.clerkClient.mockResolvedValue({ users: { getUser } })
+	})
+
+	it('has their name from Clerk and the email they were verified with', async () => {
+		getUser.mockResolvedValue({ firstName: 'Pat', lastName: 'Lee' })
+		await expect(getDriverById('user_1', 'pat@x.com')).resolves.toEqual({
+			userId: 'user_1',
+			email: 'pat@x.com',
+			givenName: 'Pat',
+			familyName: 'Lee',
+		})
+		expect(getUser).toHaveBeenCalledWith('user_1')
+	})
+
+	it("has no name, logged, when Clerk can't be read", async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+		getUser.mockRejectedValue(new Error('down'))
+		await expect(getDriverById('user_1', 'pat@x.com')).resolves.toEqual({
+			userId: 'user_1',
+			email: 'pat@x.com',
+			givenName: null,
+			familyName: null,
+		})
 		expect(error).toHaveBeenCalled()
 	})
 })

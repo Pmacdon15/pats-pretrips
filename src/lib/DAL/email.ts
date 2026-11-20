@@ -4,7 +4,9 @@ import {
 	type Driver,
 	driverName,
 	getDriver,
+	getDriverById,
 	getSpace,
+	planIncludesEmail,
 	type Space,
 } from '@/lib/auth'
 import { recordEvents } from '@/lib/db/audit-events'
@@ -67,8 +69,11 @@ export type EmailAccess = {
 	settings: EmailSettings
 }
 
+/** A space, as far as emailing goes: whose settings and plan apply. */
+export type EmailSpace = { kind: 'personal' } | { kind: 'org'; orgId: string }
+
 /** The space's saved settings: the driver's own, or the organization's. */
-function spaceSettings(driver: Driver, space: Space) {
+function spaceSettings(driver: { email: string }, space: EmailSpace) {
 	return space.kind === 'org'
 		? getOrgEmailSettingsOrNone(space.orgId)
 		: getEmailSettingsDb(driver.email)
@@ -153,13 +158,14 @@ async function recordEmailSent(
 	driver: Driver,
 	sendId: string | null,
 	send: { tripId: number | null; recipients: number; kind: EmailSendKind },
+	source = 'web',
 ) {
 	if (sendId !== null) {
 		await recordOwner(driver, { table: 'email_send', sendId })
 	}
 	await recordEvents(driver, {
 		action: 'email.sent',
-		source: 'web',
+		source,
 		tripId: send.tripId,
 		details: {
 			kind: send.kind,
@@ -275,7 +281,42 @@ export async function prepareAutoEmailDAL() {
 	if (!(await canEmailPretrips())) return null
 	const settings = await spaceSettings(driver, space)
 	if (!settings.autoSend || settings.recipients.length === 0) return null
+	return autoEmailSender(driver, settings, 'web')
+}
 
+/**
+ * The same for a pre-trip an AI app saved over MCP, which has no Clerk
+ * session: the verified caller and the space the trip was started in (its
+ * settings and plan apply, as in the web app). The plan is read from Clerk
+ * Billing. `source` is the AI app, for the audit trail. Null when the
+ * caller has no Clerk user ID, auto-send is off, or the plan lacks email.
+ */
+export async function prepareCallerAutoEmailDAL(
+	caller: { email: string; userId?: string | null },
+	space: EmailSpace,
+	source: string,
+) {
+	const { userId } = caller
+	if (!userId || !fromAddress()) return null
+	const settings = await spaceSettings(caller, space)
+	if (!settings.autoSend || settings.recipients.length === 0) return null
+	const allowed = await planIncludesEmail(
+		space.kind === 'org' ? { orgId: space.orgId } : { userId },
+	)
+	if (!allowed) return null
+	const driver = await getDriverById(userId, caller.email)
+	return {
+		recipients: settings.recipients.length,
+		send: autoEmailSender(driver, settings, source),
+	}
+}
+
+/** Emails a new trip to the settings' recipients, within the send limits. */
+function autoEmailSender(
+	driver: Driver,
+	settings: EmailSettings,
+	source: string,
+) {
 	return async (trip: Trip) => {
 		const send = {
 			tripId: trip.tripid ?? null,
@@ -300,7 +341,7 @@ export async function prepareAutoEmailDAL() {
 				await tripSignature(trip, driver.email),
 			)
 			await confirmEmailSend(driver.email, slot.id, messageId)
-			await recordEmailSent(driver, slot.id, send)
+			await recordEmailSent(driver, slot.id, send, source)
 		} catch (e) {
 			await releaseEmailSend(driver.email, slot.id)
 			console.error('Error auto-emailing trip: ', errorForLog(e))
