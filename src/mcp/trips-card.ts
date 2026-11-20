@@ -87,8 +87,8 @@ body {
 }
 #content { padding: 12px; }
 /* Only while the frame is shorter than the card (see fit()): the card
-   scrolls inside itself, since some hosts (iOS among them) neither grow the
-   frame to the height asked for nor let it scroll. */
+   scrolls inside itself, since some hosts neither grow the frame to the
+   height asked for nor let it scroll. */
 html.fit #app { max-height: 100vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
@@ -489,13 +489,20 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
-	// The height asked for is always the card's full height, measured on
-	// #content, which is never clipped, and told both ways hosts listen: the
-	// MCP Apps notification and ChatGPT's notifyIntrinsicHeight. When the
-	// frame still comes out shorter (issue #92: the bottom of the card was
-	// cut off with no way to scroll), the card scrolls inside itself until
-	// the frame is tall enough again.
-	var lastHeight = -1;
+	// The height asked for is the card's full height, measured on #content,
+	// which is never clipped, and told both ways hosts listen: the MCP Apps
+	// notification and ChatGPT's notifyIntrinsicHeight. Some hosts (Claude
+	// on iOS among them) make the frame a little shorter than asked, keeping
+	// some of it for their own padding, which left the card scrolling by a
+	// few lines. So when the host has resized the frame and it is still a
+	// little short, the card asks for that much more, once per gap. A frame
+	// far shorter than asked means the host will not grow it: then, and
+	// while waiting, the card scrolls inside itself (issue #92) rather than
+	// being cut off.
+	var MAX_EXTRA = 120;
+	var asked = -1;
+	var extra = 0;
+	var lastInner = window.innerHeight;
 	function fullHeight() {
 		return Math.ceil(document.getElementById('content').getBoundingClientRect().height);
 	}
@@ -505,13 +512,25 @@ a:hover { text-decoration: underline; }
 	}
 	function reportSize() {
 		fit();
-		var h = fullHeight();
-		if (h === lastHeight) return;
-		lastHeight = h;
+		var h = fullHeight() + extra;
+		if (h === asked) return;
+		asked = h;
 		notify('ui/notifications/size-changed', { height: h });
 		if (window.openai && typeof window.openai.notifyIntrinsicHeight === 'function') {
 			try { window.openai.notifyIntrinsicHeight(h); } catch (e) {}
 		}
+	}
+	function onResize() {
+		var inner = window.innerHeight;
+		var gap = fullHeight() - inner;
+		// Only when the host just changed the frame in answer to a height the
+		// card asked for, so a host that ignores it never makes the card ask
+		// for more and more.
+		if (inner > 0 && inner !== lastInner && asked > 0 && gap > 0 && extra + gap <= MAX_EXTRA) {
+			extra += gap;
+		}
+		lastInner = inner;
+		reportSize();
 	}
 
 	// An opened trip whose details fall below the bottom of the frame is
@@ -572,7 +591,7 @@ a:hover { text-decoration: underline; }
 		notify('ui/notifications/initialized');
 		// Hosts may drop what the card sent before it was initialized (a
 		// result drawn early, from window.openai), so say the height again.
-		lastHeight = -1;
+		asked = -1;
 		reportSize();
 	});
 
@@ -580,7 +599,7 @@ a:hover { text-decoration: underline; }
 		var sizes = new ResizeObserver(reportSize);
 		sizes.observe(document.getElementById('content'));
 	}
-	window.addEventListener('resize', reportSize);
+	window.addEventListener('resize', onResize);
 })();
 </script>
 </body>

@@ -154,6 +154,62 @@ describe('trips card', () => {
 		expect(root.classList.contains('fit')).toBe(false)
 	})
 
+	it('asks for more when the host makes the frame a little shorter than asked', () => {
+		const { window, sent, deliver } = load()
+		const root = window.document.documentElement
+		const frame = (height: number) => {
+			Object.defineProperty(window, 'innerHeight', {
+				value: height,
+				configurable: true,
+			})
+			window.dispatchEvent(new window.Event('resize'))
+		}
+		const asked = () =>
+			sent
+				.filter((m) => m.method === 'ui/notifications/size-changed')
+				.map((m) => (m.params as { height: number }).height)
+		setHeight(window, 400)
+		deliver(toolResult({ trip: trip() }))
+		expect(asked().at(-1)).toBe(400)
+		// The host keeps 24px of the frame for itself: the card asks for
+		// that much more, and is shown whole once the frame grows.
+		frame(376)
+		expect(asked().at(-1)).toBe(424)
+		frame(400)
+		expect(root.classList.contains('fit')).toBe(false)
+		expect(asked().at(-1)).toBe(424)
+		// The gap is kept when the card grows.
+		setHeight(window, 500)
+		window.dispatchEvent(new window.Event('resize'))
+		expect(asked().at(-1)).toBe(524)
+	})
+
+	it('never keeps asking for more from a host that does not grow the frame', () => {
+		const { window, sent, deliver } = load()
+		const asked = () =>
+			sent.filter((m) => m.method === 'ui/notifications/size-changed')
+		setHeight(window, 400)
+		deliver(toolResult({ trip: trip() }))
+		Object.defineProperty(window, 'innerHeight', {
+			value: 380,
+			configurable: true,
+		})
+		for (let i = 0; i < 5; i++) {
+			window.dispatchEvent(new window.Event('resize'))
+		}
+		expect(asked().at(-1)).toMatchObject({ params: { height: 420 } })
+		// A frame far shorter than the card: no extra, it scrolls instead.
+		Object.defineProperty(window, 'innerHeight', {
+			value: 150,
+			configurable: true,
+		})
+		window.dispatchEvent(new window.Event('resize'))
+		expect(asked().at(-1)).toMatchObject({ params: { height: 420 } })
+		expect(window.document.documentElement.classList.contains('fit')).toBe(
+			true,
+		)
+	})
+
 	it('shows the space of an empty list and where the trips are instead (issue #92)', () => {
 		const { window, deliver } = load()
 		deliver(
