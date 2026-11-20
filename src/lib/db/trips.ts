@@ -13,11 +13,15 @@ export type TripSignature = StoredFile & { source: string }
 /**
  * Saves a new trip for the driver, signed when `signature` is given: the trip
  * and its signature are written together, so a trip is never half signed.
+ * `orgId` is the organization whose space the trip is started in, or null in
+ * the driver's personal space (docs/organizations.md): the lists show a trip
+ * in that space only.
  */
 export async function createTripDb(
 	data: z.infer<typeof schemaTripFields>,
 	driverEmail: string,
 	signature?: TripSignature | null,
+	orgId: string | null = null,
 ): Promise<Trip> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const now = new Date().toISOString()
@@ -37,7 +41,8 @@ export async function createTripDb(
                 date,
                 defects,
                 remarks,
-                signed_at
+                signed_at,
+                clerk_org_id
                 ) VALUES (
                 ${driverEmail},
                 ${data.carrier},
@@ -52,7 +57,8 @@ export async function createTripDb(
                 ${now},
                 ${data.defects},
                 ${data.remarks},
-                ${signature ? now : null}::timestamptz
+                ${signature ? now : null}::timestamptz,
+                ${orgId}::text
                 )
                 RETURNING *
                 ), s AS (
@@ -123,15 +129,19 @@ export function normalizePlate(plate: string) {
 }
 
 /**
- * One page of the driver's trips: `current` ones (the last 24 hours, which
- * can still be changed) or `past` ones, newest first. Cached per driver until
- * one of their trips changes (see src/lib/cache/revalidate.ts).
+ * One page of the driver's trips in one space: `current` ones (the last 24
+ * hours, which can still be changed) or `past` ones, newest first. `orgId` is
+ * the organization's space, or null for the driver's personal space; only
+ * trips started in that space are listed (issue #89). Cached per driver until
+ * one of their trips changes (see src/lib/cache/revalidate.ts); the space is
+ * part of the cache key.
  */
 export async function listTripsDb(
 	driverEmail: string,
 	when: 'current' | 'past',
 	page: number,
 	limit: number,
+	orgId: string | null = null,
 ): Promise<{ trips: Trip[]; hasMore: boolean }> {
 	'use cache'
 	cacheTag(CACHE_TAGS.driverTrips(driverEmail))
@@ -145,6 +155,7 @@ export async function listTripsDb(
 			? await sql`
         SELECT * FROM PTTrips
         WHERE driverEmail = ${driverEmail}
+        AND clerk_org_id IS NOT DISTINCT FROM ${orgId}::text
         AND date >= NOW() - INTERVAL '24 hours'
         ORDER BY date DESC
         LIMIT ${limit + 1} OFFSET ${offset}
@@ -152,6 +163,7 @@ export async function listTripsDb(
 			: await sql`
         SELECT * FROM PTTrips
         WHERE driverEmail = ${driverEmail}
+        AND clerk_org_id IS NOT DISTINCT FROM ${orgId}::text
         AND date < NOW() - INTERVAL '24 hours'
         ORDER BY date DESC
         LIMIT ${limit + 1} OFFSET ${offset}

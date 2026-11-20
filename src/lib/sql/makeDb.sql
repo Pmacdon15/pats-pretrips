@@ -4,8 +4,9 @@
 -- to run again, and safe to run on a database that already has the table: it
 -- only creates PTTrips if it's missing, and never drops or changes anything.
 --
--- signed_at (2026-11-15-pretrip-signatures.sql) and clerk_user_id
--- (2026-11-18-clerk-user-id.sql) are included here, so a new database has
+-- signed_at (2026-11-15-pretrip-signatures.sql), clerk_user_id
+-- (2026-11-18-clerk-user-id.sql) and clerk_org_id
+-- (2026-11-24-trip-organizations.sql) are included here, so a new database has
 -- them from the start; those files add them with ADD COLUMN IF NOT EXISTS, so
 -- they do nothing to a table made here. The indexes on PTTrips stay in the
 -- dated files (2026-11-12-ai-connector.sql, 2026-11-18-clerk-user-id.sql).
@@ -27,5 +28,8 @@ CREATE TABLE IF NOT EXISTS PTTrips (
     -- When the trip was signed; NULL for unsigned trips.
     signed_at TIMESTAMPTZ,
     -- The driver's Clerk user ID (user_...); NULL until filled in.
-    clerk_user_id VARCHAR(64)
+    clerk_user_id VARCHAR(64),
+    -- The organization whose space the trip was started in; NULL for the
+    -- personal space (2026-11-24-trip-organizations.sql).
+    clerk_org_id VARCHAR(64)
 );

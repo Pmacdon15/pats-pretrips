@@ -423,6 +423,7 @@ describe('startTrip', () => {
 			},
 			'pat@x.com',
 			{ bytes: SAVED.bytes, type: 'image/png', source: 'Claude' },
+			null,
 		)
 		expect(result.summary).toBe(
 			"Started trip 5: Freightliner Cascadia (ABC 1234) at 482317 km, defects: Tires, Lights. Signed with the driver's saved signature.",
@@ -986,6 +987,7 @@ describe('listTrips', () => {
 			'current',
 			1,
 			10,
+			null,
 		)
 		expect(result.summary).toBe(
 			'1 trip in the last 24 hours; more on page 2.',
@@ -1408,10 +1410,42 @@ describe('startTrip and getTripDefaults in an organization', () => {
 			truckPlate: 'TRK 9',
 		})
 		expect(mocks.createTripDb.mock.calls[0][1]).toBe('pat@x.com')
+		// The trip belongs to the organization's space (issue #89).
+		expect(mocks.createTripDb.mock.calls[0][3]).toBe('org_1')
 		expect(auditMocks.recordEvents.mock.calls[0][1].details).toMatchObject({
 			vehicle_id: 3,
 			org_id: 'org_1',
 		})
+	})
+
+	it('lists only the trips started in the organization (issue #89)', async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
+			membership('org:member'),
+		)
+		mocks.listTripsDb.mockResolvedValue({ trips: [], hasMore: false })
+		const result = await listTrips(orgCaller, { organization_id: 'org_1' })
+		expect(mocks.listTripsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'current',
+			1,
+			10,
+			'org_1',
+		)
+		expect(result.summary).toBe(
+			'No trips in the last 24 hours in Acme Fleet.',
+		)
+		expect(result.data).toMatchObject({ organization_id: 'org_1' })
+	})
+
+	it("won't list an organization the driver isn't a member of", async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue({ data: [] })
+		mocks.listTripsDb.mockClear()
+		const result = await listTrips(orgCaller, { organization_id: 'org_2' })
+		expect(result).toMatchObject({
+			isError: true,
+			data: { status: 'not_a_member' },
+		})
+		expect(mocks.listTripsDb).not.toHaveBeenCalled()
 	})
 
 	it("refuses an organization the driver isn't a member of", async () => {

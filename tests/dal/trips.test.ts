@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
 	listTripsDb: vi.fn(),
 	getTripDb: vi.fn(),
 	getUser: vi.fn(),
+	getSpace: vi.fn(),
 }))
 
 vi.mock('@/lib/db/trips', () => ({
@@ -14,12 +15,14 @@ vi.mock('@/lib/db/trips', () => ({
 vi.mock('@/lib/auth', () => ({
 	getDriverEmail: async () =>
 		((await mocks.getUser()) as { email?: string } | null)?.email ?? null,
+	getSpace: mocks.getSpace,
 }))
 
 import { fetchCurrentTrips, fetchPastTrips, fetchTrip } from '@/lib/DAL/trips'
 
 beforeEach(() => {
 	mocks.getUser.mockResolvedValue({ email: 'pat@x.com' })
+	mocks.getSpace.mockResolvedValue({ kind: 'personal', isAdmin: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 	vi.spyOn(console, 'log').mockImplementation(() => {})
 })
@@ -34,13 +37,42 @@ describe.each([
 	it("reads a page of the signed-in driver's trips", async () => {
 		mocks.listTripsDb.mockResolvedValue(page)
 		await expect(fetch(2, 5)).resolves.toBe(page)
-		expect(mocks.listTripsDb).toHaveBeenCalledWith('pat@x.com', when, 2, 5)
+		expect(mocks.listTripsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			when,
+			2,
+			5,
+			null,
+		)
+	})
+
+	it("lists only the active organization's trips (issue #89)", async () => {
+		mocks.getSpace.mockResolvedValue({
+			kind: 'org',
+			orgId: 'org_1',
+			isAdmin: false,
+		})
+		mocks.listTripsDb.mockResolvedValue(page)
+		await fetch()
+		expect(mocks.listTripsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			when,
+			1,
+			7,
+			'org_1',
+		)
 	})
 
 	it('defaults to the first page of seven', async () => {
 		mocks.listTripsDb.mockResolvedValue(page)
 		await fetch()
-		expect(mocks.listTripsDb).toHaveBeenCalledWith('pat@x.com', when, 1, 7)
+		expect(mocks.listTripsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			when,
+			1,
+			7,
+			null,
+		)
 	})
 
 	it('requires a signed-in driver', async () => {

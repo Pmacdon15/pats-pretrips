@@ -47,7 +47,7 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 	}
 	try {
 		const { signature, saveSignature, ...typed } = validatedFields.data
-		const fields = await withSpaceCarrier(typed)
+		const { fields, orgId } = await withSpaceCarrier(typed)
 		const signed = await resolveSignature(
 			driverEmail,
 			signature,
@@ -55,10 +55,12 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 			driver.userId,
 		)
 		if (!signed.ok) return errAsync({ reason: signed.message })
-		const trip = await createTripDb(fields, driverEmail, {
-			...signed.file,
-			source: 'web',
-		})
+		const trip = await createTripDb(
+			fields,
+			driverEmail,
+			{ ...signed.file, source: 'web' },
+			orgId,
+		)
 		const tripId = Number(trip.tripid)
 		await recordOwner(
 			driver,
@@ -99,15 +101,22 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
  * (docs/organizations.md): the trip's carrier is its name from Clerk, not
  * whatever the form sent. The carrier address stays the driver's (usually
  * one of the organization's sites). In the personal space, or if the name
- * can't be read, the fields are kept as typed.
+ * can't be read, the fields are kept as typed. Also answers the
+ * organization's id (null in the personal space): the trip belongs to that
+ * space's lists (issue #89).
  */
 async function withSpaceCarrier<T extends { carrier: string }>(
 	fields: T,
-): Promise<T> {
+): Promise<{ fields: T; orgId: string | null }> {
 	const space = await getSpace()
-	if (space?.kind !== 'org') return fields
+	if (space?.kind !== 'org') return { fields, orgId: null }
 	const name = await getOrgName(space.orgId)
-	return name ? { ...fields, carrier: name.slice(0, CARRIER_MAX) } : fields
+	return {
+		fields: name
+			? { ...fields, carrier: name.slice(0, CARRIER_MAX) }
+			: fields,
+		orgId: space.orgId,
+	}
 }
 
 export async function addOnRouteDefectsDAL(

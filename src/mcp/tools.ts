@@ -512,6 +512,7 @@ export async function startTrip(
 					source: signatureSource(caller),
 				}
 			: null,
+		space.kind === 'org' ? space.orgId : null,
 	)
 	await recordOwner(
 		caller,
@@ -849,6 +850,9 @@ export const listTripsInputSchema = z.object({
 			'"current": the last 24 hours (can still be updated). "past": older trips.',
 		),
 	page: z.number().int().min(1).max(1000).default(1),
+	organization_id: organizationId.describe(
+		"An organization's id (org_...) from list_organizations, to list the trips the driver started in that organization. Leave it out for the trips started in their personal space.",
+	),
 })
 
 const PAGE_SIZE = 10
@@ -858,11 +862,16 @@ export async function listTrips(
 	args: z.input<typeof listTripsInputSchema>,
 ): Promise<ToolResult> {
 	const input = listTripsInputSchema.parse(args)
+	const space = await resolveSpace(caller, input.organization_id, {
+		what: 'trips',
+	})
+	if (isToolResult(space)) return space
 	const { trips, hasMore } = await listTripsDb(
 		caller.email,
 		input.when,
 		input.page,
 		PAGE_SIZE,
+		space.kind === 'org' ? space.orgId : null,
 	)
 	// Each trip with its defects open or repaired, so the card can show the
 	// repairs. Trips without defects need no lookup.
@@ -874,7 +883,8 @@ export async function listTrips(
 				: [],
 		})),
 	)
-	const label = input.when === 'current' ? 'in the last 24 hours' : 'older'
+	const when = input.when === 'current' ? 'in the last 24 hours' : 'older'
+	const label = space.kind === 'org' ? `${when} in ${space.name}` : when
 	return {
 		summary: trips.length
 			? `${trips.length} trip${trips.length === 1 ? '' : 's'} ${label}${hasMore ? `; more on page ${input.page + 1}` : ''}.`
@@ -884,6 +894,7 @@ export async function listTrips(
 			has_more: hasMore,
 			page: input.page,
 			when: input.when,
+			...spaceView(space),
 		},
 	}
 }
