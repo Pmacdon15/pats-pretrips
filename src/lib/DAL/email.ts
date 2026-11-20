@@ -28,6 +28,7 @@ import {
 	emailSettingsSchema,
 	emailTripSchema,
 	recipientsSchema,
+	tripRecipientsSchema,
 } from '@/lib/email/recipients'
 import {
 	confirmEmailSend,
@@ -67,6 +68,8 @@ export type EmailAccess = {
 	/** The driver may change the settings: an admin of the space. */
 	canEdit: boolean
 	settings: EmailSettings
+	/** The signed-in driver's own address, for "Email me a copy". */
+	driverEmail: string
 }
 
 /** A space, as far as emailing goes: whose settings and plan apply. */
@@ -87,7 +90,13 @@ export async function getEmailAccessDAL(): Promise<EmailAccess> {
 		canEmailPretrips(),
 		spaceSettings(driver, space),
 	])
-	return { allowed, space: space.kind, canEdit: space.isAdmin, settings }
+	return {
+		allowed,
+		space: space.kind,
+		canEdit: space.isAdmin,
+		settings,
+		driverEmail: driver.email,
+	}
 }
 
 export async function saveEmailSettingsDAL(data: {
@@ -210,6 +219,8 @@ async function tripSignature(trip: Trip, driverEmail: string) {
 export async function emailTripDAL(data: {
 	tripId: number
 	recipients: string
+	/** Also send it to the signed-in driver's own address. */
+	copyToMe?: boolean
 	timeZone?: string
 }) {
 	const driver = await getDriver()
@@ -218,6 +229,14 @@ export async function emailTripDAL(data: {
 
 	const parsed = emailTripSchema.safeParse(data)
 	if (!parsed.success) return errAsync({ reason: issues(parsed.error) })
+	// The driver's own address comes from their session, never the form.
+	const to = tripRecipientsSchema.safeParse({
+		recipients: parsed.data.recipients,
+		copyToMe: parsed.data.copyToMe,
+		driverEmail: driver.email,
+	})
+	if (!to.success) return errAsync({ reason: issues(to.error) })
+	const recipients = to.data
 	if (!fromAddress()) {
 		return errAsync({
 			reason: 'Email isn’t set up on the server yet.',
@@ -234,7 +253,7 @@ export async function emailTripDAL(data: {
 		// Within the driver's send limits, or nothing is sent.
 		const slot = await reserveEmailSend(driver.email, {
 			tripId: parsed.data.tripId,
-			recipients: parsed.data.recipients.length,
+			recipients: recipients.length,
 			kind: 'manual',
 		})
 		if (!slot.ok) {
@@ -245,7 +264,7 @@ export async function emailTripDAL(data: {
 			messageId = await sendTripEmail(
 				trip,
 				pdfDriver(driver),
-				parsed.data.recipients,
+				recipients,
 				parsed.data.timeZone,
 				repairs,
 				signature,
@@ -257,10 +276,10 @@ export async function emailTripDAL(data: {
 		await confirmEmailSend(driver.email, slot.id, messageId)
 		await recordEmailSent(driver, slot.id, {
 			tripId: parsed.data.tripId,
-			recipients: parsed.data.recipients.length,
+			recipients: recipients.length,
 			kind: 'manual',
 		})
-		return okAsync({ sentTo: parsed.data.recipients })
+		return okAsync({ sentTo: recipients })
 	} catch (e) {
 		console.error('Error emailing trip: ', errorForLog(e))
 		return errAsync({

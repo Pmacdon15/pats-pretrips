@@ -51,6 +51,43 @@ export const emailSettingsSchema = z.object({
 
 export const emailTripSchema = z.object({
 	tripId: z.number().int().positive(),
-	recipients: recipientsSchema,
+	/** Typed addresses; may be empty when the driver only wants a copy. */
+	recipients: z.string().max(1000),
+	/** Also send it to the signed-in driver's own email address. */
+	copyToMe: z.boolean().optional(),
 	timeZone: timeZoneSchema.optional(),
 })
+
+/**
+ * Who a pre-trip goes to: the typed addresses, plus the driver's own when
+ * they asked for a copy. The driver's copy doesn't count toward
+ * MAX_RECIPIENTS, which limits the other people.
+ */
+export const tripRecipientsSchema = z
+	.object({
+		recipients: z.string().max(1000),
+		copyToMe: z.boolean().optional(),
+		driverEmail: z.string(),
+	})
+	.transform((value, ctx) => {
+		const typed = value.recipients.trim()
+			? recipientsSchema.safeParse(value.recipients)
+			: null
+		if (typed && !typed.success) {
+			for (const issue of typed.error.issues) {
+				ctx.addIssue({ code: 'custom', message: issue.message })
+			}
+			return z.NEVER
+		}
+		const list = typed?.data ?? []
+		const me = value.driverEmail.trim().toLowerCase()
+		if (value.copyToMe && me && !list.includes(me)) list.push(me)
+		if (list.length === 0) {
+			ctx.addIssue({
+				code: 'custom',
+				message: 'Add an email address, or check “Email me a copy”',
+			})
+			return z.NEVER
+		}
+		return list
+	})

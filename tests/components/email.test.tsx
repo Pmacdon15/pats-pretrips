@@ -23,6 +23,7 @@ const access = (over: Partial<EmailAccess> = {}): EmailAccess => ({
 	space: 'personal',
 	canEdit: true,
 	settings: { recipients: ['a@x.com'], autoSend: false, timeZone: null },
+	driverEmail: 'pat@x.com',
 	...over,
 })
 
@@ -69,10 +70,59 @@ describe('EmailTrip', () => {
 		expect(mocks.emailTrip).toHaveBeenCalledWith({
 			tripId: 7,
 			recipients: 'b@x.com',
+			copyToMe: false,
 			timeZone: 'America/Edmonton',
 		})
 		expect(mocks.toast.success).toHaveBeenCalledWith(
 			'Pre-trip emailed to b@x.com',
+		)
+	})
+
+	it("can send a copy to the driver's own email, with or without others", async () => {
+		mocks.emailTrip.mockClear()
+		mocks.emailTrip.mockResolvedValue({ value: { sentTo: ['pat@x.com'] } })
+		await show()
+		const button = screen.getByRole('button', { name: 'Email PDF' })
+		fireEvent.change(screen.getByLabelText('Send to'), {
+			target: { value: '' },
+		})
+		expect(button).toBeDisabled()
+		const copy = screen.getByRole('checkbox', { name: /Email me a copy/ })
+		expect(copy).not.toBeChecked()
+		expect(screen.getByText('Also sends it to pat@x.com')).toBeTruthy()
+		fireEvent.click(copy)
+		expect(button).not.toBeDisabled()
+		await act(async () => {
+			fireEvent.click(button)
+		})
+		expect(mocks.emailTrip).toHaveBeenCalledWith({
+			tripId: 7,
+			recipients: '',
+			copyToMe: true,
+			timeZone: 'America/Edmonton',
+		})
+		expect(mocks.toast.success).toHaveBeenCalledWith(
+			'Pre-trip emailed to pat@x.com',
+		)
+	})
+
+	it('asks for an address when there is none and no copy', async () => {
+		mocks.emailTrip.mockClear()
+		await show()
+		fireEvent.change(screen.getByLabelText('Send to'), {
+			target: { value: '  ' },
+		})
+		await act(async () => {
+			fireEvent.submit(
+				screen
+					.getByLabelText('Send to')
+					.closest('form') as HTMLFormElement,
+			)
+		})
+		expect(mocks.emailTrip).not.toHaveBeenCalled()
+		expect(mocks.toast.error).toHaveBeenCalledWith(
+			'Could not email this pre-trip',
+			{ description: 'Add an email address, or check “Email me a copy”' },
 		)
 	})
 

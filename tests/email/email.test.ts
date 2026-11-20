@@ -26,6 +26,7 @@ import {
 	isTimeZone,
 	recipientsSchema,
 	splitRecipients,
+	tripRecipientsSchema,
 } from '@/lib/email/recipients'
 import { sendRawEmail, sesClient } from '@/lib/email/ses'
 import {
@@ -92,7 +93,34 @@ describe('recipients', () => {
 		).toBe(false)
 		expect(
 			emailTripSchema.parse({ tripId: 1, recipients: 'a@x.com' }),
-		).toEqual({ tripId: 1, recipients: ['a@x.com'] })
+		).toEqual({ tripId: 1, recipients: 'a@x.com' })
+	})
+
+	it("adds the driver's own address when they want a copy", () => {
+		const to = (recipients: string, copyToMe?: boolean) =>
+			tripRecipientsSchema.safeParse({
+				recipients,
+				copyToMe,
+				driverEmail: 'Pat@x.com',
+			})
+		expect(to('a@x.com').data).toEqual(['a@x.com'])
+		expect(to('a@x.com', true).data).toEqual(['a@x.com', 'pat@x.com'])
+		expect(to('', true).data).toEqual(['pat@x.com'])
+		// Already in the list: not sent twice.
+		expect(to('pat@x.com, a@x.com', true).data).toEqual([
+			'pat@x.com',
+			'a@x.com',
+		])
+		// The copy doesn't count toward the limit on other people.
+		expect(
+			to('a@x.com b@x.com c@x.com d@x.com e@x.com', true).data,
+		).toHaveLength(6)
+		expect(to('', false).error?.issues[0].message).toBe(
+			'Add an email address, or check “Email me a copy”',
+		)
+		expect(to('nope', true).error?.issues[0].message).toBe(
+			'"nope" is not an email address',
+		)
 	})
 })
 
