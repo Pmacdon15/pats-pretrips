@@ -86,26 +86,21 @@ export function EmailTrip({
 					<Mail /> {pending ? 'Sending…' : 'Email PDF'}
 				</Button>
 			</div>
-			{access.driverEmail ? (
-				<label
-					className="flex items-start gap-3 text-sm"
-					htmlFor={copyId}
-				>
-					<input
-						checked={copyToMe}
-						className="mt-0.5 size-4 accent-primary"
-						id={copyId}
-						onChange={(e) => setCopyToMe(e.target.checked)}
-						type="checkbox"
-					/>
-					<span>
-						<span className="font-medium">Email me a copy</span>
-						<span className="block break-all text-muted-foreground">
-							Also sends it to {access.driverEmail}
-						</span>
+			<label className="flex items-start gap-3 text-sm" htmlFor={copyId}>
+				<input
+					checked={copyToMe}
+					className="mt-0.5 size-4 accent-primary"
+					id={copyId}
+					onChange={(e) => setCopyToMe(e.target.checked)}
+					type="checkbox"
+				/>
+				<span>
+					<span className="font-medium">Email me a copy</span>
+					<span className="block break-all text-muted-foreground">
+						Also sends it to {access.driverEmail}
 					</span>
-				</label>
-			) : null}
+				</span>
+			</label>
 		</form>
 	)
 }

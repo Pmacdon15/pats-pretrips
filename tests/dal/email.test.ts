@@ -264,6 +264,9 @@ describe('emailTripDAL', () => {
 		expect(await reason(emailTripDAL({ ...data, recipients: '' }))).toBe(
 			'Add an email address, or check “Email me a copy”',
 		)
+		expect(
+			await reason(emailTripDAL({ ...data, timeZone: 'Mars/Base' })),
+		).toBe('Unknown time zone')
 		vi.stubEnv('SES_FROM_EMAIL', '')
 		expect(await reason(emailTripDAL(data))).toMatch(/isn’t set up/)
 	})
