@@ -1,4 +1,4 @@
-import { getDriverEmail } from '@/lib/auth'
+import { getDriverEmail, getSpace } from '@/lib/auth'
 import { getTripDb, listTripsDb } from '@/lib/db/trips'
 import { errorForLog } from '@/lib/log'
 import type { Trip } from '@/lib/types/types'
@@ -16,10 +16,17 @@ async function requireDriverEmail() {
 	return email
 }
 
+/** The active organization's id, or null in the personal space. */
+async function activeOrgId() {
+	const space = await getSpace()
+	return space?.kind === 'org' ? space.orgId : null
+}
+
 export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 	const email = await requireDriverEmail()
+	const orgId = await activeOrgId()
 	try {
-		return await listTripsDb(email, 'current', page, limit)
+		return await listTripsDb(email, 'current', page, limit, orgId)
 	} catch (error) {
 		console.error('Error fetching trips:', errorForLog(error))
 		throw error
@@ -28,8 +35,9 @@ export async function fetchCurrentTrips(page: number = 1, limit: number = 7) {
 
 export async function fetchPastTrips(page: number = 1, limit: number = 7) {
 	const email = await requireDriverEmail()
+	const orgId = await activeOrgId()
 	try {
-		return await listTripsDb(email, 'past', page, limit)
+		return await listTripsDb(email, 'past', page, limit, orgId)
 	} catch (error) {
 		console.error('Error fetching past trips:', errorForLog(error))
 		return { trips: [] as Trip[], hasMore: false }

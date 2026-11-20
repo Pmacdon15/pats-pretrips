@@ -12,7 +12,8 @@ switcher in the header:
 | Email settings (who new pre-trips go to, auto-send) | The driver's own (`pt_email_settings`) | The organization's (`pt_org_email_settings`), used for every member's trips |
 | Who can change those | The driver: a solo user is the admin of their own space | Only the organization's admins (Clerk role `org:admin`) |
 | Plan that unlocks emailing pre-trips | The driver's own plan (`u:email_pretrips`) | The organization's plan (`o:email_pretrips`) |
-| Trips, repairs, signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
+| Trips | The driver's own, started in the personal space | The driver's own, started in this organization's space |
+| Repairs, signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
 
 ## The organization is the carrier
 
@@ -33,6 +34,16 @@ organization. Admins add, change and delete sites; members pick them.
 
 For a solo user nothing changes: with no organization, the app reads and
 writes exactly the tables and rows it did before.
+
+## Trips belong to a space
+
+Each trip records the space it was started in (`PTTrips.clerk_org_id`: the
+organization's id, or NULL for the personal space; migration
+`src/lib/sql/2026-11-24-trip-organizations.sql`). The trip lists (today's
+and past trips on the web, `list_trips` over MCP) show the driver's trips in
+the active space only, so a trip started for one organization doesn't show
+under another one or the personal space. The trip is still the driver's
+own: opening it by id, adding defects, signing and emailing it work as before.
 
 ## Admin checks
 
@@ -113,7 +124,9 @@ space themselves (`src/mcp/spaces.ts`):
 - `get_trip_defaults` and `start_trip` take `organization_id` too: the
   suggested vehicles and trailers, and `start_trip`'s `vehicle_id`, are then
   the organization's, and the organization's name is the trip's carrier.
-  The trip stays the driver's own.
+  The trip stays the driver's own, recorded as started in that organization.
+- `list_trips` takes `organization_id`: without it, the trips started in
+  the personal space; with it, the ones started in that organization.
 - Writes clear the organization's cached vehicle and trailer lists, so the
   web app shows them straight away, and are audited with `details.org_id`.
 

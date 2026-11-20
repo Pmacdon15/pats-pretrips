@@ -464,6 +464,7 @@ describe('tools over HTTP', () => {
 			expect.anything(),
 			'pat@x.com',
 			null,
+			null,
 		)
 	})
 
@@ -494,6 +495,7 @@ describe('tools over HTTP', () => {
 			}),
 			'pat@x.com',
 			expect.objectContaining({ type: 'image/png' }),
+			null,
 		)
 		expect(mocks.revalidateTag.mock.calls).toEqual([
 			['trips:pat@x.com', { expire: 0 }],

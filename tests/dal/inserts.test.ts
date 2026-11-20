@@ -121,6 +121,7 @@ describe('addTripDAL', () => {
 			{ ...form, carrier: 'Acme Freight' },
 			'pat@x.com',
 			SIGNED,
+			'org_1',
 		)
 	})
 
@@ -136,6 +137,7 @@ describe('addTripDAL', () => {
 			form,
 			'pat@x.com',
 			SIGNED,
+			'org_1',
 		)
 	})
 
@@ -156,6 +158,7 @@ describe('addTripDAL', () => {
 			form,
 			'pat@x.com',
 			SIGNED,
+			null,
 		)
 		// The new trip and its signature are stamped with the Clerk user.
 		expect(mocks.recordOwner).toHaveBeenCalledWith(
@@ -212,6 +215,7 @@ describe('addTripDAL', () => {
 			form,
 			'pat@x.com',
 			SIGNED,
+			null,
 		)
 	})
 

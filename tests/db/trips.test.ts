@@ -63,7 +63,9 @@ describe('createTripDb', () => {
 			'2026-01-02T03:04:05.000Z',
 			'Cab',
 			'All good',
-			// Unsigned: no signed_at and no signature row.
+			// Unsigned: no signed_at; the personal space: no organization;
+			// and no signature row.
+			null,
 			null,
 			null,
 			null,
@@ -80,14 +82,23 @@ describe('createTripDb', () => {
 			type: 'image/png',
 			source: 'web',
 		})
-		// signed_at, then the signature as hex, its type, who saved it and "sign".
-		expect(sql.queries()[0].values.slice(-5)).toEqual([
+		// signed_at, the organization, then the signature as hex, its type,
+		// who saved it and "sign".
+		expect(sql.queries()[0].values.slice(-6)).toEqual([
 			'2026-01-02T03:04:05.000Z',
+			null,
 			'6869',
 			'image/png',
 			'web',
 			1,
 		])
+	})
+
+	it('records the organization the trip was started in', async () => {
+		sql.respond(() => [{ tripid: 7 }])
+		await createTripDb(form, 'pat@x.com', null, 'org_1')
+		expect(sql.queries()[0].text).toContain('clerk_org_id')
+		expect(sql.queries()[0].values).toContain('org_1')
 	})
 })
 
@@ -146,9 +157,17 @@ describe('connector queries', () => {
 		})
 		const [query] = sql.queries()
 		expect(query.text).toContain(`date ${op} NOW() - INTERVAL '24 hours'`)
-		expect(query.values).toEqual(['pat@x.com', 3, 2])
+		expect(query.text).toContain('clerk_org_id IS NOT DISTINCT FROM')
+		expect(query.values).toEqual(['pat@x.com', null, 3, 2])
 		expect(mocks.cacheTag).toHaveBeenCalledWith('trips:pat@x.com')
 		expect(mocks.cacheLife).toHaveBeenCalledWith('hours')
+	})
+
+	it("lists only one organization's trips", async () => {
+		const { listTripsDb } = await import('@/lib/db/trips')
+		sql.respond(() => [])
+		await listTripsDb('pat@x.com', 'current', 1, 7, 'org_1')
+		expect(sql.queries()[0].values).toEqual(['pat@x.com', 'org_1', 8, 0])
 	})
 
 	it("reads one of the driver's trips", async () => {
