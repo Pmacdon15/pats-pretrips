@@ -84,8 +84,12 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-	padding: 12px;
 }
+#content { padding: 12px; }
+/* Only while the frame is shorter than the card (see fit()): the card
+   scrolls inside itself, since some hosts (iOS among them) neither grow the
+   frame to the height asked for nor let it scroll. */
+html.fit #app { max-height: 100vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 h1 { font-size: 15px; margin: 0; }
 .muted { color: var(--muted); font-size: 12px; }
@@ -120,11 +124,14 @@ a:hover { text-decoration: underline; }
 .pill.ok { background: var(--ok-bg); color: var(--ok-text); }
 .pill.bad { background: var(--bad-bg); color: var(--bad-text); }
 .empty { padding: 16px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
+.empty .hint { margin-top: 6px; font-size: 12px; color: var(--text); }
 </style>
 </head>
 <body>
+<div id="app"><div id="content">
 <header><h1 id="heading">Pat's PreTrips</h1><span class="muted" id="count"></span></header>
 <div class="list" id="list"><div class="empty">Loading trips…</div></div>
+</div></div>
 <script>
 (function () {
 	var SITE = ${JSON.stringify(SITE_URL)};
@@ -404,6 +411,28 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
+	// The space a trip list is for: "Personal", or the organization's name.
+	function spaceName(x) {
+		if (!isObject(x)) return '';
+		if (x.space === 'organization') return typeof x.organization_name === 'string' ? x.organization_name : 'Organization';
+		return x.space === 'personal' ? 'Personal' : '';
+	}
+
+	function emptyTrips(data) {
+		var box = el('div', 'empty');
+		var name = spaceName(data);
+		var where = data.space === 'organization' ? ' in ' + name : data.space === 'personal' ? ' in your personal space' : '';
+		box.appendChild(el('div', null, (data.when === 'past' ? 'No older trips' : 'No trips in the last 24 hours') + where + '.'));
+		// Trips in the driver's other spaces (issue #92), so an empty list
+		// never reads as "no trips" when they are only somewhere else.
+		var elsewhere = Array.isArray(data.elsewhere) ? data.elsewhere.filter(isObject) : [];
+		elsewhere.forEach(function (e) {
+			var n = Number(e.count) || 0;
+			box.appendChild(el('div', 'hint', n + (e.has_more ? '+' : '') + ' trip' + (n === 1 && !e.has_more ? '' : 's') + ' in ' + (spaceName(e) === 'Personal' ? 'your personal space' : spaceName(e))));
+		});
+		return box;
+	}
+
 	function renderTrips(data, list, heading, count) {
 		var one = isObject(data.trip);
 		var trips = (one ? [data.trip] : data.trips).filter(isObject);
@@ -412,11 +441,14 @@ a:hover { text-decoration: underline; }
 			count.textContent = '';
 		} else {
 			heading.textContent = data.when === 'past' ? 'Past trips' : 'Current trips';
-			count.textContent = trips.length + ' trip' + (trips.length === 1 ? '' : 's') +
-				(data.page > 1 || data.has_more ? ' · page ' + data.page + (data.has_more ? ', more available' : '') : '');
+			count.textContent = [
+				trips.length + ' trip' + (trips.length === 1 ? '' : 's'),
+				spaceName(data),
+				data.page > 1 || data.has_more ? 'page ' + data.page + (data.has_more ? ', more available' : '') : '',
+			].filter(Boolean).join(' · ');
 		}
 		if (!trips.length) {
-			list.appendChild(el('div', 'empty', data.when === 'past' ? 'No older trips.' : 'No trips in the last 24 hours.'));
+			list.appendChild(emptyTrips(data));
 		} else {
 			trips.forEach(function (t) {
 				list.appendChild(trips.length > 1 ? compactTrip(t) : tripCard(t, one ? data.defect_status : null));
@@ -457,14 +489,23 @@ a:hover { text-decoration: underline; }
 		}
 	}
 
-	// The card is always its full height, never clipped to its frame: a
-	// host that sizes the frame by measuring the page sees all of it, and
-	// one that gives it a shorter frame lets the page scroll. The height
-	// asked for is that full height, told both ways hosts listen: the MCP
-	// Apps notification and ChatGPT's notifyIntrinsicHeight.
+	// The height asked for is always the card's full height, measured on
+	// #content, which is never clipped, and told both ways hosts listen: the
+	// MCP Apps notification and ChatGPT's notifyIntrinsicHeight. When the
+	// frame still comes out shorter (issue #92: the bottom of the card was
+	// cut off with no way to scroll), the card scrolls inside itself until
+	// the frame is tall enough again.
 	var lastHeight = -1;
+	function fullHeight() {
+		return Math.ceil(document.getElementById('content').getBoundingClientRect().height);
+	}
+	function fit() {
+		var short = window.innerHeight > 0 && window.innerHeight < fullHeight();
+		document.documentElement.classList.toggle('fit', short);
+	}
 	function reportSize() {
-		var h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+		fit();
+		var h = fullHeight();
 		if (h === lastHeight) return;
 		lastHeight = h;
 		notify('ui/notifications/size-changed', { height: h });
@@ -537,7 +578,7 @@ a:hover { text-decoration: underline; }
 
 	if (typeof ResizeObserver !== 'undefined') {
 		var sizes = new ResizeObserver(reportSize);
-		sizes.observe(document.body);
+		sizes.observe(document.getElementById('content'));
 	}
 	window.addEventListener('resize', reportSize);
 })();
