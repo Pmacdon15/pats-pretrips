@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -89,7 +89,11 @@ describe('DriverSignatureField', () => {
 		expect(
 			await screen.findByRole('img', { name: 'Your saved signature' }),
 		).toBeInTheDocument()
-		expect(screen.getByTestId('value')).toHaveTextContent('saved')
+		// The field picks the saved signature in an effect after the image
+		// renders, so wait for it rather than racing a slow runner.
+		await waitFor(() =>
+			expect(screen.getByTestId('value')).toHaveTextContent('saved'),
+		)
 		expect(screen.getByRole('alert')).toHaveTextContent('Sign the pre-trip')
 	})
 
