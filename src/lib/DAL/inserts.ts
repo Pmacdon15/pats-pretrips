@@ -1,6 +1,6 @@
 import { errAsync, okAsync } from 'neverthrow'
 import z from 'zod'
-import { getDriver, getOrgName, getSpace } from '@/lib/auth'
+import { getDriver, getSpace } from '@/lib/auth'
 import { recordEvents, tripUpdateEvent } from '@/lib/db/audit-events'
 import { recordOwner } from '@/lib/db/owner-stamps'
 import { errorForLog } from '@/lib/log'
@@ -14,7 +14,6 @@ import {
 } from '../db/trips'
 import { resolveSignature } from '../signatures/signatures'
 import {
-	CARRIER_MAX,
 	formatLimit as n,
 	STORED_DEFECTS_MAX,
 	STORED_REMARKS_MAX,
@@ -46,8 +45,8 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 		} as const)
 	}
 	try {
-		const { signature, saveSignature, ...typed } = validatedFields.data
-		const { fields, orgId } = await withSpaceCarrier(typed)
+		const { signature, saveSignature, ...fields } = validatedFields.data
+		const orgId = await spaceOrgId()
 		const signed = await resolveSignature(
 			driverEmail,
 			signature,
@@ -97,26 +96,14 @@ export async function addTripDAL(data: z.infer<typeof schemaAddTripForm>) {
 }
 
 /**
- * In an organization's space the organization is the carrier
- * (docs/organizations.md): the trip's carrier is its name from Clerk, not
- * whatever the form sent. The carrier address stays the driver's (usually
- * one of the organization's sites). In the personal space, or if the name
- * can't be read, the fields are kept as typed. Also answers the
- * organization's id (null in the personal space): the trip belongs to that
- * space's lists (issue #89).
+ * The organization whose space the trip is started in, or null in the
+ * personal space: the trip belongs to that space's lists (issue #89). The
+ * carrier is kept as the driver typed or picked it from the space's saved
+ * carriers (docs/organizations.md).
  */
-async function withSpaceCarrier<T extends { carrier: string }>(
-	fields: T,
-): Promise<{ fields: T; orgId: string | null }> {
+async function spaceOrgId(): Promise<string | null> {
 	const space = await getSpace()
-	if (space?.kind !== 'org') return { fields, orgId: null }
-	const name = await getOrgName(space.orgId)
-	return {
-		fields: name
-			? { ...fields, carrier: name.slice(0, CARRIER_MAX) }
-			: fields,
-		orgId: space.orgId,
-	}
+	return space?.kind === 'org' ? space.orgId : null
 }
 
 export async function addOnRouteDefectsDAL(

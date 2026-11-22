@@ -7,33 +7,26 @@ switcher in the header:
 | | Personal space | An organization's space |
 | --- | --- | --- |
 | When | No active organization (Clerk's "Personal account") | The organization picked in the switcher |
-| Saved vehicles and carriers | The driver's own (`pt_vehicles`, `pt_carriers`) | The organization's fleet (`pt_org_vehicles`) and sites (`pt_org_carriers`), shared by every member |
-| Carrier on a new pre-trip | Typed, or picked from saved carriers | Always the organization's name |
+| Saved vehicles and carriers | The driver's own (`pt_vehicles`, `pt_carriers`) | The organization's fleet (`pt_org_vehicles`) and carriers (`pt_org_carriers`), shared by every member |
+| Carrier on a new pre-trip | Typed, or picked from the driver's saved carriers | Typed, or picked from the organization's saved carriers |
 | Email settings (who new pre-trips go to, auto-send) | The driver's own (`pt_email_settings`) | The organization's (`pt_org_email_settings`), used for every member's trips |
 | Who can change those | The driver: a solo user is the admin of their own space | Only the organization's admins (Clerk role `org:admin`) |
 | Plan that unlocks emailing pre-trips | The driver's own plan (`u:email_pretrips`) | The organization's plan (`o:email_pretrips`) |
 | Trips | The driver's own, started in the personal space | The driver's own, started in this organization's space |
 | Repairs, signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
 
-## The organization is the carrier
+## Carriers belong to the space
 
-In an organization's space the organization itself is the carrier on every
-pre-trip. The new pre-trip form fills the **Carrier** field with the
-organization's name (from Clerk) and locks it; the server sets it again
-when the trip is saved (`addTripDAL` in `src/lib/DAL/inserts.ts`, via
-`getOrgName()` in `src/lib/auth.ts`), so a member can't send another name.
-If Clerk can't be reached the typed carrier is kept, so a trip can always be
-saved.
+An organization's carriers (the companies it hauls for, with their
+addresses) live in `pt_org_carriers`, keyed by the Clerk organization ID.
+Every member sees them on the Carriers page and in the picker on a new
+pre-trip, where picking one fills in the carrier and its address; the
+driver can still edit both. Admins add, change and delete them. A
+driver's own carriers (`pt_carriers`) show only in their personal space,
+and an organization's never show in another organization's space.
 
-What an organization saves on the Carriers page are therefore its **sites**:
-the shops, yards and depots its drivers start from ("North Shop", "South
-Base"), each with its address. They live in `pt_org_carriers` (the `name`
-column is the site's name), so no new migration is needed. Picking a site on
-a new pre-trip fills in the carrier address; the carrier stays the
-organization. Admins add, change and delete sites; members pick them.
-
-For a solo user nothing changes: with no organization, the app reads and
-writes exactly the tables and rows it did before.
+As with vehicles, a trip copies the carrier's name and address when it's
+started, so changing or deleting a carrier never changes a saved trip.
 
 ## Trips belong to a space
 
@@ -122,8 +115,9 @@ space themselves (`src/mcp/spaces.ts`):
   app's DALs. An admin of several organizations manages each one's fleet by
   passing its id.
 - `get_trip_defaults` and `start_trip` take `organization_id` too: the
-  suggested vehicles and trailers, and `start_trip`'s `vehicle_id`, are then
-  the organization's, and the organization's name is the trip's carrier.
+  suggested vehicles, trailers and carriers, and `start_trip`'s
+  `vehicle_id`, are then the organization's. `start_trip` always takes the
+  `carrier` the driver confirmed.
   The trip stays the driver's own, recorded as started in that organization.
 - `list_trips` takes `organization_id`: without it, the trips started in
   the personal space; with it, the ones started in that organization. When

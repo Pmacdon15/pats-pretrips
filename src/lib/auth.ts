@@ -70,28 +70,6 @@ export async function getSpace(): Promise<Space | null> {
 }
 
 /**
- * The organization's name, from Clerk: the carrier on every pre-trip started
- * in its space. Null when it can't be read (logged), so the caller can fall
- * back to the carrier the driver typed.
- */
-export async function getOrgName(orgId: string): Promise<string | null> {
-	try {
-		const client = await clerkClient()
-		const org = await client.organizations.getOrganization({
-			organizationId: orgId,
-		})
-		return org.name?.trim() || null
-	} catch (error) {
-		console.error(
-			'Organizations: could not read the name of',
-			orgId,
-			errorForLog(error),
-		)
-		return null
-	}
-}
-
-/**
  * Whether the driver may manage their active space: always in their
  * personal space (a solo user), and as an admin in an organization's.
  */

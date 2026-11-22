@@ -16,10 +16,6 @@ interface ControlledTextInputProps {
 	autoCapitalize?: 'characters' | 'words' | 'sentences' | 'none'
 	/** Most characters the field takes, matching the schema's limit. */
 	maxLength?: number
-	/** Shown but not editable, e.g. a carrier set by the organization. */
-	readOnly?: boolean
-	/** A short note under the field. */
-	hint?: string
 }
 
 export function ControlledTextInput({
@@ -32,8 +28,6 @@ export function ControlledTextInput({
 	optional,
 	autoCapitalize,
 	maxLength,
-	readOnly,
-	hint,
 }: ControlledTextInputProps) {
 	const id = `form-${name}`
 
@@ -90,16 +84,10 @@ export function ControlledTextInput({
 								)
 							}}
 							placeholder={placeholder}
-							readOnly={readOnly}
 							showCopyButton={showCopyButton}
 							type={type}
 							value={value}
 						/>
-						{hint && !isInvalid && (
-							<span className="text-muted-foreground text-xs">
-								{hint}
-							</span>
-						)}
 						{isInvalid && (
 							<span className="font-medium text-destructive text-xs">
 								{typeof errors[0] === 'string'

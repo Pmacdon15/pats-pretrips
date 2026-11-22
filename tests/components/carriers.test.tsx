@@ -242,13 +242,13 @@ describe('CarrierList', () => {
 		setup()
 		expect(
 			await screen.findByText(
-				'Your organization has no saved sites yet.',
+				'Your organization has no saved carriers yet.',
 			),
 		).toBeInTheDocument()
 		expect(screen.queryByText(/No saved carriers yet/)).toBeNull()
 	})
 
-	it("lets an organization's admin manage its sites", async () => {
+	it("lets an organization's admin manage its carriers", async () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -258,16 +258,18 @@ describe('CarrierList', () => {
 		setup()
 		expect(
 			await screen.findByText(
-				/These sites are shared with everyone in your organization/,
+				/These carriers are shared with everyone in your organization/,
 			),
 		).toBeInTheDocument()
-		expect(screen.getByRole('button', { name: 'Add a site' })).toBeEnabled()
+		expect(
+			screen.getByRole('button', { name: 'Add a carrier' }),
+		).toBeEnabled()
 		expect(
 			screen.getByRole('button', { name: 'Edit Acme Freight' }),
 		).toBeInTheDocument()
 	})
 
-	it('adds a site, by its name and address, in an organization', async () => {
+	it('adds a carrier, by its name and address, in an organization', async () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -278,28 +280,33 @@ describe('CarrierList', () => {
 		mocks.addCarrier.mockResolvedValue({ value: carrier() })
 		setup()
 		await userEvent.click(
-			await screen.findByRole('button', { name: 'Add a site' }),
+			await screen.findByRole('button', { name: 'Add a carrier' }),
 		)
-		const form = screen.getByRole('form', { name: 'Add a site' })
+		const form = screen.getByRole('form', { name: 'Add a carrier' })
 		expect(form).toBeInTheDocument()
-		await userEvent.type(screen.getByLabelText('Site name'), 'North Shop')
+		await userEvent.type(
+			screen.getByLabelText('Carrier name'),
+			'Big Haul Ltd',
+		)
 		await userEvent.type(
 			screen.getByLabelText('Address'),
 			'1 Shop Rd, Calgary AB',
 		)
-		await userEvent.click(screen.getByRole('button', { name: 'Save site' }))
+		await userEvent.click(
+			screen.getByRole('button', { name: 'Save carrier' }),
+		)
 		await waitFor(() =>
 			expect(mocks.addCarrier).toHaveBeenCalledWith({
-				name: 'North Shop',
+				name: 'Big Haul Ltd',
 				address: '1 Shop Rd, Calgary AB',
 			}),
 		)
-		expect(mocks.toast.success).toHaveBeenCalledWith('Site saved')
+		expect(mocks.toast.success).toHaveBeenCalledWith('Carrier saved')
 	})
 })
 
-describe('CarrierList sites', () => {
-	const site = () => carrier({ name: 'North Shop' })
+describe("CarrierList in an organization's space", () => {
+	const site = () => carrier({ name: 'Big Haul Ltd' })
 	beforeEach(() => {
 		mocks.space = {
 			orgId: 'org_1',
@@ -310,31 +317,33 @@ describe('CarrierList sites', () => {
 		mocks.getCarriers.mockResolvedValue([site()])
 	})
 
-	it("edits one of an organization's sites", async () => {
+	it("edits one of an organization's carriers", async () => {
 		mocks.updateCarrier.mockResolvedValue({ value: site() })
 		const user = setup()
 		await user.click(
-			await screen.findByRole('button', { name: 'Edit North Shop' }),
+			await screen.findByRole('button', { name: 'Edit Big Haul Ltd' }),
 		)
 		expect(
-			screen.getByRole('form', { name: 'Edit site' }),
+			screen.getByRole('form', { name: 'Edit carrier' }),
 		).toBeInTheDocument()
-		expect(screen.getByLabelText('Site name')).toHaveValue('North Shop')
+		expect(screen.getByLabelText('Carrier name')).toHaveValue(
+			'Big Haul Ltd',
+		)
 		await user.click(screen.getByRole('button', { name: 'Save changes' }))
 		await waitFor(() =>
-			expect(mocks.toast.success).toHaveBeenCalledWith('Site updated'),
+			expect(mocks.toast.success).toHaveBeenCalledWith('Carrier updated'),
 		)
 	})
 
-	it("deletes one of an organization's sites", async () => {
+	it("deletes one of an organization's carriers", async () => {
 		mocks.deleteCarrier.mockResolvedValue({ value: site() })
 		const user = setup()
 		await user.click(
-			await screen.findByRole('button', { name: 'Delete North Shop' }),
+			await screen.findByRole('button', { name: 'Delete Big Haul Ltd' }),
 		)
 		await user.click(screen.getByRole('button', { name: 'Delete' }))
 		await waitFor(() =>
-			expect(mocks.toast.success).toHaveBeenCalledWith('Site deleted'),
+			expect(mocks.toast.success).toHaveBeenCalledWith('Carrier deleted'),
 		)
 	})
 })
@@ -345,7 +354,7 @@ describe('CarriersHeader', () => {
 		expect(screen.getByText('Your carriers')).toBeInTheDocument()
 	})
 
-	it("is about the organization's sites in its space", () => {
+	it("is about the organization's carriers in its space", () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -353,10 +362,8 @@ describe('CarriersHeader', () => {
 			canManage: true,
 		}
 		render(<CarriersHeader />)
-		expect(screen.getByText('Your sites')).toBeInTheDocument()
-		expect(
-			screen.getByText(/Acme Freight is the carrier on every pre-trip/),
-		).toBeInTheDocument()
+		expect(screen.getByText("Acme Freight's carriers")).toBeInTheDocument()
+		expect(screen.getByText(/shared with every member/)).toBeInTheDocument()
 	})
 
 	it('names the organization generically until its name loads', () => {
@@ -368,7 +375,7 @@ describe('CarriersHeader', () => {
 		}
 		render(<CarriersHeader />)
 		expect(
-			screen.getByText(/Your organization is the carrier on every/),
+			screen.getByText("Your organization's carriers"),
 		).toBeInTheDocument()
 	})
 })

@@ -40,6 +40,11 @@ const trailerMocks = vi.hoisted(() => ({
 	listOrgTrailersOrNone: vi.fn(async () => [] as unknown[]),
 }))
 vi.mock('@/lib/db/trailers', () => trailerMocks)
+const carrierMocks = vi.hoisted(() => ({
+	listCarriersOrNone: vi.fn(async () => [] as unknown[]),
+	listOrgCarriersOrNone: vi.fn(async () => [] as unknown[]),
+}))
+vi.mock('@/lib/db/carriers', () => carrierMocks)
 const clerkMocks = vi.hoisted(() => ({
 	getOrganizationMembershipList: vi.fn(),
 }))
@@ -192,6 +197,7 @@ describe('getTripDefaults', () => {
 		expect(result.data).toEqual({
 			space: 'personal',
 			trailers: [],
+			carriers: [],
 			last_trip: null,
 			truck: null,
 			vehicles: [],
@@ -1394,7 +1400,7 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		],
 	})
 
-	it("uses the organization's vehicle and makes it the carrier", async () => {
+	it("uses the organization's vehicle and the carrier the driver confirmed", async () => {
 		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
 			membership('org:member'),
 		)
@@ -1403,6 +1409,7 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		mocks.createTripDb.mockResolvedValue(recent({ tripid: 5 }))
 		const result = await startTrip(orgCaller, {
 			...bare,
+			carrier: 'Big Haul Ltd',
 			vehicle_id: 3,
 			organization_id: 'org_1',
 		})
@@ -1410,7 +1417,7 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		expect(vehicleMocks.listOrgVehiclesOrNone).toHaveBeenCalledWith('org_1')
 		expect(vehicleMocks.getVehicleDb).not.toHaveBeenCalled()
 		expect(mocks.createTripDb.mock.calls[0][0]).toMatchObject({
-			carrier: 'Acme Fleet',
+			carrier: 'Big Haul Ltd',
 			make: 'Volvo',
 			truckPlate: 'TRK 9',
 		})
@@ -1598,6 +1605,40 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		)
 	})
 
+	it("counts the driver's own carriers", async () => {
+		mocks.getLatestTripDb.mockResolvedValue(undefined)
+		signatureMocks.getSavedSignatureDb.mockResolvedValue(undefined)
+		carrierMocks.listCarriersOrNone.mockResolvedValue([
+			{ id: 1, name: 'Acme', address: '1 Main St' },
+			{ id: 2, name: 'Bolt', address: '2 Main St' },
+		])
+		const result = await getTripDefaults(caller, {})
+		expect(result.summary).toContain(
+			'The driver has 2 saved carriers (carriers)',
+		)
+		expect(carrierMocks.listCarriersOrNone).toHaveBeenCalledWith(
+			'pat@x.com',
+		)
+		expect(carrierMocks.listOrgCarriersOrNone).not.toHaveBeenCalled()
+	})
+
+	it('needs a carrier, in an organization too', async () => {
+		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
+			membership('org:member'),
+		)
+		const result = await startTrip(orgCaller, {
+			...bare,
+			make: 'Volvo',
+			model: 'VNL',
+			organization_id: 'org_1',
+		})
+		expect(result).toMatchObject({
+			isError: true,
+			data: { status: 'carrier_required' },
+		})
+		expect(mocks.createTripDb).not.toHaveBeenCalled()
+	})
+
 	it('needs a carrier without an organization', async () => {
 		const result = await startTrip(caller, {
 			...bare,
@@ -1611,7 +1652,7 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		expect(mocks.createTripDb).not.toHaveBeenCalled()
 	})
 
-	it("suggests the organization's vehicles and trailers", async () => {
+	it("suggests the organization's vehicles, trailers and carriers", async () => {
 		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
 			membership('org:admin'),
 		)
@@ -1620,6 +1661,9 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		vehicleMocks.listOrgVehiclesOrNone.mockResolvedValue([VEHICLE])
 		trailerMocks.listOrgTrailersOrNone.mockResolvedValue([
 			{ id: 4, name: null, plate: 'TRL 1' },
+		])
+		carrierMocks.listOrgCarriersOrNone.mockResolvedValue([
+			{ id: 7, name: 'Big Haul Ltd', address: '9 Yard Rd' },
 		])
 		const result = await getTripDefaults(orgCaller, {
 			organization_id: 'org_1',
@@ -1631,8 +1675,15 @@ describe('startTrip and getTripDefaults in an organization', () => {
 			is_admin: true,
 			vehicles: [{ vehicle_id: 3 }],
 			trailers: [{ trailer_id: 4, name: null, plate: 'TRL 1' }],
+			carriers: [
+				{ carrier_id: 7, name: 'Big Haul Ltd', address: '9 Yard Rd' },
+			],
 		})
-		expect(result.summary).toContain('Acme Fleet is the carrier')
+		expect(result.summary).toContain(
+			'Acme Fleet has 1 saved carrier (carriers)',
+		)
+		expect(carrierMocks.listOrgCarriersOrNone).toHaveBeenCalledWith('org_1')
+		expect(carrierMocks.listCarriersOrNone).not.toHaveBeenCalled()
 		expect(vehicleMocks.listVehiclesOrNone).not.toHaveBeenCalled()
 	})
 })

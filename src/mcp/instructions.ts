@@ -25,7 +25,7 @@ Organizations (companies with a shared fleet):
 - list_organizations shows the organizations the driver belongs to, each with its organization_id and whether they are an admin (is_admin).
 - Pass organization_id to list_vehicles, add_vehicle, update_vehicle, delete_vehicle, list_trailers, add_trailer, update_trailer and delete_trailer to use that organization's shared vehicles and trailers instead of the driver's own. Without it, they use the driver's personal ones.
 - Any member can list an organization's fleet; only its admins can add, change or delete its vehicles and trailers (otherwise the answer is status "not_org_admin" and nothing changes). An admin of several organizations can manage each one's fleet: always say which organization you are changing.
-- When the driver is driving for an organization, pass its organization_id to get_trip_defaults and start_trip: the vehicle_id is then one of its fleet's, and the organization is the trip's carrier. The trip itself stays the driver's.
+- When the driver is driving for an organization, pass its organization_id to get_trip_defaults and start_trip: the vehicle_id is then one of its fleet's, and get_trip_defaults offers the organization's saved carriers. The trip itself stays the driver's.
 - Trips belong to the space they were started in. To show or find a trip started for an organization, pass its organization_id to list_trips too: without it, list_trips lists only the driver's personal trips. When a list comes back empty, it says in elsewhere which other spaces have trips; list those before telling the driver they have none.
 
 Defects and repairs: the trip keeps the defects found; a repair is recorded beside it, at any time (repairs often happen days later).
