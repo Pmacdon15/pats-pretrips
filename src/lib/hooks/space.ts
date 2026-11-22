@@ -15,10 +15,7 @@ export function useSpace() {
 	return {
 		/** The active organization's ID; null in the personal space. */
 		orgId: orgId ?? null,
-		/**
-		 * The active organization's name, the carrier on every pre-trip
-		 * started in its space; null in the personal space or while loading.
-		 */
+		/** The active organization's name; null in the personal space or while loading. */
 		orgName: (inOrg && organization?.name) || null,
 		inOrg,
 		/** A solo user always manages their own space; in an org, its admins do. */

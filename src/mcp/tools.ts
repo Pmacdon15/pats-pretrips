@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { prepareCallerAutoEmailDAL } from '@/lib/DAL/email'
 import { recordEvents, tripUpdateEvent } from '@/lib/db/audit-events'
+import {
+	type Carrier,
+	listCarriersOrNone,
+	listOrgCarriersOrNone,
+} from '@/lib/db/carriers'
 import { afterResponse, recordOwner } from '@/lib/db/owner-stamps'
 import { getSavedSignatureDb, signTripDb } from '@/lib/db/signatures'
 import {
@@ -56,6 +61,19 @@ export type McpCaller = {
 	/** The Clerk user ID, recorded beside the email on writes; null without one. */
 	userId?: string | null
 }
+
+/** The space's saved carriers: the driver's own, or the organization's. */
+const spaceCarriers = (caller: McpCaller, space: McpSpace) =>
+	space.kind === 'org'
+		? listOrgCarriersOrNone(space.orgId)
+		: listCarriersOrNone(caller.email)
+
+/** A saved carrier as the assistant sees it. */
+const carrierView = (c: Carrier) => ({
+	carrier_id: c.id,
+	name: c.name,
+	address: c.address,
+})
 
 export type ToolResult = {
 	/** One sentence for the assistant to read first. */
@@ -199,7 +217,7 @@ export const getTripDefaultsInputSchema = z.object({
 			'The truck plate read from a photo, to look up that truck’s make, model and last odometer',
 		),
 	organization_id: organizationId.describe(
-		"An organization's id (org_...) from list_organizations, when the driver is driving for it: its fleet's vehicles and trailers are suggested, and it is the trip's carrier. Leave it out for the driver's own.",
+		"An organization's id (org_...) from list_organizations, when the driver is driving for it: its fleet's vehicles, trailers and carriers are suggested. Leave it out for the driver's own.",
 	),
 })
 
@@ -215,17 +233,20 @@ export async function getTripDefaults(
 	const input = getTripDefaultsInputSchema.parse(args)
 	const space = await resolveSpace(caller, input.organization_id)
 	if (isToolResult(space)) return space
-	const [latest, truck, signing, vehicles, trailers] = await Promise.all([
-		getLatestTripDb(caller.email),
-		input.truck_plate
-			? getLatestTripForPlateDb(caller.email, input.truck_plate)
-			: undefined,
-		signatureForAi(caller.email),
-		spaceVehicles(caller, space),
-		spaceTrailers(caller, space),
-	])
+	const [latest, truck, signing, vehicles, trailers, carriers] =
+		await Promise.all([
+			getLatestTripDb(caller.email),
+			input.truck_plate
+				? getLatestTripForPlateDb(caller.email, input.truck_plate)
+				: undefined,
+			signatureForAi(caller.email),
+			spaceVehicles(caller, space),
+			spaceTrailers(caller, space),
+			spaceCarriers(caller, space),
+		])
 	const savedVehicles = vehicles.map(vehicleView)
 	const savedTrailers = trailers.map(trailerView)
+	const savedCarriers = carriers.map(carrierView)
 	const whose = space.kind === 'org' ? space.name : 'The driver'
 	const vehiclesNote = [
 		vehicles.length
@@ -234,8 +255,8 @@ export async function getTripDefaults(
 		trailers.length
 			? `${whose} has ${trailers.length} saved trailer${trailers.length === 1 ? '' : 's'} (trailers): offer their plates for trailer_plate_a and trailer_plate_b.`
 			: '',
-		space.kind === 'org'
-			? `${space.name} is the carrier on trips started with this organization_id.`
+		carriers.length
+			? `${whose} has ${carriers.length} saved carrier${carriers.length === 1 ? '' : 's'} (carriers): offer them, and pass the one they pick as carrier and carrier_address to start_trip.`
 			: '',
 	]
 		.filter(Boolean)
@@ -244,6 +265,7 @@ export async function getTripDefaults(
 		...spaceView(space),
 		vehicles: savedVehicles,
 		trailers: savedTrailers,
+		carriers: savedCarriers,
 	}
 	const savedSignature = signing.status !== 'no_saved_signature'
 	const aiSigningAllowedNow = signing.status === 'allowed'
@@ -365,7 +387,7 @@ export const startTripInputSchema = z.object({
 			'One of the driver’s saved vehicles (list_vehicles or get_trip_defaults), or of the organization’s fleet when organization_id is given: fills make, model and plates. Any of those passed as well take its place.',
 		),
 	organization_id: organizationId.describe(
-		"An organization's id (org_...) from list_organizations, when the driver is driving for it: vehicle_id is then one of its fleet's, and the organization is the trip's carrier (carrier is then ignored). Leave it out for the driver's own vehicles.",
+		"An organization's id (org_...) from list_organizations, when the driver is driving for it: vehicle_id is then one of its fleet's, and the trip is listed in its space. Leave it out for the driver's own vehicles.",
 	),
 	truck_plate: plate.optional(),
 	trailer_plate_a: plate.optional(),
@@ -383,7 +405,7 @@ export const startTripInputSchema = z.object({
 	carrier: text(CARRIER_MAX)
 		.optional()
 		.describe(
-			'Who the driver is hauling for. Required unless organization_id is given (the organization is then the carrier).',
+			'Who the driver is hauling for, e.g. one of the saved carriers from get_trip_defaults. Required.',
 		),
 	carrier_address: text(ADDRESS_MAX),
 	inspection_address: z
@@ -463,13 +485,11 @@ export async function startTrip(
 		trailer_plate_b:
 			parsed.trailer_plate_b ?? (vehicle?.trailer_plate_b || undefined),
 	}
-	// In an organization the organization is the carrier, as in the web app.
-	const carrier =
-		space.kind === 'org' ? space.name.slice(0, CARRIER_MAX) : input.carrier
+	const { carrier } = input
 	if (!carrier) {
 		return {
 			summary:
-				'Pass the carrier (who the driver hauls for), or an organization_id (list_organizations) to make the organization the carrier. No trip was started.',
+				'Pass the carrier (who the driver hauls for); get_trip_defaults lists the saved carriers. No trip was started.',
 			data: { status: 'carrier_required' },
 			isError: true,
 		}

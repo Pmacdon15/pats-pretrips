@@ -1,7 +1,7 @@
 'use client'
 import { useForm } from '@tanstack/react-form'
 import { CircleCheck, LocateFixed } from 'lucide-react'
-import { startTransition, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useState } from 'react'
 import type { z } from 'zod'
 import { DefectPicker } from '@/components/add-defect/defect-picker'
 import { CarrierPicker } from '@/components/carriers/carrier-picker'
@@ -12,7 +12,6 @@ import {
 } from '@/components/trailers/trailer-picker'
 import { VehiclePicker } from '@/components/vehicles/vehicle-picker'
 import { useGetAddress, useGetLocation } from '@/lib/hooks/hooks'
-import { useSpace } from '@/lib/hooks/space'
 import { useAddTrip } from '@/lib/mutations/mutations'
 import {
 	ADDRESS_MAX,
@@ -47,13 +46,8 @@ export default function AddTripForm({
 		location?.longitude ?? 0,
 	)
 	const formattedAddress = addressData?.data?.results?.[0]?.formatted_address
-	// In an organization's space the organization is the carrier: its name
-	// is filled in and locked (the server sets it again on save).
-	const { orgName } = useSpace()
 	// Bumped after each save, so the signature box starts empty again.
 	const [saves, setSaves] = useState(0)
-	// The organization name last filled in as the carrier, if any.
-	const lockedCarrier = useRef<string | null>(null)
 
 	const form = useForm({
 		defaultValues: {
@@ -88,18 +82,6 @@ export default function AddTripForm({
 		}
 	}, [formattedAddress, form])
 
-	// Keep the carrier set to the organization while working in one, and
-	// clear it when the driver switches back to their personal space.
-	useEffect(() => {
-		if (orgName) {
-			form.setFieldValue('carrier', orgName)
-		} else if (lockedCarrier.current) {
-			// Leaving an organization: its name was locked in, so clear it.
-			form.setFieldValue('carrier', '')
-		}
-		lockedCarrier.current = orgName
-	}, [orgName, form])
-
 	const handleAddTrip = (formData: TripForm) => {
 		const newTrip: Trip = {
 			tripid: -Date.now(),
@@ -131,7 +113,6 @@ export default function AddTripForm({
 		if (formattedAddress) {
 			form.setFieldValue('inspectionAddress', formattedAddress)
 		}
-		if (orgName) form.setFieldValue('carrier', orgName)
 		onDone()
 	}
 
@@ -158,25 +139,17 @@ export default function AddTripForm({
 				<CarrierPicker
 					key={saves}
 					onPick={(c) => {
-						// An organization's entries are its sites: the
-						// carrier stays the organization.
-						if (!orgName) form.setFieldValue('carrier', c.name)
+						form.setFieldValue('carrier', c.name)
 						form.setFieldValue('carrierAddress', c.address)
 					}}
 				/>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<ControlledTextInput
 						form={form}
-						hint={
-							orgName
-								? 'Your organization is the carrier.'
-								: undefined
-						}
 						label="Carrier"
 						maxLength={CARRIER_MAX}
 						name="carrier"
 						placeholder="Company name"
-						readOnly={Boolean(orgName)}
 					/>
 					<ControlledTextInput
 						form={form}
@@ -363,7 +336,6 @@ export default function AddTripForm({
 					className="h-11"
 					onClick={() => {
 						form.reset()
-						if (orgName) form.setFieldValue('carrier', orgName)
 						onDone()
 					}}
 					type="button"

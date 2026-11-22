@@ -10,8 +10,7 @@ import { useSpace } from '@/lib/hooks/space'
 /**
  * Picks one of the space's saved carriers on a new pre-trip; `onPick` fills
  * the form from it, which the driver can still edit. In an organization's
- * space the saved entries are its sites (e.g. "North Shop"): the
- * organization is always the carrier, and a site fills in the address.
+ * space these are the organization's carriers, shared by every member.
  */
 export function CarrierPicker({
 	onPick,
@@ -31,11 +30,11 @@ export function CarrierPicker({
 			<p className="text-muted-foreground text-xs">
 				{inOrg ? (
 					<>
-						Your drivers start from the same shops or yards?{' '}
+						Your drivers haul for the same companies?{' '}
 						<Link className="underline" href="/carriers">
-							Save your sites
+							Save your organization's carriers
 						</Link>{' '}
-						to fill in the address with a tap.
+						to fill these in with a tap.
 					</>
 				) : (
 					<>
@@ -52,7 +51,7 @@ export function CarrierPicker({
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			<Label htmlFor={id}>{inOrg ? 'Site' : 'Saved carrier'}</Label>
+			<Label htmlFor={id}>Saved carrier</Label>
 			<select
 				className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
 				id={id}
@@ -65,9 +64,7 @@ export function CarrierPicker({
 				}}
 				value={picked}
 			>
-				<option value="">
-					{inOrg ? 'Choose a site…' : 'Choose a carrier…'}
-				</option>
+				<option value="">Choose a carrier…</option>
 				{carriers.map((c) => (
 					<option key={c.id} value={c.id}>
 						{c.name} — {c.address}
@@ -75,12 +72,10 @@ export function CarrierPicker({
 				))}
 			</select>
 			<p className="text-muted-foreground text-xs">
-				{inOrg
-					? 'Fills in the carrier address from the site. '
-					: 'Fills in the carrier and its address. '}
+				Fills in the carrier and its address.{' '}
 				{(!inOrg || canManage) && (
 					<Link className="underline" href="/carriers">
-						{inOrg ? 'Manage sites' : 'Manage carriers'}
+						Manage carriers
 					</Link>
 				)}
 			</p>

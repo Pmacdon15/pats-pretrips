@@ -294,7 +294,7 @@ describe('AddTripForm', () => {
 		).toHaveAttribute('href', '/carriers')
 	})
 
-	it('makes the organization the carrier, and fills the address from one of its sites', async () => {
+	it("fills the carrier from one of the organization's saved carriers", async () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -303,33 +303,29 @@ describe('AddTripForm', () => {
 		}
 		mocks.carriers = {
 			data: [
-				{ id: 5, name: 'North Shop', address: '1 Shop Rd' },
-				{ id: 6, name: 'South Base', address: '9 Base Ave' },
+				{ id: 5, name: 'Big Haul Ltd', address: '1 Shop Rd' },
+				{ id: 6, name: 'Bolt Haul', address: '9 Base Ave' },
 			],
 			isPending: false,
 		}
 		const { user } = setup()
 		const carrier = screen.getByLabelText('Carrier')
-		expect(carrier).toHaveValue('Acme Freight')
-		expect(carrier).toHaveAttribute('readonly')
-		expect(
-			screen.getByText('Your organization is the carrier.'),
-		).toBeInTheDocument()
+		// The organization's name isn't forced in: the driver picks or types.
+		expect(carrier).toHaveValue('')
+		expect(carrier).not.toHaveAttribute('readonly')
 
-		const picker = screen.getByLabelText('Site')
-		expect(
-			screen.getByRole('option', { name: 'South Base — 9 Base Ave' }),
-		).toBeInTheDocument()
-		await user.selectOptions(picker, '6')
-		expect(carrier).toHaveValue('Acme Freight')
+		await user.selectOptions(screen.getByLabelText('Saved carrier'), '6')
+		expect(carrier).toHaveValue('Bolt Haul')
 		expect(screen.getByLabelText('Carrier address')).toHaveValue(
 			'9 Base Ave',
 		)
-		// Only admins manage the sites.
-		expect(screen.queryByRole('link', { name: 'Manage sites' })).toBeNull()
+		// Only admins manage the organization's carriers.
+		expect(
+			screen.queryByRole('link', { name: 'Manage carriers' }),
+		).toBeNull()
 	})
 
-	it("links an organization's admin to its sites", () => {
+	it("links an organization's admin to its carriers", () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -337,56 +333,16 @@ describe('AddTripForm', () => {
 			canManage: true,
 		}
 		mocks.carriers = {
-			data: [{ id: 5, name: 'North Shop', address: '1 Shop Rd' }],
+			data: [{ id: 5, name: 'Big Haul Ltd', address: '1 Shop Rd' }],
 			isPending: false,
 		}
 		setup()
 		expect(
-			screen.getByRole('link', { name: 'Manage sites' }),
+			screen.getByRole('link', { name: 'Manage carriers' }),
 		).toHaveAttribute('href', '/carriers')
 	})
 
-	it('follows the space: the organization as carrier, cleared on leaving it', async () => {
-		const org = {
-			orgId: 'org_1',
-			orgName: 'Acme Freight',
-			inOrg: true,
-			canManage: false,
-		}
-		mocks.space = org
-		const props = { onDone: vi.fn(), setOptimisticCurrentTrips: vi.fn() }
-		const view = render(<AddTripForm {...props} />)
-		const user = userEvent.setup()
-		const carrier = screen.getByLabelText('Carrier')
-		expect(carrier).toHaveValue('Acme Freight')
-
-		// Cancelling keeps the organization as the carrier.
-		await user.click(screen.getByRole('button', { name: 'Cancel' }))
-		expect(carrier).toHaveValue('Acme Freight')
-
-		// Another organization: its name replaces the first.
-		mocks.space = { ...org, orgId: 'org_2', orgName: 'Bolt Haul' }
-		view.rerender(<AddTripForm {...props} />)
-		expect(carrier).toHaveValue('Bolt Haul')
-
-		// Back to the personal space: the locked name is cleared.
-		mocks.space = {
-			orgId: null,
-			orgName: null,
-			inOrg: false,
-			canManage: true,
-		}
-		view.rerender(<AddTripForm {...props} />)
-		expect(carrier).toHaveValue('')
-		expect(carrier).not.toHaveAttribute('readonly')
-
-		// A carrier the driver typed stays when nothing changes.
-		await user.type(carrier, 'Mine')
-		view.rerender(<AddTripForm {...props} />)
-		expect(carrier).toHaveValue('Mine')
-	})
-
-	it('saves with the organization as carrier, and keeps it for the next trip', async () => {
+	it('saves the carrier the driver picked in an organization', async () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -394,6 +350,7 @@ describe('AddTripForm', () => {
 			canManage: false,
 		}
 		const { user } = setup()
+		await user.type(screen.getByLabelText('Carrier'), 'Big Haul Ltd')
 		await user.type(screen.getByLabelText('Carrier address'), '1 Shop Rd')
 		await user.type(
 			screen.getByLabelText('Inspection address'),
@@ -407,14 +364,13 @@ describe('AddTripForm', () => {
 		await user.click(screen.getByRole('button', { name: 'Save pre-trip' }))
 		await waitFor(() =>
 			expect(mocks.addTrip).toHaveBeenCalledWith({
-				data: expect.objectContaining({ carrier: 'Acme Freight' }),
+				data: expect.objectContaining({ carrier: 'Big Haul Ltd' }),
 			}),
 		)
-		expect(screen.getByLabelText('Carrier')).toHaveValue('Acme Freight')
-		expect(screen.getByLabelText('Carrier address')).toHaveValue('')
+		expect(screen.getByLabelText('Carrier')).toHaveValue('')
 	})
 
-	it("offers an organization's admin to save its sites", () => {
+	it("offers an organization's admin to save its carriers", () => {
 		mocks.space = {
 			orgId: 'org_1',
 			orgName: 'Acme Freight',
@@ -428,12 +384,14 @@ describe('AddTripForm', () => {
 			/>,
 		)
 		expect(
-			screen.getByRole('link', { name: 'Save your sites' }),
+			screen.getByRole('link', {
+				name: "Save your organization's carriers",
+			}),
 		).toHaveAttribute('href', '/carriers')
 		first.unmount()
 		mocks.space = { ...mocks.space, canManage: false }
 		setup()
-		expect(screen.queryByText(/Save your sites/)).toBeNull()
+		expect(screen.queryByText(/Save your organization/)).toBeNull()
 	})
 
 	it('suggests saving carriers, or shows nothing while they load', () => {
