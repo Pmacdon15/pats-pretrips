@@ -1605,6 +1605,23 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		)
 	})
 
+	it("counts the driver's own carriers", async () => {
+		mocks.getLatestTripDb.mockResolvedValue(undefined)
+		signatureMocks.getSavedSignatureDb.mockResolvedValue(undefined)
+		carrierMocks.listCarriersOrNone.mockResolvedValue([
+			{ id: 1, name: 'Acme', address: '1 Main St' },
+			{ id: 2, name: 'Bolt', address: '2 Main St' },
+		])
+		const result = await getTripDefaults(caller, {})
+		expect(result.summary).toContain(
+			'The driver has 2 saved carriers (carriers)',
+		)
+		expect(carrierMocks.listCarriersOrNone).toHaveBeenCalledWith(
+			'pat@x.com',
+		)
+		expect(carrierMocks.listOrgCarriersOrNone).not.toHaveBeenCalled()
+	})
+
 	it('needs a carrier, in an organization too', async () => {
 		clerkMocks.getOrganizationMembershipList.mockResolvedValue(
 			membership('org:member'),
