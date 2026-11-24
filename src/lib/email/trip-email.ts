@@ -5,6 +5,7 @@ import { fromAddress, tripUrl } from './config'
 import { buildMimeMessage } from './mime'
 import { buildTripPdf, type PdfDriver, type PdfRepair } from './pdf'
 import { sendRawEmail } from './ses'
+import { signatureOnWhite } from './signature-image'
 
 const escapeHtml = (value: string) =>
 	value
@@ -106,7 +107,7 @@ export function tripEmailContent(
 ${repairHtml}<p style="margin:0 0 12px;white-space:pre-line">${e(trip.remarks || '-')}</p>
 ${
 	trip.signed_at && withSignature
-		? `<img src="cid:${SIGNATURE_CID}" alt="Signature of ${e(who)}" width="200" style="display:block;max-width:200px;height:auto;margin:0 0 4px">\n`
+		? `<div style="display:inline-block;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;margin:0 0 6px"><img src="cid:${SIGNATURE_CID}" alt="Signature of ${e(who)}" width="220" style="display:block;max-width:220px;height:auto;border-radius:6px"></div>\n`
 		: ''
 }<p style="margin:0 0 20px;color:#64748b;font-size:13px">${e(signed)}</p>
 ${button(url, 'Open / edit this pre-trip')}${button(defectUrl, 'Add an on-route defect')}
@@ -136,7 +137,11 @@ export async function sendTripEmail(
 	const from = fromAddress()
 	if (!from) throw new Error('SES_FROM_EMAIL is not set')
 	// The signature shows in the email itself as well as in the PDF.
-	const signature = trip.signed_at && driverSignature ? driverSignature : null
+	// It goes on white so it shows in dark mode too (see signature-image.ts).
+	const signature =
+		trip.signed_at && driverSignature
+			? await signatureOnWhite(driverSignature)
+			: null
 	const content = tripEmailContent(
 		trip,
 		driver,
