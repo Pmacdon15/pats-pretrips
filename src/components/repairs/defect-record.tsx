@@ -68,7 +68,6 @@ export function DefectRecordView({
 												</Badge>
 											</span>
 											<span className="truncate text-muted-foreground text-xs">
-												Trip {d.trip_id} ·{' '}
 												<TripDate date={d.trip_date} />{' '}
 												· {truck(d)}
 											</span>
@@ -117,7 +116,7 @@ export function DefectRecordView({
 											className="text-muted-foreground text-xs underline-offset-4 hover:underline"
 											href={`/pretrip/${r.trip_id}#repairs`}
 										>
-											Found on trip {r.trip_id} ·{' '}
+											Found on{' '}
 											<TripDate date={r.trip_date} /> ·{' '}
 											{truck(r)}
 										</Link>

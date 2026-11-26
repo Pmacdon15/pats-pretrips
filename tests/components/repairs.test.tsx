@@ -472,9 +472,10 @@ describe('DefectRecordView', () => {
 			'/pretrip/2#repairs',
 		)
 		expect(screen.getByText(/Volvo VNL · TRK1/)).toBeInTheDocument()
-		expect(
-			screen.getByRole('link', { name: /Found on trip 1/ }),
-		).toHaveAttribute('href', '/pretrip/1#repairs')
+		expect(screen.getByRole('link', { name: /Found on/ })).toHaveAttribute(
+			'href',
+			'/pretrip/1#repairs',
+		)
 	})
 
 	it('says when there is nothing to show', async () => {

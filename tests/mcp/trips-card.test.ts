@@ -309,7 +309,7 @@ describe('trips card', () => {
 			})
 		})
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #7',
+			'Freightliner Cascadia',
 		)
 		expect(errors).toEqual([])
 	})
@@ -385,7 +385,8 @@ describe('trips card', () => {
 		)
 		expect(summaries[0]).toContain('Freightliner Cascadia')
 		expect(summaries[0]).toContain('No defects')
-		expect(summaries[0]).toContain('ABC 1234 · Trip #7')
+		expect(summaries[0]).toContain('ABC 1234')
+		expect(summaries[0]).not.toContain('Trip #')
 		expect(summaries[1]).toContain('2 defects open')
 		// The details are still there, behind the tap.
 		expect(rows[1].querySelector('.body')?.textContent).toContain(
@@ -415,7 +416,7 @@ describe('trips card', () => {
 			params: { structuredContent: { trip: trip() } },
 		})
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #7',
+			'Freightliner Cascadia',
 		)
 		deliver({
 			jsonrpc: '2.0',
@@ -672,7 +673,7 @@ describe('trips card: who it listens to', () => {
 		const { window, errors, deliver, deliverFrom } = load()
 		deliver(toolResult({ trip: trip() }))
 		const before = shown(window)
-		expect(before.heading).toBe('Trip #7')
+		expect(before.heading).toBe('Freightliner Cascadia')
 
 		// A sibling frame, the top page, or the card's own window posting
 		// into it: none of them is the host.
@@ -711,11 +712,13 @@ describe('trips card: who it listens to', () => {
 		expect(window.document.querySelectorAll('.trip')).toHaveLength(1)
 		deliverFrom(
 			parent,
-			toolResult({ trip: trip({ trip_id: 8 }) }),
+			toolResult({
+				trip: trip({ trip_id: 8, make: 'Kenworth', model: 'T680' }),
+			}),
 			'https://other-host.example',
 		)
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #8',
+			'Kenworth T680',
 		)
 	})
 
@@ -916,8 +919,12 @@ describe('trips card: odd messages', () => {
 		expect(errors).toEqual([])
 
 		// The next good result draws as usual.
-		deliver(toolResult({ trip: trip({ trip_id: 9 }) }))
-		expect(doc.getElementById('heading')?.textContent).toBe('Trip #9')
+		deliver(
+			toolResult({
+				trip: trip({ trip_id: 9, make: 'Peterbilt', model: '579' }),
+			}),
+		)
+		expect(doc.getElementById('heading')?.textContent).toBe('Peterbilt 579')
 		expect(doc.querySelectorAll('.trip')).toHaveLength(1)
 	})
 
@@ -1164,7 +1171,7 @@ describe('trips card in ChatGPT', () => {
 			Object.assign(w, { openai: { toolOutput: { trip: trip() } } })
 		})
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #7',
+			'Freightliner Cascadia',
 		)
 		expect(errors).toEqual([])
 	})
@@ -1179,10 +1186,12 @@ describe('trips card in ChatGPT', () => {
 		const openai = (
 			window as unknown as { openai: Record<string, unknown> }
 		).openai
-		openai.toolOutput = { trip: trip({ trip_id: 12 }) }
+		openai.toolOutput = {
+			trip: trip({ trip_id: 12, make: 'Mack', model: 'Anthem' }),
+		}
 		window.dispatchEvent(new window.Event('openai:set-globals'))
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #12',
+			'Mack Anthem',
 		)
 		openai.toolOutput = { trips: [trip({ defects: [{ toString: 'x' }] })] }
 		window.dispatchEvent(new window.Event('openai:set-globals'))
@@ -1288,7 +1297,7 @@ describe('trips card: vehicles', () => {
 			toolResult({ trip: trip({ trip_id: 12 }), vehicles: [vehicle()] }),
 		)
 		expect(window.document.getElementById('heading')?.textContent).toBe(
-			'Trip #12',
+			'Freightliner Cascadia',
 		)
 	})
 })

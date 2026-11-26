@@ -232,7 +232,7 @@ a:hover { text-decoration: underline; }
 	}
 
 	function tripTitle(t) {
-		return [t.make, t.model].filter(Boolean).join(' ') || 'Trip ' + t.trip_id;
+		return [t.make, t.model].filter(Boolean).join(' ') || 'Trip';
 	}
 
 	// With several trips, each one is a short row (truck, time, plate and
@@ -258,7 +258,7 @@ a:hover { text-decoration: underline; }
 			: open ? ['bad', open + (open === 1 ? ' defect open' : ' defects open')]
 			: ['ok', 'Defects repaired'];
 		sub.appendChild(el('span', 'pill ' + pill[0], pill[1]));
-		sub.appendChild(el('span', 'muted', [t.truck_plate, 'Trip #' + t.trip_id].filter(Boolean).join(' · ')));
+		if (t.truck_plate) sub.appendChild(el('span', 'muted', t.truck_plate));
 		sum.appendChild(sub);
 		summary.appendChild(sum);
 		summary.appendChild(el('span', 'chev', '›'));
@@ -318,7 +318,7 @@ a:hover { text-decoration: underline; }
 
 		var foot = el('div', 'row');
 		foot.style.marginTop = '8px';
-		foot.appendChild(el('span', 'muted', 'Trip #' + t.trip_id));
+		foot.style.justifyContent = 'flex-end';
 		foot.appendChild(linkTo('Open in PreTrips →', tripUrl(t.trip_id)));
 		card.appendChild(foot);
 	}
@@ -343,7 +343,7 @@ a:hover { text-decoration: underline; }
 		}
 		var foot = el('div', 'row');
 		foot.style.marginTop = '8px';
-		foot.appendChild(el('span', 'muted', 'Trip #' + d.trip_id));
+		foot.style.justifyContent = 'flex-end';
 		foot.appendChild(linkTo('Open in PreTrips →', tripUrl(d.trip_id)));
 		card.appendChild(foot);
 		return card;
@@ -437,7 +437,7 @@ a:hover { text-decoration: underline; }
 		var one = isObject(data.trip);
 		var trips = (one ? [data.trip] : data.trips).filter(isObject);
 		if (one) {
-			heading.textContent = 'Trip #' + data.trip.trip_id;
+			heading.textContent = tripTitle(data.trip);
 			count.textContent = '';
 		} else {
 			heading.textContent = data.when === 'past' ? 'Past trips' : 'Current trips';
