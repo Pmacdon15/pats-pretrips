@@ -132,6 +132,12 @@ describe('connector queries', () => {
 			tripid: 3,
 		})
 		expect(sql.queries()[0].text).toContain('ORDER BY date DESC LIMIT 1')
+		expect(sql.queries()[0].text).toContain(
+			'clerk_org_id IS NOT DISTINCT FROM',
+		)
+		expect(sql.queries()[0].values).toEqual(['pat@x.com', null])
+		await getLatestTripDb('pat@x.com', 'org_1')
+		expect(sql.queries()[1].values).toEqual(['pat@x.com', 'org_1'])
 	})
 
 	it('finds the latest trip for a plate, ignoring spaces, dashes and case', async () => {

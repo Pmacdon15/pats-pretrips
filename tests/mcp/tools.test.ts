@@ -1685,5 +1685,16 @@ describe('startTrip and getTripDefaults in an organization', () => {
 		expect(carrierMocks.listOrgCarriersOrNone).toHaveBeenCalledWith('org_1')
 		expect(carrierMocks.listCarriersOrNone).not.toHaveBeenCalled()
 		expect(vehicleMocks.listVehiclesOrNone).not.toHaveBeenCalled()
+		// The last trip is the last one started in the organization's space.
+		expect(mocks.getLatestTripDb).toHaveBeenCalledWith('pat@x.com', 'org_1')
+		expect(result.summary).toContain(
+			'This driver has no trips in Acme Fleet yet.',
+		)
+	})
+
+	it('reads the last trip in the personal space without an organization', async () => {
+		mocks.getLatestTripDb.mockResolvedValue(undefined)
+		await getTripDefaults(caller, {})
+		expect(mocks.getLatestTripDb).toHaveBeenCalledWith('pat@x.com', null)
 	})
 })

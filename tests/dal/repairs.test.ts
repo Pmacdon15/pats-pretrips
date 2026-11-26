@@ -3,11 +3,15 @@ import { repair } from '../helpers/fixtures'
 
 const mocks = vi.hoisted(() => ({
 	email: vi.fn(),
+	space: vi.fn(),
 	listTripRepairsDb: vi.fn(),
 	listDriverRepairsDb: vi.fn(),
 	listTripsWithDefectsDb: vi.fn(),
 }))
-vi.mock('@/lib/auth', () => ({ getDriverEmail: mocks.email }))
+vi.mock('@/lib/auth', () => ({
+	getDriverEmail: mocks.email,
+	getSpace: mocks.space,
+}))
 vi.mock('@/lib/db/repairs', () => ({
 	listTripRepairsDb: mocks.listTripRepairsDb,
 	listDriverRepairsDb: mocks.listDriverRepairsDb,
@@ -18,6 +22,7 @@ import { fetchDefectRecord, fetchTripRepairs } from '@/lib/DAL/repairs'
 
 beforeEach(() => {
 	mocks.email.mockResolvedValue('pat@x.com')
+	mocks.space.mockResolvedValue({ kind: 'personal', isAdmin: true })
 	vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -61,6 +66,34 @@ describe('fetchDefectRecord', () => {
 		const record = await fetchDefectRecord()
 		expect(record.open.map((d) => d.defect)).toEqual(['Horn'])
 		expect(record.repaired).toHaveLength(1)
+		// The personal space: trips started with no organization.
+		expect(mocks.listTripsWithDefectsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			null,
+		)
+		expect(mocks.listDriverRepairsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			null,
+		)
+	})
+
+	it('reads only the active organization’s trips in its space', async () => {
+		mocks.space.mockResolvedValue({
+			kind: 'org',
+			orgId: 'org_1',
+			isAdmin: false,
+		})
+		mocks.listTripsWithDefectsDb.mockResolvedValue([])
+		mocks.listDriverRepairsDb.mockResolvedValue([])
+		await fetchDefectRecord()
+		expect(mocks.listTripsWithDefectsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'org_1',
+		)
+		expect(mocks.listDriverRepairsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'org_1',
+		)
 	})
 
 	it('needs a signed-in driver', async () => {

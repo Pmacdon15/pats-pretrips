@@ -16,6 +16,7 @@ import {
 	repairedBy,
 } from '@/lib/repairs/status'
 import type { Trip } from '@/lib/types/types'
+import { isToolResult, organizationId, resolveSpace, spaceView } from './spaces'
 import type { McpCaller, ToolResult } from './tools'
 
 /*
@@ -72,6 +73,9 @@ export const listDefectsInputSchema = z.object({
 		.max(20)
 		.optional()
 		.describe('Only defects found on trips in this truck'),
+	organization_id: organizationId.describe(
+		"An organization's id (org_...) from list_organizations: the defects on trips the driver started for it. Leave it out for the trips started in their personal space.",
+	),
 })
 
 const LIST_LIMIT = 100
@@ -81,9 +85,12 @@ export async function listDefects(
 	args: z.input<typeof listDefectsInputSchema>,
 ): Promise<ToolResult> {
 	const input = listDefectsInputSchema.parse(args)
+	const space = await resolveSpace(caller, input.organization_id)
+	if (isToolResult(space)) return space
+	const orgId = space.kind === 'org' ? space.orgId : null
 	const [trips, repairs] = await Promise.all([
-		listTripsWithDefectsDb(caller.email),
-		listDriverRepairsDb(caller.email),
+		listTripsWithDefectsDb(caller.email, orgId),
+		listDriverRepairsDb(caller.email, orgId),
 	])
 	const record = buildDefectRecord(trips, repairs)
 	const plate = input.truck_plate ? normalizePlate(input.truck_plate) : null
@@ -104,8 +111,9 @@ export async function listDefects(
 			: '',
 	].filter(Boolean)
 	return {
-		summary: `${parts.join(' and ')}${input.truck_plate ? ` in ${input.truck_plate}` : ''}.${showOpen && open.length ? ' Use mark_defect_repaired once one is fixed.' : ''}`,
+		summary: `${parts.join(' and ')}${input.truck_plate ? ` in ${input.truck_plate}` : ''}${space.kind === 'org' ? ` in ${space.name}` : ''}.${showOpen && open.length ? ' Use mark_defect_repaired once one is fixed.' : ''}`,
 		data: {
+			...spaceView(space),
 			...(showOpen
 				? {
 						open: open.slice(0, LIST_LIMIT).map((d) => ({

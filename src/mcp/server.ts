@@ -332,7 +332,7 @@ export function registerPreTripTools(server: McpServer) {
 		{
 			title: 'List defects and repairs',
 			description:
-				"The driver's defect record: every defect reported on a pre-trip that is still open, and every repaired one with who fixed it, when, the invoice number and links to the invoice and signature. Filter by status or truck_plate.",
+				"The driver's defect record: every defect reported on a pre-trip that is still open, and every repaired one with who fixed it, when, the invoice number and links to the invoice and signature. Filter by status or truck_plate. Pass organization_id for the trips started in that organization; without it, the personal space's.",
 			inputSchema: portable(listDefectsInputSchema),
 			annotations: READ_ONLY,
 			_meta: TRIPS_CARD_TOOL_META,

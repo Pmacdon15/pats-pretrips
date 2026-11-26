@@ -89,14 +89,19 @@ export async function getTripDefectsDb(
 	return result?.defects || ''
 }
 
-/** The driver's most recent trip, if they have one. */
+/**
+ * The driver's most recent trip in one space (`orgId`, or null for the
+ * personal space), if they have one there.
+ */
 export async function getLatestTripDb(
 	driverEmail: string,
+	orgId: string | null = null,
 ): Promise<Trip | undefined> {
 	const sql = neon(`${process.env.DATABASE_URL}`)
 	const [result] = await sql`
         SELECT * FROM PTTrips
         WHERE driverEmail = ${driverEmail}
+        AND clerk_org_id IS NOT DISTINCT FROM ${orgId}::text
         ORDER BY date DESC
         LIMIT 1
     `

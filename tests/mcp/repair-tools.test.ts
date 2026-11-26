@@ -7,6 +7,14 @@ const mocks = vi.hoisted(() => ({
 	listTripsWithDefectsDb: vi.fn(),
 	recordRepair: vi.fn(),
 	undoRepair: vi.fn(),
+	getOrganizationMembershipList: vi.fn(),
+}))
+vi.mock('@clerk/nextjs/server', () => ({
+	clerkClient: async () => ({
+		users: {
+			getOrganizationMembershipList: mocks.getOrganizationMembershipList,
+		},
+	}),
 }))
 vi.mock('@/lib/db/repairs', () => ({
 	listTripRepairsDb: mocks.listTripRepairsDb,
@@ -102,6 +110,61 @@ describe('listDefects', () => {
 			(result.data.open as { defect: string }[]).map((d) => d.defect),
 		).toEqual(['Horn', 'Tires'])
 		expect(result.data.repaired_count).toBe(1)
+		expect(result.data.space).toBe('personal')
+		expect(mocks.listTripsWithDefectsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			null,
+		)
+		expect(mocks.listDriverRepairsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			null,
+		)
+	})
+
+	it('lists the defects on trips started in an organization', async () => {
+		mocks.getOrganizationMembershipList.mockResolvedValue({
+			data: [
+				{
+					role: 'org:member',
+					organization: {
+						id: 'org_1',
+						name: 'Acme Fleet',
+						slug: null,
+					},
+				},
+			],
+		})
+		const result = await listDefects(
+			{ ...caller, userId: 'user_1' },
+			{ status: 'repaired', organization_id: 'org_1' },
+		)
+		expect(result.summary).toBe('1 repaired defect in Acme Fleet.')
+		expect(result.data).toMatchObject({
+			space: 'organization',
+			organization_id: 'org_1',
+		})
+		expect(mocks.listTripsWithDefectsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'org_1',
+		)
+		expect(mocks.listDriverRepairsDb).toHaveBeenCalledWith(
+			'pat@x.com',
+			'org_1',
+		)
+	})
+
+	it("refuses an organization the driver isn't in", async () => {
+		mocks.getOrganizationMembershipList.mockResolvedValue({ data: [] })
+		mocks.listTripsWithDefectsDb.mockClear()
+		const result = await listDefects(
+			{ ...caller, userId: 'user_1' },
+			{ organization_id: 'org_2' },
+		)
+		expect(result).toMatchObject({
+			isError: true,
+			data: { status: 'not_a_member' },
+		})
+		expect(mocks.listTripsWithDefectsDb).not.toHaveBeenCalled()
 	})
 
 	it('filters by status and truck', async () => {
