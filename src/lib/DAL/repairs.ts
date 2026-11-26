@@ -1,4 +1,4 @@
-import { getDriverEmail } from '@/lib/auth'
+import { getDriverEmail, getSpace } from '@/lib/auth'
 import {
 	listDriverRepairsDb,
 	listTripRepairsDb,
@@ -21,12 +21,18 @@ export async function fetchTripRepairs(tripId: number): Promise<Repair[]> {
 	}
 }
 
+/**
+ * The defect record in the active space: the defects on trips started there
+ * and their repairs (docs/organizations.md).
+ */
 export async function fetchDefectRecord(): Promise<DefectRecord> {
 	const email = await getDriverEmail()
 	if (!email) throw new Error('Email is required')
+	const space = await getSpace()
+	const orgId = space?.kind === 'org' ? space.orgId : null
 	const [trips, repairs] = await Promise.all([
-		listTripsWithDefectsDb(email),
-		listDriverRepairsDb(email),
+		listTripsWithDefectsDb(email, orgId),
+		listDriverRepairsDb(email, orgId),
 	])
 	return buildDefectRecord(trips, repairs)
 }

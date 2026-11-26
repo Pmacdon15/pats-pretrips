@@ -223,7 +223,7 @@ export const getTripDefaultsInputSchema = z.object({
 
 /**
  * What to suggest for a new trip: the carrier and addresses from the
- * driver's last trip, and, for a plate, that truck's make, model, trailers
+ * driver's last trip in the space, and, for a plate, that truck's make, model, trailers
  * and last odometer reading.
  */
 export async function getTripDefaults(
@@ -235,7 +235,10 @@ export async function getTripDefaults(
 	if (isToolResult(space)) return space
 	const [latest, truck, signing, vehicles, trailers, carriers] =
 		await Promise.all([
-			getLatestTripDb(caller.email),
+			getLatestTripDb(
+				caller.email,
+				space.kind === 'org' ? space.orgId : null,
+			),
 			input.truck_plate
 				? getLatestTripForPlateDb(caller.email, input.truck_plate)
 				: undefined,
@@ -278,7 +281,9 @@ export async function getTripDefaults(
 	if (!latest) {
 		return {
 			summary: [
-				'This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting.',
+				space.kind === 'org'
+					? `This driver has no trips in ${space.name} yet. Ask them for the carrier, carrier address and where they are inspecting.`
+					: 'This driver has no trips yet. Ask them for the carrier, carrier address and where they are inspecting.',
 				vehiclesNote,
 				signatureNote,
 			]

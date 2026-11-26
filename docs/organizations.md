@@ -13,7 +13,8 @@ switcher in the header:
 | Who can change those | The driver: a solo user is the admin of their own space | Only the organization's admins (Clerk role `org:admin`) |
 | Plan that unlocks emailing pre-trips | The driver's own plan (`u:email_pretrips`) | The organization's plan (`o:email_pretrips`) |
 | Trips | The driver's own, started in the personal space | The driver's own, started in this organization's space |
-| Repairs, signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
+| Defects & repairs page | Defects and repairs on the trips started in the personal space | Defects and repairs on the driver's trips started in this organization's space |
+| Signatures, send limits | Always the driver's own, in every space | Always the driver's own, in every space |
 
 ## Carriers belong to the space
 
@@ -37,6 +38,13 @@ and past trips on the web, `list_trips` over MCP) show the driver's trips in
 the active space only, so a trip started for one organization doesn't show
 under another one or the personal space. The trip is still the driver's
 own: opening it by id, adding defects, signing and emailing it work as before.
+
+Defects follow their trip. The Defects & repairs page (and `list_defects`
+over MCP) shows the open and repaired defects on the driver's trips started
+in the active space only, and the "last trip" that `get_trip_defaults`
+suggests a carrier and addresses from is the last one in that space. A
+repair still belongs to the driver who recorded it; it shows in the space
+of the trip it was found on.
 
 ## Admin checks
 
@@ -119,6 +127,8 @@ space themselves (`src/mcp/spaces.ts`):
   `vehicle_id`, are then the organization's. `start_trip` always takes the
   `carrier` the driver confirmed.
   The trip stays the driver's own, recorded as started in that organization.
+- `list_defects` takes `organization_id` too: the defects and repairs on
+  the trips started in that space.
 - `list_trips` takes `organization_id`: without it, the trips started in
   the personal space; with it, the ones started in that organization. When
   the first page is empty, its `elsewhere` lists the driver's other spaces

@@ -160,9 +160,12 @@ describe('listDriverRepairsDb', () => {
 			make: 'Volvo',
 			model: 'VNL',
 		})
-		expect(sql.queries()[0].values).toEqual(['pat@x.com', 500])
-		await listDriverRepairsDb('pat@x.com', 5)
-		expect(sql.queries()[1].values).toEqual(['pat@x.com', 5])
+		expect(sql.queries()[0].values).toEqual(['pat@x.com', null, 500])
+		expect(sql.queries()[0].text).toContain(
+			't.clerk_org_id IS NOT DISTINCT FROM',
+		)
+		await listDriverRepairsDb('pat@x.com', 'org_1', 5)
+		expect(sql.queries()[1].values).toEqual(['pat@x.com', 'org_1', 5])
 	})
 })
 
@@ -189,8 +192,12 @@ describe('listTripsWithDefectsDb', () => {
 			},
 		])
 		expect(sql.queries()[0].text).toContain("COALESCE(defects, '') <> ''")
-		await listTripsWithDefectsDb('pat@x.com', 5)
-		expect(sql.queries()[1].values).toEqual(['pat@x.com', 5])
+		expect(sql.queries()[0].text).toContain(
+			'clerk_org_id IS NOT DISTINCT FROM',
+		)
+		expect(sql.queries()[0].values).toEqual(['pat@x.com', null, 300])
+		await listTripsWithDefectsDb('pat@x.com', 'org_1', 5)
+		expect(sql.queries()[1].values).toEqual(['pat@x.com', 'org_1', 5])
 	})
 })
 

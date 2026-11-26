@@ -140,9 +140,14 @@ export async function listTripRepairsDb(
 	return rows.map(toRepair)
 }
 
-/** The driver's repairs, newest first, with the trip each was found on. */
+/**
+ * The driver's repairs, newest first, with the trip each was found on, in one
+ * space: `orgId` is the organization whose space the trip was started in, or
+ * null for the driver's personal space (docs/organizations.md).
+ */
 export async function listDriverRepairsDb(
 	driverEmail: string,
+	orgId: string | null = null,
 	limit = 500,
 ): Promise<RepairWithTrip[]> {
 	'use cache'
@@ -160,6 +165,7 @@ export async function listDriverRepairsDb(
         FROM pt_defect_repairs r
         JOIN PTTrips t ON t.tripId = r.trip_id
         WHERE r.driver_email = ${driverEmail}
+        AND t.clerk_org_id IS NOT DISTINCT FROM ${orgId}::text
         ORDER BY r.repaired_on DESC, r.id DESC
         LIMIT ${limit}
     `
@@ -181,9 +187,13 @@ export type DefectTrip = {
 	defects: string
 }
 
-/** The driver's trips that listed defects, newest first. */
+/**
+ * The driver's trips that listed defects, newest first, in one space (`orgId`
+ * as for listDriverRepairsDb).
+ */
 export async function listTripsWithDefectsDb(
 	driverEmail: string,
+	orgId: string | null = null,
 	limit = 300,
 ): Promise<DefectTrip[]> {
 	'use cache'
@@ -194,6 +204,7 @@ export async function listTripsWithDefectsDb(
         SELECT tripId, date, truckPlate, make, model, defects
         FROM PTTrips
         WHERE driverEmail = ${driverEmail}
+        AND clerk_org_id IS NOT DISTINCT FROM ${orgId}::text
         AND COALESCE(defects, '') <> ''
         AND LOWER(TRIM(defects)) <> 'none'
         ORDER BY date DESC
